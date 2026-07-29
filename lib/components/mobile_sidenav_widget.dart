@@ -43,10 +43,10 @@ class _MobileSidenavWidgetState extends State<MobileSidenavWidget> {
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: theme.primary,
+                color: theme.secondary,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(Icons.menu_rounded, color: theme.info),
+              child: const Icon(Icons.menu_rounded, color: Color(0xFF102A43)),
             ),
             const SizedBox(width: 12),
             ClipRRect(

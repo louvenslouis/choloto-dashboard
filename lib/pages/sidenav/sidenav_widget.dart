@@ -91,19 +91,19 @@ class _SidenavWidgetState extends State<SidenavWidget> {
     if (!showNavigation) return const SizedBox.shrink();
 
     return Material(
-      color: theme.secondaryBackground,
+      color: const Color(0xFF102A43),
       child: SafeArea(
         child: SizedBox(
-          width: 280,
+          width: 288,
           height: double.infinity,
           child: DecoratedBox(
             decoration: BoxDecoration(
               border: Border(
-                right: BorderSide(color: theme.alternate.withValues(alpha: .7)),
+                right: BorderSide(color: Colors.white.withValues(alpha: .08)),
               ),
             ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+              padding: const EdgeInsets.fromLTRB(18, 24, 18, 18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -129,13 +129,14 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                                 'CHOLOTO',
                                 style: theme.titleLarge.copyWith(
                                   fontWeight: FontWeight.w800,
+                                  color: Colors.white,
                                   letterSpacing: -.4,
                                 ),
                               ),
                               Text(
                                 'Espace administration',
                                 style: theme.labelSmall.copyWith(
-                                  color: theme.secondaryText,
+                                  color: Colors.white.withValues(alpha: .58),
                                 ),
                               ),
                             ],
@@ -150,7 +151,7 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                     child: Text(
                       'NAVIGATION',
                       style: theme.labelSmall.copyWith(
-                        color: theme.secondaryText,
+                        color: Colors.white.withValues(alpha: .42),
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.1,
                       ),
@@ -183,7 +184,7 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                       },
                     ),
                   ),
-                  Divider(color: theme.alternate),
+                  Divider(color: Colors.white.withValues(alpha: .10)),
                   const SizedBox(height: 4),
                   _NavTile(
                     label: Theme.of(context).brightness == Brightness.dark
@@ -242,23 +243,23 @@ class _NavTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
     final foreground = destructive
-        ? theme.error
+        ? const Color(0xFFFF8A92)
         : selected
-            ? theme.primary
-            : theme.secondaryText;
+            ? const Color(0xFF102A43)
+            : Colors.white.withValues(alpha: .68);
 
     return Semantics(
       selected: selected,
       button: true,
       label: label,
       child: Material(
-        color: selected ? theme.accent1 : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
+        color: selected ? theme.secondary : Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
             child: Row(
               children: [
                 Icon(icon, size: 21, color: foreground),
@@ -279,7 +280,7 @@ class _NavTile extends StatelessWidget {
                     width: 6,
                     height: 6,
                     decoration: BoxDecoration(
-                      color: theme.primary,
+                      color: const Color(0xFF102A43),
                       shape: BoxShape.circle,
                     ),
                   ),

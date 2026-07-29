@@ -113,28 +113,28 @@ class _DashboardWidgetState extends State<DashboardWidget> {
                                     'Utilisateurs',
                                     values?[0],
                                     Icons.people_alt_rounded,
-                                    const Color(0xFF087BCE),
+                                    const Color(0xFF3A7CA5),
                                     UsersWidget.routeName,
                                   ),
                                   _StatData(
                                     'Tirages publiés',
                                     values?[1],
                                     Icons.confirmation_number_rounded,
-                                    const Color(0xFFE42539),
+                                    theme.secondary,
                                     TiragesWidget.routeName,
                                   ),
                                   _StatData(
                                     'Prédictions',
                                     values?[2],
                                     Icons.auto_graph_rounded,
-                                    const Color(0xFF8B3FD6),
+                                    const Color(0xFF6D5BD0),
                                     PredictionsWidget.routeName,
                                   ),
                                   _StatData(
                                     'Publications BINGO',
                                     values?[3],
                                     Icons.newspaper_rounded,
-                                    const Color(0xFFF2A400),
+                                    const Color(0xFFE34D59),
                                     PublicationsWidget.routeName,
                                   ),
                                 ],
@@ -211,7 +211,7 @@ class _Header extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Tableau de bord',
+                  'Vue d’ensemble',
                   style: theme.headlineMedium.copyWith(
                     fontWeight: FontWeight.w800,
                     letterSpacing: -.6,
@@ -225,19 +225,20 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
+          IconButton.filledTonal(
             tooltip: 'Actualiser les données',
             onPressed: onRefresh,
             icon: const Icon(Icons.refresh_rounded),
+            style: IconButton.styleFrom(backgroundColor: theme.accent1),
           ),
           const SizedBox(width: 6),
           CircleAvatar(
             radius: 19,
-            backgroundColor: theme.primary,
+            backgroundColor: theme.secondary,
             child: Text(
               email.characters.first.toUpperCase(),
               style: theme.titleMedium.copyWith(
-                color: theme.info,
+                color: const Color(0xFF102A43),
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -268,17 +269,17 @@ class _WelcomeBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF075EA9), Color(0xFF0887D9)],
+          colors: [Color(0xFF102A43), Color(0xFF1C4665)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF075EA9).withValues(alpha: .22),
+            color: const Color(0xFF102A43).withValues(alpha: .18),
             blurRadius: 24,
             offset: const Offset(0, 10),
           ),
@@ -294,13 +295,13 @@ class _WelcomeBanner extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: .16),
+                  color: const Color(0xFFFFC928),
                   borderRadius: BorderRadius.circular(99),
                 ),
                 child: const Text(
                   'CENTRE DE CONTRÔLE',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: Color(0xFF102A43),
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 1,
@@ -309,7 +310,7 @@ class _WelcomeBanner extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                'Tout CHOLOTO,\nen un coup d’œil.',
+                'Pilotez CHOLOTO.\nSimplement.',
                 style: theme.headlineLarge.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
@@ -318,7 +319,7 @@ class _WelcomeBanner extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                'Publiez les tirages, gérez les membres et suivez vos contenus depuis un seul espace.',
+                'Les tirages, les membres et vos contenus réunis dans un espace clair, rapide et précis.',
                 style: theme.bodyMedium.copyWith(
                   color: Colors.white.withValues(alpha: .82),
                   height: 1.45,
@@ -327,8 +328,8 @@ class _WelcomeBanner extends StatelessWidget {
               const SizedBox(height: 20),
               FilledButton.icon(
                 style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: const Color(0xFF075EA9),
+                  backgroundColor: const Color(0xFFFFC928),
+                  foregroundColor: const Color(0xFF102A43),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                 ),
@@ -353,10 +354,11 @@ class _WelcomeBanner extends StatelessWidget {
                     height: 170,
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: .12),
+                      color: const Color(0xFFFFC928).withValues(alpha: .14),
                       shape: BoxShape.circle,
-                      border:
-                          Border.all(color: Colors.white.withValues(alpha: .2)),
+                      border: Border.all(
+                          color:
+                              const Color(0xFFFFC928).withValues(alpha: .42)),
                     ),
                     child: ClipOval(
                       child: Image.asset(
@@ -425,24 +427,31 @@ class _StatCard extends StatelessWidget {
     final theme = FlutterFlowTheme.of(context);
     return Material(
       color: theme.secondaryBackground,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(22),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(22),
         onTap: () => context.goNamed(stat.route),
         child: Container(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(22),
             border: Border.all(color: theme.alternate.withValues(alpha: .75)),
+            boxShadow: [
+              BoxShadow(
+                color: theme.primaryText.withValues(alpha: .045),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: Row(
             children: [
               Container(
-                width: 46,
-                height: 46,
+                width: 50,
+                height: 50,
                 decoration: BoxDecoration(
                   color: stat.color.withValues(alpha: .12),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(stat.icon, color: stat.color),
               ),
@@ -466,7 +475,7 @@ class _StatCard extends StatelessWidget {
                           : Text(
                               '${stat.value ?? 0}',
                               key: ValueKey(stat.value),
-                              style: theme.headlineSmall.copyWith(
+                              style: theme.headlineMedium.copyWith(
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
@@ -594,28 +603,28 @@ class _QuickActions extends StatelessWidget {
         children: [
           _ActionTile(
             icon: Icons.confirmation_number_rounded,
-            color: const Color(0xFFE42539),
+            color: const Color(0xFFE6B800),
             title: 'Saisir un tirage',
             subtitle: 'Ajouter les nouveaux numéros',
             onTap: () => context.goNamed(TiragesWidget.routeName),
           ),
           _ActionTile(
             icon: Icons.auto_graph_rounded,
-            color: const Color(0xFF8B3FD6),
+            color: const Color(0xFF6D5BD0),
             title: 'Créer une prédiction',
             subtitle: 'Préparer les prochaines tendances',
             onTap: () => context.goNamed(PredictionsWidget.routeName),
           ),
           _ActionTile(
             icon: Icons.people_alt_rounded,
-            color: const Color(0xFF087BCE),
+            color: const Color(0xFF3A7CA5),
             title: 'Gérer les membres',
             subtitle: 'Consulter les abonnements',
             onTap: () => context.goNamed(UsersWidget.routeName),
           ),
           _ActionTile(
             icon: Icons.play_circle_fill_rounded,
-            color: const Color(0xFFE42539),
+            color: const Color(0xFFE34D59),
             title: 'Mettre à jour YouTube',
             subtitle: 'Gérer le direct et les vidéos',
             onTap: () => context.goNamed(YoutubeWidget.routeName),
@@ -684,11 +693,18 @@ class _Panel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: theme.secondaryBackground,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: theme.alternate.withValues(alpha: .75)),
+        boxShadow: [
+          BoxShadow(
+            color: theme.primaryText.withValues(alpha: .045),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
