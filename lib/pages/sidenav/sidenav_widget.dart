@@ -19,19 +19,27 @@ class SidenavWidget extends StatefulWidget {
 class _SidenavWidgetState extends State<SidenavWidget> {
   late SidenavModel _model;
 
-  static final _items = <_NavItem>[
-    _NavItem('Dashboard', Icons.grid_view_rounded, DashboardWidget.routeName),
-    _NavItem('Utilisateurs', Icons.people_alt_rounded, UsersWidget.routeName),
-    _NavItem(
-        'Tirages', Icons.confirmation_number_rounded, TiragesWidget.routeName),
+  static final _pilotageItems = <_NavItem>[
+    _NavItem('Vue d’ensemble', Icons.grid_view_rounded,
+        DashboardWidget.routeName, DashboardWidget.routePath),
+  ];
+
+  static final _operationItems = <_NavItem>[
+    _NavItem('Tirages', Icons.confirmation_number_rounded,
+        TiragesWidget.routeName, TiragesWidget.routePath),
     _NavItem('Publications BINGO', Icons.newspaper_rounded,
-        PublicationsWidget.routeName),
-    _NavItem(
-        'Prédictions', Icons.auto_graph_rounded, PredictionsWidget.routeName),
+        PublicationsWidget.routeName, PublicationsWidget.routePath),
+    _NavItem('Prédictions', Icons.auto_graph_rounded,
+        PredictionsWidget.routeName, PredictionsWidget.routePath),
     _NavItem('Croix de la chance', Icons.brightness_7_rounded,
-        CroixWidget.routeName),
+        CroixWidget.routeName, CroixWidget.routePath),
+  ];
+
+  static final _communityItems = <_NavItem>[
+    _NavItem('Utilisateurs', Icons.people_alt_rounded, UsersWidget.routeName,
+        UsersWidget.routePath),
     _NavItem('Chaîne YouTube', Icons.play_circle_fill_rounded,
-        YoutubeWidget.routeName),
+        YoutubeWidget.routeName, YoutubeWidget.routePath),
   ];
 
   @override
@@ -158,30 +166,48 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                     ),
                   ),
                   Expanded(
-                    child: ListView.separated(
+                    child: ListView(
                       padding: EdgeInsets.zero,
-                      itemCount: _items.length + 1,
-                      separatorBuilder: (_, __) => const SizedBox(height: 4),
-                      itemBuilder: (context, index) {
-                        if (index == _items.length) {
-                          return _NavTile(
-                            label: 'Messagerie',
-                            icon: Icons.alternate_email_rounded,
-                            selected: false,
-                            onTap: () => launchURL('https://email.choloto.com'),
-                          );
-                        }
-                        final item = _items[index];
-                        return _NavTile(
-                          label: item.label,
-                          icon: item.icon,
-                          selected: currentRoute == item.route,
-                          onTap: () {
+                      children: [
+                        _NavMenuGroup(
+                          title: 'PILOTAGE',
+                          items: _pilotageItems,
+                          currentRoute: currentRoute,
+                          onNavigate: (route) {
                             if (inModal) Navigator.of(context).pop();
-                            context.goNamed(item.route);
+                            context.goNamed(route);
                           },
-                        );
-                      },
+                        ),
+                        const SizedBox(height: 18),
+                        _NavMenuGroup(
+                          title: 'OPÉRATIONS',
+                          items: _operationItems,
+                          currentRoute: currentRoute,
+                          onNavigate: (route) {
+                            if (inModal) Navigator.of(context).pop();
+                            context.goNamed(route);
+                          },
+                        ),
+                        const SizedBox(height: 18),
+                        _NavMenuGroup(
+                          title: 'COMMUNAUTÉ',
+                          items: _communityItems,
+                          currentRoute: currentRoute,
+                          onNavigate: (route) {
+                            if (inModal) Navigator.of(context).pop();
+                            context.goNamed(route);
+                          },
+                        ),
+                        const SizedBox(height: 18),
+                        const _NavGroupLabel('OUTILS'),
+                        const SizedBox(height: 5),
+                        _NavTile(
+                          label: 'Messagerie',
+                          icon: Icons.alternate_email_rounded,
+                          selected: false,
+                          onTap: () => launchURL('https://email.choloto.com'),
+                        ),
+                      ],
                     ),
                   ),
                   Divider(color: Colors.white.withValues(alpha: .10)),
@@ -218,10 +244,71 @@ class _SidenavWidgetState extends State<SidenavWidget> {
 }
 
 class _NavItem {
-  const _NavItem(this.label, this.icon, this.route);
+  const _NavItem(this.label, this.icon, this.routeName, this.routePath);
   final String label;
   final IconData icon;
-  final String route;
+  final String routeName;
+  final String routePath;
+}
+
+class _NavGroupLabel extends StatelessWidget {
+  const _NavGroupLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(left: 13),
+      child: Text(
+        label,
+        style: theme.labelSmall.copyWith(
+          color: Colors.white.withValues(alpha: .36),
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.2,
+        ),
+      ),
+    );
+  }
+}
+
+class _NavMenuGroup extends StatelessWidget {
+  const _NavMenuGroup({
+    required this.title,
+    required this.items,
+    required this.currentRoute,
+    required this.onNavigate,
+  });
+
+  final String title;
+  final List<_NavItem> items;
+  final String currentRoute;
+  final ValueChanged<String> onNavigate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _NavGroupLabel(title),
+        const SizedBox(height: 5),
+        ...items.map(
+          (item) => Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: _NavTile(
+              label: item.label,
+              icon: item.icon,
+              selected: currentRoute == item.routePath ||
+                  (currentRoute == '/' &&
+                      item.routeName == UsersWidget.routeName),
+              onTap: () => onNavigate(item.routeName),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _NavTile extends StatelessWidget {
@@ -252,9 +339,13 @@ class _NavTile extends StatelessWidget {
       selected: selected,
       button: true,
       label: label,
-      child: Material(
-        color: selected ? theme.secondary : Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          color: selected ? theme.secondary : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+        ),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(14),
@@ -262,6 +353,17 @@ class _NavTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
             child: Row(
               children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  width: selected ? 4 : 0,
+                  height: 22,
+                  margin: EdgeInsets.only(right: selected ? 10 : 0),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF102A43),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
                 Icon(icon, size: 21, color: foreground),
                 const SizedBox(width: 12),
                 Expanded(
@@ -275,15 +377,6 @@ class _NavTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (selected)
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF102A43),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
               ],
             ),
           ),
