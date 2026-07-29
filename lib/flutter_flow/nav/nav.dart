@@ -338,30 +338,12 @@ class FFRoute {
                 )
               : page;
 
-          final transitionInfo = state.transitionInfo;
-          return transitionInfo.hasTransition
-              ? CustomTransitionPage(
-                  key: state.pageKey,
-                  name: state.name,
-                  child: child,
-                  transitionDuration: transitionInfo.duration,
-                  transitionsBuilder:
-                      (context, animation, secondaryAnimation, child) =>
-                          PageTransition(
-                    type: transitionInfo.transitionType,
-                    duration: transitionInfo.duration,
-                    reverseDuration: transitionInfo.duration,
-                    alignment: transitionInfo.alignment,
-                    child: child,
-                  ).buildTransitions(
-                    context,
-                    animation,
-                    secondaryAnimation,
-                    child,
-                  ),
-                )
-              : MaterialPage(
-                  key: state.pageKey, name: state.name, child: child);
+          return NoTransitionPage<void>(
+            key: state.pageKey,
+            name: state.name,
+            child: child,
+            arguments: state.transitionInfo,
+          );
         },
         routes: routes,
       );
