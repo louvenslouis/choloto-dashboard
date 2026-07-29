@@ -109,8 +109,7 @@ class _UsersWidgetState extends State<UsersWidget> {
                     child: MobileSidenavWidget(),
                   ),
                 ),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
+              Expanded(
                 child: Row(
                   mainAxisSize: MainAxisSize.max,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -687,7 +686,10 @@ class _UsersWidgetState extends State<UsersWidget> {
                                           ),
                                         ),
                                       ),
-                                      Expanded(
+                                      SizedBox(
+                                        height:
+                                            MediaQuery.sizeOf(context).height *
+                                                0.55,
                                         child: Padding(
                                           padding:
                                               EdgeInsetsDirectional.fromSTEB(
