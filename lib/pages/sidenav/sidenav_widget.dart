@@ -102,7 +102,7 @@ class _SidenavWidgetState extends State<SidenavWidget> {
       color: const Color(0xFF102A43),
       child: SafeArea(
         child: SizedBox(
-          width: 288,
+          width: 272,
           height: double.infinity,
           child: DecoratedBox(
             decoration: BoxDecoration(
@@ -111,7 +111,7 @@ class _SidenavWidgetState extends State<SidenavWidget> {
               ),
             ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 24, 18, 18),
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -120,29 +120,29 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                     child: Row(
                       children: [
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(12),
                           child: Image.asset(
                             'assets/images/Logo_Choloto_509.png',
-                            width: 48,
-                            height: 48,
+                            width: 40,
+                            height: 40,
                             fit: BoxFit.cover,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 'CHOLOTO',
-                                style: theme.titleLarge.copyWith(
+                                style: theme.titleMedium.copyWith(
                                   fontWeight: FontWeight.w800,
                                   color: Colors.white,
                                   letterSpacing: -.4,
                                 ),
                               ),
                               Text(
-                                'Espace administration',
+                                'Administration',
                                 style: theme.labelSmall.copyWith(
                                   color: Colors.white.withValues(alpha: .58),
                                 ),
@@ -153,21 +153,10 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 30),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 12, bottom: 8),
-                    child: Text(
-                      'NAVIGATION',
-                      style: theme.labelSmall.copyWith(
-                        color: Colors.white.withValues(alpha: .42),
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.1,
-                      ),
-                    ),
-                  ),
+                  const SizedBox(height: 18),
                   Expanded(
-                    child: ListView(
-                      padding: EdgeInsets.zero,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _NavMenuGroup(
                           title: 'PILOTAGE',
@@ -178,7 +167,7 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                             context.goNamed(route);
                           },
                         ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 10),
                         _NavMenuGroup(
                           title: 'OPÉRATIONS',
                           items: _operationItems,
@@ -188,7 +177,7 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                             context.goNamed(route);
                           },
                         ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 10),
                         _NavMenuGroup(
                           title: 'COMMUNAUTÉ',
                           items: _communityItems,
@@ -198,9 +187,9 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                             context.goNamed(route);
                           },
                         ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 10),
                         const _NavGroupLabel('OUTILS'),
-                        const SizedBox(height: 5),
+                        const SizedBox(height: 3),
                         _NavTile(
                           label: 'Messagerie',
                           icon: Icons.alternate_email_rounded,
@@ -211,7 +200,7 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                     ),
                   ),
                   Divider(color: Colors.white.withValues(alpha: .10)),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   _NavTile(
                     label: Theme.of(context).brightness == Brightness.dark
                         ? 'Mode clair'
@@ -260,13 +249,14 @@ class _NavGroupLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(left: 13),
+      padding: const EdgeInsets.only(left: 11),
       child: Text(
         label,
         style: theme.labelSmall.copyWith(
-          color: Colors.white.withValues(alpha: .36),
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.2,
+          color: Colors.white.withValues(alpha: .32),
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1,
         ),
       ),
     );
@@ -292,10 +282,10 @@ class _NavMenuGroup extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _NavGroupLabel(title),
-        const SizedBox(height: 5),
+        const SizedBox(height: 3),
         ...items.map(
           (item) => Padding(
-            padding: const EdgeInsets.only(bottom: 4),
+            padding: const EdgeInsets.only(bottom: 2),
             child: _NavTile(
               label: item.label,
               icon: item.icon,
@@ -344,28 +334,28 @@ class _NavTile extends StatelessWidget {
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           color: selected ? theme.secondary : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
             child: Row(
               children: [
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 220),
                   curve: Curves.easeOutCubic,
-                  width: selected ? 4 : 0,
-                  height: 22,
-                  margin: EdgeInsets.only(right: selected ? 10 : 0),
+                  width: selected ? 3 : 0,
+                  height: 18,
+                  margin: EdgeInsets.only(right: selected ? 8 : 0),
                   decoration: BoxDecoration(
                     color: const Color(0xFF102A43),
                     borderRadius: BorderRadius.circular(99),
                   ),
                 ),
-                Icon(icon, size: 21, color: foreground),
-                const SizedBox(width: 12),
+                Icon(icon, size: 19, color: foreground),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     label,
