@@ -100,12 +100,6 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           builder: (context, params) => UsersWidget(),
         ),
         FFRoute(
-          name: DashboardWidget.routeName,
-          path: DashboardWidget.routePath,
-          requireAuth: true,
-          builder: (context, params) => DashboardWidget(),
-        ),
-        FFRoute(
           name: ConnexionWidget.routeName,
           path: ConnexionWidget.routePath,
           builder: (context, params) => ConnexionWidget(),
@@ -127,12 +121,6 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           path: PredictionsWidget.routePath,
           requireAuth: true,
           builder: (context, params) => PredictionsWidget(),
-        ),
-        FFRoute(
-          name: YoutubeWidget.routeName,
-          path: YoutubeWidget.routePath,
-          requireAuth: true,
-          builder: (context, params) => YoutubeWidget(),
         ),
         FFRoute(
           name: PublicationsWidget.routeName,

@@ -19,11 +19,6 @@ class SidenavWidget extends StatefulWidget {
 class _SidenavWidgetState extends State<SidenavWidget> {
   late SidenavModel _model;
 
-  static final _pilotageItems = <_NavItem>[
-    _NavItem('Vue d’ensemble', Icons.grid_view_rounded,
-        DashboardWidget.routeName, DashboardWidget.routePath),
-  ];
-
   static final _operationItems = <_NavItem>[
     _NavItem('Tirages', Icons.confirmation_number_rounded,
         TiragesWidget.routeName, TiragesWidget.routePath),
@@ -38,8 +33,6 @@ class _SidenavWidgetState extends State<SidenavWidget> {
   static final _communityItems = <_NavItem>[
     _NavItem('Utilisateurs', Icons.people_alt_rounded, UsersWidget.routeName,
         UsersWidget.routePath),
-    _NavItem('Chaîne YouTube', Icons.play_circle_fill_rounded,
-        YoutubeWidget.routeName, YoutubeWidget.routePath),
   ];
 
   @override
@@ -158,16 +151,6 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _NavMenuGroup(
-                          title: 'PILOTAGE',
-                          items: _pilotageItems,
-                          currentRoute: currentRoute,
-                          onNavigate: (route) {
-                            if (inModal) Navigator.of(context).pop();
-                            context.goNamed(route);
-                          },
-                        ),
-                        const SizedBox(height: 10),
                         _NavMenuGroup(
                           title: 'OPÉRATIONS',
                           items: _operationItems,
