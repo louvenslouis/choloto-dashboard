@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "934080509989",
+    "project_id": "choloto-6aa5b",
+    "storage_bucket": "choloto-6aa5b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:934080509989:android:99f0fac87cf013fb4f27cc",
+        "android_client_info": {
+          "package_name": "com.mycompany.choloto"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAZXgrDFvVsT54aamgQWUHJInJpqpP9pz0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:934080509989:android:a7f3ef70e87b5e7c4f27cc",
+        "android_client_info": {
+          "package_name": "com.mycompany.cholotodashboard"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAZXgrDFvVsT54aamgQWUHJInJpqpP9pz0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
