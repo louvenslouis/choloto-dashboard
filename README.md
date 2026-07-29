@@ -1,7 +1,17 @@
 # CHOLOTO Dashboard
 
-A new Flutter project.
+Tableau de bord d’administration CHOLOTO développé avec Flutter.
 
-## Getting Started
+## Version web
 
-FlutterFlow projects are built to run on the Flutter _stable_ release.
+L’application est publiée automatiquement sur GitHub Pages à chaque mise à
+jour de la branche `main` :
+
+https://louvenslouis.github.io/choloto-dashboard/
+
+## Développement local
+
+```bash
+flutter pub get
+flutter run -d chrome
+```
