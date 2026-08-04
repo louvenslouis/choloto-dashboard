@@ -44,7 +44,7 @@ class _YoutubeWidgetState extends State<YoutubeWidget> {
       drawer: isDesktop
           ? null
           : const Drawer(
-              width: 288,
+              width: 264,
               child: SidenavWidget(forceVisible: true),
             ),
       body: SafeArea(

@@ -89,7 +89,7 @@ class _CroixWidgetState extends State<CroixWidget> {
             : null,
         drawer: MediaQuery.sizeOf(context).width < 992
             ? const Drawer(
-                width: 288,
+                width: 264,
                 child: SidenavWidget(forceVisible: true),
               )
             : null,
@@ -110,7 +110,7 @@ class _CroixWidgetState extends State<CroixWidget> {
                   child: Container(
                     width: double.infinity,
                     constraints: BoxConstraints(
-                      maxWidth: 970.0,
+                      maxWidth: 1120.0,
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 20.0),
                     decoration: BoxDecoration(),
@@ -147,8 +147,16 @@ class _CroixWidgetState extends State<CroixWidget> {
                                   ),
                         ),
                         Container(
-                          height: 225.0,
-                          decoration: BoxDecoration(),
+                          height: 260.0,
+                          padding: const EdgeInsets.all(18.0),
+                          decoration: BoxDecoration(
+                            color: FlutterFlowTheme.of(context)
+                                .secondaryBackground,
+                            borderRadius: BorderRadius.circular(20.0),
+                            border: Border.all(
+                              color: FlutterFlowTheme.of(context).alternate,
+                            ),
+                          ),
                           child: Form(
                             key: _model.formKey,
                             autovalidateMode: AutovalidateMode.disabled,
@@ -157,9 +165,9 @@ class _CroixWidgetState extends State<CroixWidget> {
                               gridDelegate:
                                   SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: 3,
-                                crossAxisSpacing: 150.0,
-                                mainAxisSpacing: 10.0,
-                                childAspectRatio: 4.0,
+                                crossAxisSpacing: 14.0,
+                                mainAxisSpacing: 12.0,
+                                childAspectRatio: 3.0,
                               ),
                               scrollDirection: Axis.vertical,
                               children: [

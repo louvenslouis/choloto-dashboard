@@ -66,7 +66,7 @@ class _DashboardWidgetState extends State<DashboardWidget> {
       drawer: isDesktop
           ? null
           : const Drawer(
-              width: 280,
+              width: 264,
               child: SidenavWidget(forceVisible: true),
             ),
       body: SafeArea(
@@ -88,10 +88,10 @@ class _DashboardWidgetState extends State<DashboardWidget> {
                     SliverToBoxAdapter(child: _Header(onRefresh: _refresh)),
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(
-                        isDesktop ? 32 : 16,
+                        isDesktop ? 36 : 16,
                         8,
-                        isDesktop ? 32 : 16,
-                        32,
+                        isDesktop ? 36 : 16,
+                        36,
                       ),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
@@ -99,7 +99,7 @@ class _DashboardWidgetState extends State<DashboardWidget> {
                             onPrimaryAction: () =>
                                 context.goNamed(TiragesWidget.routeName),
                           ),
-                          const SizedBox(height: 22),
+                          const SizedBox(height: 20),
                           FutureBuilder<List<int>>(
                             future: _countsFuture,
                             builder: (context, snapshot) {
@@ -141,7 +141,7 @@ class _DashboardWidgetState extends State<DashboardWidget> {
                               );
                             },
                           ),
-                          const SizedBox(height: 22),
+                          const SizedBox(height: 20),
                           LayoutBuilder(
                             builder: (context, constraints) {
                               final stack = constraints.maxWidth < 780;
@@ -195,7 +195,7 @@ class _Header extends StatelessWidget {
 
     return Padding(
       padding:
-          EdgeInsets.fromLTRB(isDesktop ? 32 : 12, 18, isDesktop ? 32 : 12, 14),
+          EdgeInsets.fromLTRB(isDesktop ? 36 : 12, 20, isDesktop ? 36 : 12, 16),
       child: Row(
         children: [
           if (!isDesktop) ...[
@@ -213,13 +213,13 @@ class _Header extends StatelessWidget {
                 Text(
                   'Vue d’ensemble',
                   style: theme.headlineMedium.copyWith(
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: -.6,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  DateFormat('dd MMMM yyyy', 'fr').format(DateTime.now()),
+                  DateFormat('EEEE d MMMM yyyy', 'fr').format(DateTime.now()),
                   style: theme.bodySmall.copyWith(color: theme.secondaryText),
                 ),
               ],
@@ -269,19 +269,19 @@ class _WelcomeBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
     return Container(
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(26),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF102A43), Color(0xFF1C4665)],
+          colors: [Color(0xFF17334F), Color(0xFF10243A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF102A43).withValues(alpha: .18),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+            color: const Color(0xFF10243A).withValues(alpha: .13),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
@@ -295,31 +295,36 @@ class _WelcomeBanner extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFC928),
+                  color: const Color(0xFFF6C744).withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(99),
+                  border: Border.all(
+                    color: const Color(0xFFF6C744).withValues(alpha: .28),
+                  ),
                 ),
                 child: const Text(
                   'CENTRE DE CONTRÔLE',
                   style: TextStyle(
-                    color: Color(0xFF102A43),
+                    color: Color(0xFFF6C744),
                     fontSize: 11,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: 1,
                   ),
                 ),
               ),
               const SizedBox(height: 14),
               Text(
-                'Pilotez CHOLOTO.\nSimplement.',
+                'Gérez l’essentiel,\nen toute simplicité.',
                 style: theme.headlineLarge.copyWith(
                   color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  height: 1.08,
+                  fontWeight: FontWeight.w700,
+                  height: 1.1,
+                  letterSpacing: -.65,
                 ),
               ),
               const SizedBox(height: 10),
               Text(
-                'Les tirages, les membres et vos contenus réunis dans un espace clair, rapide et précis.',
+                'Tirages, membres et contenus réunis dans un espace clair, '
+                'rapide et précis.',
                 style: theme.bodyMedium.copyWith(
                   color: Colors.white.withValues(alpha: .82),
                   height: 1.45,
@@ -329,7 +334,7 @@ class _WelcomeBanner extends StatelessWidget {
               FilledButton.icon(
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFFFFC928),
-                  foregroundColor: const Color(0xFF102A43),
+                  foregroundColor: const Color(0xFF10243A),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                 ),
@@ -345,34 +350,93 @@ class _WelcomeBanner extends StatelessWidget {
             children: [
               Expanded(flex: 3, child: copy),
               const SizedBox(width: 24),
-              Expanded(
+              const Expanded(
                 flex: 2,
                 child: Align(
                   alignment: Alignment.centerRight,
-                  child: Container(
-                    width: 170,
-                    height: 170,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFC928).withValues(alpha: .14),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                          color:
-                              const Color(0xFFFFC928).withValues(alpha: .42)),
-                    ),
-                    child: ClipOval(
-                      child: Image.asset(
-                        'assets/images/Logo_Choloto_509.png',
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
+                  child: _HeroSummary(),
                 ),
               ),
             ],
           );
         },
       ),
+    );
+  }
+}
+
+class _HeroSummary extends StatelessWidget {
+  const _HeroSummary();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 210),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .07),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: .11)),
+      ),
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _HeroSummaryRow(
+            icon: Icons.confirmation_number_outlined,
+            label: 'Tirages',
+          ),
+          SizedBox(height: 12),
+          _HeroSummaryRow(
+            icon: Icons.people_alt_outlined,
+            label: 'Communauté',
+          ),
+          SizedBox(height: 12),
+          _HeroSummaryRow(
+            icon: Icons.article_outlined,
+            label: 'Publications',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroSummaryRow extends StatelessWidget {
+  const _HeroSummaryRow({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF6C744).withValues(alpha: .14),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Icon(icon, color: const Color(0xFFF6C744), size: 18),
+        ),
+        const SizedBox(width: 11),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Icon(
+          Icons.check_circle_rounded,
+          color: Colors.white.withValues(alpha: .45),
+          size: 16,
+        ),
+      ],
     );
   }
 }
@@ -427,31 +491,31 @@ class _StatCard extends StatelessWidget {
     final theme = FlutterFlowTheme.of(context);
     return Material(
       color: theme.secondaryBackground,
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(18),
         onTap: () => context.goNamed(stat.route),
         child: Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(color: theme.alternate.withValues(alpha: .75)),
             boxShadow: [
               BoxShadow(
-                color: theme.primaryText.withValues(alpha: .045),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
+                color: theme.primaryText.withValues(alpha: .035),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
           child: Row(
             children: [
               Container(
-                width: 50,
-                height: 50,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
                   color: stat.color.withValues(alpha: .12),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(stat.icon, color: stat.color),
               ),
@@ -693,16 +757,16 @@ class _Panel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: theme.secondaryBackground,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: theme.alternate.withValues(alpha: .75)),
         boxShadow: [
           BoxShadow(
-            color: theme.primaryText.withValues(alpha: .045),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
+            color: theme.primaryText.withValues(alpha: .035),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
           ),
         ],
       ),

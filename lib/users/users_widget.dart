@@ -71,7 +71,7 @@ class _UsersWidgetState extends State<UsersWidget> {
             : null,
         drawer: MediaQuery.sizeOf(context).width < 992
             ? const Drawer(
-                width: 288,
+                width: 264,
                 child: SidenavWidget(forceVisible: true),
               )
             : null,
@@ -132,7 +132,7 @@ class _UsersWidgetState extends State<UsersWidget> {
                             return SafeArea(
                               child: Container(
                                 constraints: BoxConstraints(
-                                  maxWidth: 970.0,
+                                  maxWidth: 1120.0,
                                 ),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 20.0,
@@ -160,7 +160,7 @@ class _UsersWidgetState extends State<UsersWidget> {
                                         elevation: 0.0,
                                         shape: RoundedRectangleBorder(
                                           borderRadius:
-                                              BorderRadius.circular(30.0),
+                                              BorderRadius.circular(18.0),
                                         ),
                                         child: Container(
                                           decoration: BoxDecoration(),

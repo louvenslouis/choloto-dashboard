@@ -83,7 +83,7 @@ class _TiragesWidgetState extends State<TiragesWidget> {
             : null,
         drawer: MediaQuery.sizeOf(context).width < 992
             ? const Drawer(
-                width: 288,
+                width: 264,
                 child: SidenavWidget(forceVisible: true),
               )
             : null,
@@ -104,7 +104,7 @@ class _TiragesWidgetState extends State<TiragesWidget> {
                   child: Container(
                     width: double.infinity,
                     constraints: BoxConstraints(
-                      maxWidth: 970.0,
+                      maxWidth: 1120.0,
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 20.0),
                     decoration: BoxDecoration(),
@@ -123,13 +123,17 @@ class _TiragesWidgetState extends State<TiragesWidget> {
                           ),
                           Card(
                             clipBehavior: Clip.antiAliasWithSaveLayer,
-                            color: FlutterFlowTheme.of(context).warning,
+                            color: FlutterFlowTheme.of(context)
+                                .secondaryBackground,
                             elevation: 0.0,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8.0),
+                              borderRadius: BorderRadius.circular(20.0),
+                              side: BorderSide(
+                                color: FlutterFlowTheme.of(context).alternate,
+                              ),
                             ),
                             child: Padding(
-                              padding: EdgeInsets.all(10.0),
+                              padding: EdgeInsets.all(18.0),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -786,13 +790,17 @@ class _TiragesWidgetState extends State<TiragesWidget> {
                           ),
                           Card(
                             clipBehavior: Clip.antiAliasWithSaveLayer,
-                            color: FlutterFlowTheme.of(context).warning,
+                            color: FlutterFlowTheme.of(context)
+                                .secondaryBackground,
                             elevation: 0.0,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8.0),
+                              borderRadius: BorderRadius.circular(20.0),
+                              side: BorderSide(
+                                color: FlutterFlowTheme.of(context).alternate,
+                              ),
                             ),
                             child: Padding(
-                              padding: EdgeInsets.all(10.0),
+                              padding: EdgeInsets.all(18.0),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [

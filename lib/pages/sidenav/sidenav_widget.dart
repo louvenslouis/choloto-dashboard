@@ -20,6 +20,11 @@ class _SidenavWidgetState extends State<SidenavWidget> {
   late SidenavModel _model;
   final ScrollController _navigationScrollController = ScrollController();
 
+  static final _overviewItems = <_NavItem>[
+    _NavItem('Vue d’ensemble', Icons.space_dashboard_rounded,
+        DashboardWidget.routeName, DashboardWidget.routePath),
+  ];
+
   static final _operationItems = <_NavItem>[
     _NavItem('Tirages', Icons.confirmation_number_rounded,
         TiragesWidget.routeName, TiragesWidget.routePath),
@@ -93,37 +98,59 @@ class _SidenavWidgetState extends State<SidenavWidget> {
 
     if (!showNavigation) return const SizedBox.shrink();
 
+    final email =
+        currentUserEmail.isEmpty ? 'Administrateur' : currentUserEmail;
+
     return Material(
-      color: const Color(0xFF102A43),
+      color: const Color(0xFF10243A),
       child: SafeArea(
         child: SizedBox(
-          width: 272,
+          width: 264,
           height: double.infinity,
           child: DecoratedBox(
             decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF10243A), Color(0xFF0D1D30)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
               border: Border(
                 right: BorderSide(color: Colors.white.withValues(alpha: .08)),
               ),
             ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+              padding: const EdgeInsets.fromLTRB(14, 18, 14, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
                     child: Row(
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.asset(
-                            'assets/images/Logo_Choloto_509.png',
-                            width: 40,
-                            height: 40,
-                            fit: BoxFit.cover,
+                        Container(
+                          width: 44,
+                          height: 44,
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: .18),
+                                blurRadius: 16,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(11),
+                            child: Image.asset(
+                              'assets/images/Logo_Choloto_509.png',
+                              fit: BoxFit.cover,
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 11),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -137,9 +164,12 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                                 ),
                               ),
                               Text(
-                                'Administration',
+                                'ESPACE ADMIN',
                                 style: theme.labelSmall.copyWith(
-                                  color: Colors.white.withValues(alpha: .58),
+                                  color: theme.secondary,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.05,
                                 ),
                               ),
                             ],
@@ -148,7 +178,7 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 28),
                   Expanded(
                     child: Scrollbar(
                       controller: _navigationScrollController,
@@ -159,6 +189,16 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             _NavMenuGroup(
+                              title: 'TABLEAU DE BORD',
+                              items: _overviewItems,
+                              currentRoute: currentRoute,
+                              onNavigate: (route) {
+                                if (inModal) Navigator.of(context).pop();
+                                context.goNamed(route);
+                              },
+                            ),
+                            const SizedBox(height: 18),
+                            _NavMenuGroup(
                               title: 'OPÉRATIONS',
                               items: _operationItems,
                               currentRoute: currentRoute,
@@ -167,7 +207,7 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                                 context.goNamed(route);
                               },
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 18),
                             _NavMenuGroup(
                               title: 'COMMUNAUTÉ',
                               items: _communityItems,
@@ -177,7 +217,7 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                                 context.goNamed(route);
                               },
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 18),
                             const _NavGroupLabel('OUTILS'),
                             const SizedBox(height: 3),
                             _NavTile(
@@ -192,8 +232,57 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                       ),
                     ),
                   ),
-                  Divider(color: Colors.white.withValues(alpha: .10)),
-                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: .055),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: .07),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 17,
+                          backgroundColor: theme.secondary,
+                          child: Text(
+                            email.characters.first.toUpperCase(),
+                            style: theme.labelLarge.copyWith(
+                              color: const Color(0xFF10243A),
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Session active',
+                                style: theme.labelSmall.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 1),
+                              Text(
+                                email,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.labelSmall.copyWith(
+                                  color: Colors.white.withValues(alpha: .48),
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   _NavTile(
                     label: Theme.of(context).brightness == Brightness.dark
                         ? 'Mode clair'
@@ -246,10 +335,10 @@ class _NavGroupLabel extends StatelessWidget {
       child: Text(
         label,
         style: theme.labelSmall.copyWith(
-          color: Colors.white.withValues(alpha: .32),
-          fontSize: 10,
+          color: Colors.white.withValues(alpha: .38),
+          fontSize: 9,
           fontWeight: FontWeight.w700,
-          letterSpacing: 1,
+          letterSpacing: 1.15,
         ),
       ),
     );
@@ -275,10 +364,10 @@ class _NavMenuGroup extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _NavGroupLabel(title),
-        const SizedBox(height: 3),
+        const SizedBox(height: 7),
         ...items.map(
           (item) => Padding(
-            padding: const EdgeInsets.only(bottom: 2),
+            padding: const EdgeInsets.only(bottom: 3),
             child: _NavTile(
               label: item.label,
               icon: item.icon,
@@ -315,8 +404,8 @@ class _NavTile extends StatelessWidget {
     final foreground = destructive
         ? const Color(0xFFFF8A92)
         : selected
-            ? const Color(0xFF102A43)
-            : Colors.white.withValues(alpha: .68);
+            ? Colors.white
+            : Colors.white.withValues(alpha: .67);
 
     return Semantics(
       selected: selected,
@@ -326,28 +415,39 @@ class _NavTile extends StatelessWidget {
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
-          color: selected ? theme.secondary : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          color: selected
+              ? Colors.white.withValues(alpha: .105)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(
+            color: selected
+                ? Colors.white.withValues(alpha: .08)
+                : Colors.transparent,
+          ),
         ),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(13),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
             child: Row(
               children: [
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 220),
                   curve: Curves.easeOutCubic,
-                  width: selected ? 3 : 0,
-                  height: 18,
-                  margin: EdgeInsets.only(right: selected ? 8 : 0),
+                  width: 3,
+                  height: selected ? 20 : 0,
+                  margin: const EdgeInsets.only(right: 9),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF102A43),
+                    color: selected ? theme.secondary : Colors.transparent,
                     borderRadius: BorderRadius.circular(99),
                   ),
                 ),
-                Icon(icon, size: 19, color: foreground),
+                Icon(
+                  icon,
+                  size: 19,
+                  color: selected ? theme.secondary : foreground,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -356,7 +456,7 @@ class _NavTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: theme.bodyMedium.copyWith(
                       color: foreground,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                     ),
                   ),
                 ),

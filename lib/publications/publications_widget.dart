@@ -94,7 +94,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
             : null,
         drawer: MediaQuery.sizeOf(context).width < 992
             ? const Drawer(
-                width: 288,
+                width: 264,
                 child: SidenavWidget(forceVisible: true),
               )
             : null,
@@ -115,7 +115,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                   child: Container(
                     width: double.infinity,
                     constraints: BoxConstraints(
-                      maxWidth: 970.0,
+                      maxWidth: 1120.0,
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 20.0),
                     decoration: BoxDecoration(),
@@ -177,16 +177,17 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                             backgroundColor:
                                 FlutterFlowTheme.of(context).accent1,
                             unselectedBackgroundColor:
-                                FlutterFlowTheme.of(context).alternate,
-                            borderColor: FlutterFlowTheme.of(context).primary,
+                                FlutterFlowTheme.of(context)
+                                    .secondaryBackground,
+                            borderColor: FlutterFlowTheme.of(context).secondary,
                             unselectedBorderColor:
                                 FlutterFlowTheme.of(context).alternate,
-                            borderWidth: 2.0,
-                            borderRadius: 8.0,
+                            borderWidth: 1.0,
+                            borderRadius: 14.0,
                             elevation: 0.0,
                             buttonMargin: EdgeInsetsDirectional.fromSTEB(
-                                8.0, 0.0, 8.0, 0.0),
-                            padding: EdgeInsets.all(12.0),
+                                4.0, 0.0, 4.0, 0.0),
+                            padding: EdgeInsets.all(10.0),
                             tabs: [
                               Tab(
                                 text: 'BINGO',
@@ -213,18 +214,22 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                                         clipBehavior:
                                             Clip.antiAliasWithSaveLayer,
                                         color: FlutterFlowTheme.of(context)
-                                            .warning,
+                                            .secondaryBackground,
                                         elevation: 0.0,
                                         shape: RoundedRectangleBorder(
                                           borderRadius:
-                                              BorderRadius.circular(8.0),
+                                              BorderRadius.circular(20.0),
+                                          side: BorderSide(
+                                            color: FlutterFlowTheme.of(context)
+                                                .alternate,
+                                          ),
                                         ),
                                         child: Form(
                                           key: _model.formKey,
                                           autovalidateMode:
                                               AutovalidateMode.disabled,
                                           child: Padding(
-                                            padding: EdgeInsets.all(10.0),
+                                            padding: EdgeInsets.all(18.0),
                                             child: Column(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [

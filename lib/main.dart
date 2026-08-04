@@ -122,41 +122,93 @@ class _MyAppState extends State<MyApp> {
         useMaterial3: true,
         visualDensity: VisualDensity.standard,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF102A43),
-          primary: const Color(0xFF102A43),
-          secondary: const Color(0xFFFFC928),
+          seedColor: const Color(0xFF12263F),
+          primary: const Color(0xFF12263F),
+          onPrimary: Colors.white,
+          secondary: const Color(0xFFF6C744),
+          onSecondary: const Color(0xFF12263F),
           surface: Colors.white,
+          onSurface: const Color(0xFF142033),
+          error: const Color(0xFFE14F5A),
+          outline: const Color(0xFFCBD5E1),
+          outlineVariant: const Color(0xFFE4EAF1),
         ),
-        textTheme: GoogleFonts.interTextTheme(),
-        scaffoldBackgroundColor: const Color(0xFFF7F7F2),
+        textTheme: GoogleFonts.interTextTheme().apply(
+          bodyColor: const Color(0xFF142033),
+          displayColor: const Color(0xFF142033),
+        ),
+        scaffoldBackgroundColor: const Color(0xFFF5F7FA),
+        canvasColor: Colors.white,
+        cardColor: Colors.white,
+        dividerColor: const Color(0xFFE4EAF1),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          foregroundColor: Color(0xFF142033),
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+        ),
+        cardTheme: CardThemeData(
+          color: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: Color(0xFFE4EAF1)),
+          ),
+        ),
+        dividerTheme: const DividerThemeData(
+          color: Color(0xFFE4EAF1),
+          thickness: 1,
+          space: 1,
+        ),
+        drawerTheme: const DrawerThemeData(
+          backgroundColor: Color(0xFF12263F),
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(),
+        ),
+        listTileTheme: ListTileThemeData(
+          iconColor: const Color(0xFF66758A),
+          textColor: const Color(0xFF142033),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+        ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: Colors.white,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          hintStyle: const TextStyle(color: Color(0xFF98A2B3)),
-          labelStyle: const TextStyle(color: Color(0xFF667085)),
+          hintStyle: const TextStyle(color: Color(0xFF8C9AAD)),
+          labelStyle: const TextStyle(color: Color(0xFF66758A)),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: Color(0xFFE4E9F0)),
+            borderSide: const BorderSide(color: Color(0xFFD9E1EA)),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: Color(0xFFE4E9F0)),
+            borderSide: const BorderSide(color: Color(0xFFD9E1EA)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: Color(0xFF087BCE), width: 1.5),
+            borderSide: const BorderSide(color: Color(0xFF2878B8), width: 1.5),
           ),
           errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: Color(0xFFE34D59)),
+            borderSide: const BorderSide(color: Color(0xFFE14F5A)),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFFE14F5A), width: 1.5),
           ),
         ),
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
             minimumSize: const Size(0, 48),
             padding: const EdgeInsets.symmetric(horizontal: 20),
+            elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),
@@ -170,7 +222,7 @@ class _MyAppState extends State<MyApp> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),
-            side: const BorderSide(color: Color(0xFFD0D5DD)),
+            side: const BorderSide(color: Color(0xFFCBD5E1)),
             textStyle: const TextStyle(fontWeight: FontWeight.w700),
           ),
         ),
@@ -184,15 +236,30 @@ class _MyAppState extends State<MyApp> {
         ),
         dialogTheme: DialogThemeData(
           backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(24),
+            side: const BorderSide(color: Color(0xFFE4EAF1)),
           ),
           actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         ),
+        bottomSheetTheme: const BottomSheetThemeData(
+          backgroundColor: Colors.white,
+          modalBackgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          dragHandleColor: Color(0xFFCBD5E1),
+        ),
+        popupMenuTheme: PopupMenuThemeData(
+          color: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: Color(0xFFE4EAF1)),
+          ),
+        ),
         snackBarTheme: SnackBarThemeData(
           behavior: SnackBarBehavior.floating,
-          backgroundColor: const Color(0xFF102A43),
+          backgroundColor: const Color(0xFF12263F),
           contentTextStyle: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.w500,
@@ -204,12 +271,17 @@ class _MyAppState extends State<MyApp> {
         tooltipTheme: TooltipThemeData(
           waitDuration: const Duration(milliseconds: 450),
           decoration: BoxDecoration(
-            color: const Color(0xFF102A43),
+            color: const Color(0xFF12263F),
             borderRadius: BorderRadius.circular(8),
           ),
           textStyle: const TextStyle(color: Colors.white, fontSize: 12),
         ),
         scrollbarTheme: ScrollbarThemeData(
+          thumbColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.hovered)
+                ? const Color(0xFF8C9AAD)
+                : const Color(0xFFCBD5E1),
+          ),
           thumbVisibility: WidgetStateProperty.resolveWith(
             (states) => states.contains(WidgetState.hovered),
           ),
@@ -217,6 +289,30 @@ class _MyAppState extends State<MyApp> {
           thickness: WidgetStateProperty.resolveWith(
             (states) => states.contains(WidgetState.hovered) ? 7 : 4,
           ),
+        ),
+        progressIndicatorTheme: const ProgressIndicatorThemeData(
+          color: Color(0xFF2878B8),
+          linearTrackColor: Color(0xFFE4EAF1),
+          circularTrackColor: Color(0xFFE4EAF1),
+        ),
+        dataTableTheme: DataTableThemeData(
+          headingRowColor: const WidgetStatePropertyAll(Color(0xFFF7F9FC)),
+          dataRowColor: const WidgetStatePropertyAll(Colors.white),
+          headingTextStyle: GoogleFonts.inter(
+            color: const Color(0xFF142033),
+            fontWeight: FontWeight.w700,
+          ),
+          dataTextStyle: GoogleFonts.inter(color: const Color(0xFF344156)),
+          dividerThickness: .7,
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xFFE4EAF1)),
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        textSelectionTheme: const TextSelectionThemeData(
+          cursorColor: Color(0xFF2878B8),
+          selectionColor: Color(0x332878B8),
+          selectionHandleColor: Color(0xFF2878B8),
         ),
       ),
       darkTheme: ThemeData(

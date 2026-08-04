@@ -14,29 +14,37 @@ class AdminMobileAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
 
   @override
-  Size get preferredSize => const Size.fromHeight(72);
+  Size get preferredSize => const Size.fromHeight(70);
 
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
+    final compact = MediaQuery.sizeOf(context).width < 390;
 
     return AppBar(
       toolbarHeight: preferredSize.height,
       elevation: 0,
-      scrolledUnderElevation: 1,
+      scrolledUnderElevation: 0,
       backgroundColor: theme.secondaryBackground,
-      surfaceTintColor: theme.secondaryBackground,
+      surfaceTintColor: Colors.transparent,
       foregroundColor: theme.primaryText,
-      titleSpacing: 4,
+      titleSpacing: 2,
       title: Row(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Image.asset(
-              'assets/images/Logo_Choloto_509.png',
-              width: 36,
-              height: 36,
-              fit: BoxFit.cover,
+          Container(
+            width: 34,
+            height: 34,
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: theme.accent1,
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(
+              Icons.grid_view_rounded,
+              size: 19,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? theme.secondary
+                  : theme.primary,
             ),
           ),
           const SizedBox(width: 10),
@@ -51,7 +59,8 @@ class AdminMobileAppBar extends StatelessWidget implements PreferredSizeWidget {
                   overflow: TextOverflow.ellipsis,
                   style: theme.titleSmall.copyWith(
                     color: theme.primaryText,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -.2,
                   ),
                 ),
                 Text(
@@ -60,7 +69,7 @@ class AdminMobileAppBar extends StatelessWidget implements PreferredSizeWidget {
                   overflow: TextOverflow.ellipsis,
                   style: theme.labelSmall.copyWith(
                     color: theme.secondaryText,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -70,14 +79,20 @@ class AdminMobileAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       actions: [
         Padding(
-          padding: const EdgeInsets.only(right: 14),
+          padding: const EdgeInsets.only(right: 12),
           child: Semantics(
             label: 'Système opérationnel',
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 8 : 10,
+                vertical: 7,
+              ),
               decoration: BoxDecoration(
                 color: theme.success.withValues(alpha: .10),
                 borderRadius: BorderRadius.circular(99),
+                border: Border.all(
+                  color: theme.success.withValues(alpha: .16),
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -90,14 +105,16 @@ class AdminMobileAppBar extends StatelessWidget implements PreferredSizeWidget {
                       shape: BoxShape.circle,
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'En ligne',
-                    style: theme.labelSmall.copyWith(
-                      color: theme.success,
-                      fontWeight: FontWeight.w700,
+                  if (!compact) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      'En ligne',
+                      style: theme.labelSmall.copyWith(
+                        color: theme.success,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -105,7 +122,7 @@ class AdminMobileAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ],
       shape: Border(
-        bottom: BorderSide(color: theme.alternate.withValues(alpha: .8)),
+        bottom: BorderSide(color: theme.alternate.withValues(alpha: .72)),
       ),
     );
   }
@@ -128,27 +145,35 @@ class AdminSectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
+    final compact = MediaQuery.sizeOf(context).width < 600;
 
     return Semantics(
       header: true,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(4, 28, 4, 22),
+        padding:
+            EdgeInsets.fromLTRB(2, compact ? 24 : 34, 2, compact ? 20 : 26),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: compact ? 42 : 46,
+              height: compact ? 42 : 46,
               decoration: BoxDecoration(
-                color: theme.secondary.withValues(alpha: .18),
-                borderRadius: BorderRadius.circular(15),
+                color: theme.accent1,
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: theme.secondary.withValues(alpha: .34),
+                  color: theme.secondary.withValues(alpha: .24),
                 ),
               ),
-              child: Icon(icon, color: theme.primary, size: 24),
+              child: Icon(
+                icon,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? theme.secondary
+                    : theme.primary,
+                size: compact ? 21 : 23,
+              ),
             ),
-            const SizedBox(width: 15),
+            SizedBox(width: compact ? 13 : 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,24 +182,27 @@ class AdminSectionHeader extends StatelessWidget {
                     eyebrow,
                     style: theme.labelSmall.copyWith(
                       color: theme.secondaryText,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.1,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    title,
-                    style: theme.headlineMedium.copyWith(
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
                     ),
                   ),
                   const SizedBox(height: 5),
                   Text(
+                    title,
+                    style:
+                        (compact ? theme.headlineSmall : theme.headlineMedium)
+                            .copyWith(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -.6,
+                      height: 1.12,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
                     description,
                     style: theme.bodyMedium.copyWith(
                       color: theme.secondaryText,
-                      height: 1.45,
+                      height: 1.5,
                     ),
                   ),
                 ],

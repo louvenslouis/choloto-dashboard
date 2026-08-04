@@ -73,7 +73,7 @@ class _PredictionsWidgetState extends State<PredictionsWidget>
             : null,
         drawer: MediaQuery.sizeOf(context).width < 992
             ? const Drawer(
-                width: 288,
+                width: 264,
                 child: SidenavWidget(forceVisible: true),
               )
             : null,
@@ -146,15 +146,15 @@ class _PredictionsWidgetState extends State<PredictionsWidget>
                             FlutterFlowTheme.of(context).secondaryText,
                         backgroundColor: FlutterFlowTheme.of(context).accent1,
                         unselectedBackgroundColor:
-                            FlutterFlowTheme.of(context).alternate,
-                        borderColor: FlutterFlowTheme.of(context).primary,
+                            FlutterFlowTheme.of(context).secondaryBackground,
+                        borderColor: FlutterFlowTheme.of(context).secondary,
                         unselectedBorderColor:
                             FlutterFlowTheme.of(context).alternate,
-                        borderWidth: 2.0,
-                        borderRadius: 8.0,
+                        borderWidth: 1.0,
+                        borderRadius: 14.0,
                         elevation: 0.0,
                         buttonMargin:
-                            EdgeInsetsDirectional.fromSTEB(8.0, 0.0, 8.0, 0.0),
+                            EdgeInsetsDirectional.fromSTEB(4.0, 0.0, 4.0, 0.0),
                         tabs: [
                           Tab(
                             text: 'Prédictions',
@@ -183,7 +183,7 @@ class _PredictionsWidgetState extends State<PredictionsWidget>
                                     child: Container(
                                       width: double.infinity,
                                       constraints: BoxConstraints(
-                                        maxWidth: 970.0,
+                                        maxWidth: 1120.0,
                                       ),
                                       decoration: BoxDecoration(),
                                       child: SingleChildScrollView(

@@ -75,13 +75,16 @@ class _PredictionCardWidgetState extends State<PredictionCardWidget> {
 
     return Card(
       clipBehavior: Clip.antiAliasWithSaveLayer,
-      color: FlutterFlowTheme.of(context).warning,
+      color: FlutterFlowTheme.of(context).secondaryBackground,
       elevation: 0.0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16.0),
+        borderRadius: BorderRadius.circular(20.0),
+        side: BorderSide(
+          color: FlutterFlowTheme.of(context).alternate,
+        ),
       ),
       child: Padding(
-        padding: EdgeInsets.all(15.0),
+        padding: EdgeInsets.all(18.0),
         child: Row(
           mainAxisSize: MainAxisSize.max,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
