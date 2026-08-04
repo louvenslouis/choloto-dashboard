@@ -138,9 +138,9 @@ class _UsersWidgetState extends State<UsersWidget> {
                                   horizontal: 20.0,
                                 ),
                                 decoration: BoxDecoration(),
-                                child: SingleChildScrollView(
+                                child: SizedBox.expand(
                                   child: Column(
-                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisSize: MainAxisSize.max,
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
@@ -625,14 +625,9 @@ class _UsersWidgetState extends State<UsersWidget> {
                                           ),
                                         ),
                                       ),
-                                      SizedBox(
-                                        height:
-                                            MediaQuery.sizeOf(context).height *
-                                                0.55,
+                                      Expanded(
                                         child: Padding(
-                                          padding:
-                                              EdgeInsetsDirectional.fromSTEB(
-                                                  0.0, 0.0, 0.0, 50.0),
+                                          padding: EdgeInsets.zero,
                                           child: Builder(
                                             builder: (context) {
                                               final names = () {
