@@ -156,7 +156,7 @@ class _UsersWidgetState extends State<UsersWidget> {
                                         clipBehavior:
                                             Clip.antiAliasWithSaveLayer,
                                         color: FlutterFlowTheme.of(context)
-                                            .primaryBackground,
+                                            .secondaryBackground,
                                         elevation: 0.0,
                                         shape: RoundedRectangleBorder(
                                           borderRadius:
@@ -1313,7 +1313,7 @@ class _UsersWidgetState extends State<UsersWidget> {
                                                 columnSpacing: 20.0,
                                                 headingRowColor:
                                                     FlutterFlowTheme.of(context)
-                                                        .primaryBackground,
+                                                        .secondaryBackground,
                                                 sortIconColor:
                                                     FlutterFlowTheme.of(context)
                                                         .primary,
@@ -1325,7 +1325,7 @@ class _UsersWidgetState extends State<UsersWidget> {
                                                     false,
                                                 horizontalDividerColor:
                                                     FlutterFlowTheme.of(context)
-                                                        .primaryBackground,
+                                                        .alternate,
                                                 horizontalDividerThickness: 2.0,
                                                 addVerticalDivider: true,
                                                 verticalDividerColor:
