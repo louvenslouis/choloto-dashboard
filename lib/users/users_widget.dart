@@ -36,6 +36,17 @@ class _UsersWidgetState extends State<UsersWidget> {
   late UsersModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _isHeaderCollapsed = false;
+
+  bool _handleUserListScroll(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) return false;
+
+    final shouldCollapse = notification.metrics.pixels > 20.0;
+    if (shouldCollapse != _isHeaderCollapsed && mounted) {
+      setState(() => _isHeaderCollapsed = shouldCollapse);
+    }
+    return false;
+  }
 
   @override
   void initState() {
@@ -144,9 +155,23 @@ class _UsersWidgetState extends State<UsersWidget> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      const AdminSectionHeader(
-                                        title: 'Utilisateurs',
-                                        icon: Icons.people_alt_rounded,
+                                      AnimatedCrossFade(
+                                        firstChild: const AdminSectionHeader(
+                                          title: 'Utilisateurs',
+                                          icon: Icons.people_alt_rounded,
+                                        ),
+                                        secondChild: const SizedBox(
+                                          width: double.infinity,
+                                        ),
+                                        crossFadeState: _isHeaderCollapsed
+                                            ? CrossFadeState.showSecond
+                                            : CrossFadeState.showFirst,
+                                        duration:
+                                            const Duration(milliseconds: 220),
+                                        sizeCurve: Curves.easeOutCubic,
+                                        firstCurve: Curves.easeOutCubic,
+                                        secondCurve: Curves.easeInCubic,
+                                        alignment: Alignment.topCenter,
                                       ),
                                       Card(
                                         clipBehavior:
@@ -654,6 +679,8 @@ class _UsersWidgetState extends State<UsersWidget> {
                                                   UserRecord>(
                                                 controller: _model
                                                     .paginatedDataTableController,
+                                                onScrollNotification:
+                                                    _handleUserListScroll,
                                                 data: names,
                                                 columnsBuilder:
                                                     (onSortChanged) => [

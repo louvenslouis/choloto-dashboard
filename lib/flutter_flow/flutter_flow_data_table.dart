@@ -127,6 +127,7 @@ class FlutterFlowDataTable<T> extends StatefulWidget {
     this.onPageChanged,
     this.onSortChanged,
     this.onRowsPerPageChanged,
+    this.onScrollNotification,
     this.paginated = true,
     this.selectable = false,
     this.hidePaginator = false,
@@ -165,6 +166,7 @@ class FlutterFlowDataTable<T> extends StatefulWidget {
   final Function(int)? onPageChanged;
   final Function(int, bool)? onSortChanged;
   final Function(int)? onRowsPerPageChanged;
+  final NotificationListenerCallback<ScrollNotification>? onScrollNotification;
   // Functionality options
   final bool paginated;
   final bool selectable;
@@ -279,7 +281,7 @@ class _FlutterFlowDataTableState<T> extends State<FlutterFlowDataTable<T>> {
         : BorderSide.none;
 
     if (widget.paginated) {
-      return ClipRRect(
+      return _withScrollNotification(ClipRRect(
         borderRadius: widget.borderRadius ?? BorderRadius.zero,
         child: SizedBox(
           width: widget.width,
@@ -340,9 +342,9 @@ class _FlutterFlowDataTableState<T> extends State<FlutterFlowDataTable<T>> {
             ),
           ),
         ),
-      );
+      ));
     } else {
-      return ClipRRect(
+      return _withScrollNotification(ClipRRect(
         borderRadius: widget.borderRadius ?? BorderRadius.zero,
         child: SizedBox(
           width: widget.width,
@@ -399,8 +401,17 @@ class _FlutterFlowDataTableState<T> extends State<FlutterFlowDataTable<T>> {
             ),
           ),
         ),
-      );
+      ));
     }
+  }
+
+  Widget _withScrollNotification(Widget child) {
+    final callback = widget.onScrollNotification;
+    if (callback == null) return child;
+    return NotificationListener<ScrollNotification>(
+      onNotification: callback,
+      child: child,
+    );
   }
 
   // Return the total fixed width of all columns that have a specified width,
