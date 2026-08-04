@@ -142,9 +142,7 @@ class _UsersWidgetState extends State<UsersWidget> {
 
                             return SafeArea(
                               child: Container(
-                                constraints: BoxConstraints(
-                                  maxWidth: 1120.0,
-                                ),
+                                width: double.infinity,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 20.0,
                                 ),
@@ -685,6 +683,7 @@ class _UsersWidgetState extends State<UsersWidget> {
                                                 columnsBuilder:
                                                     (onSortChanged) => [
                                                   DataColumn2(
+                                                    size: ColumnSize.L,
                                                     label:
                                                         DefaultTextStyle.merge(
                                                       softWrap: true,
@@ -736,10 +735,10 @@ class _UsersWidgetState extends State<UsersWidget> {
                                                         ),
                                                       ),
                                                     ),
-                                                    fixedWidth: 310.0,
                                                     onSort: onSortChanged,
                                                   ),
                                                   DataColumn2(
+                                                    size: ColumnSize.M,
                                                     label:
                                                         DefaultTextStyle.merge(
                                                       softWrap: true,
@@ -791,9 +790,9 @@ class _UsersWidgetState extends State<UsersWidget> {
                                                         ),
                                                       ),
                                                     ),
-                                                    fixedWidth: 140.0,
                                                   ),
                                                   DataColumn2(
+                                                    size: ColumnSize.S,
                                                     label:
                                                         DefaultTextStyle.merge(
                                                       softWrap: true,
@@ -845,15 +844,14 @@ class _UsersWidgetState extends State<UsersWidget> {
                                                         ),
                                                       ),
                                                     ),
-                                                    fixedWidth: 125.0,
                                                   ),
                                                   DataColumn2(
+                                                    size: ColumnSize.S,
                                                     label:
                                                         DefaultTextStyle.merge(
                                                       softWrap: true,
                                                       child: Container(),
                                                     ),
-                                                    fixedWidth: 100.0,
                                                   ),
                                                   DataColumn2(
                                                     label:
@@ -1333,7 +1331,8 @@ class _UsersWidgetState extends State<UsersWidget> {
                                                 selectable: false,
                                                 headingRowHeight: 56.0,
                                                 dataRowHeight: 48.0,
-                                                columnSpacing: 20.0,
+                                                columnSpacing: 16.0,
+                                                minWidth: 760.0,
                                                 headingRowColor:
                                                     FlutterFlowTheme.of(context)
                                                         .secondaryBackground,
