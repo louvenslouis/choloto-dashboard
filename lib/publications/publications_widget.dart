@@ -2,7 +2,6 @@ import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/backend/schema/structs/index.dart';
 import '/components/admin_ui.dart';
-import '/flutter_flow/flutter_flow_button_tabbar.dart';
 import '/flutter_flow/flutter_flow_choice_chips.dart';
 import '/flutter_flow/flutter_flow_drop_down.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
@@ -123,81 +122,8 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                       children: [
                         const AdminSectionHeader(
                           title: 'Publications BINGO',
-                          description:
-                              'Composez les grilles, vérifiez les informations '
-                              'et gérez leur historique de publication.',
                           icon: Icons.newspaper_rounded,
-                        ),
-                        Align(
-                          alignment: Alignment(0.0, 0),
-                          child: FlutterFlowButtonTabBar(
-                            useToggleButtonStyle: false,
-                            labelStyle: FlutterFlowTheme.of(context)
-                                .titleMedium
-                                .override(
-                                  font: GoogleFonts.interTight(
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .titleMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .titleMedium
-                                        .fontStyle,
-                                  ),
-                                  letterSpacing: 0.0,
-                                  fontWeight: FlutterFlowTheme.of(context)
-                                      .titleMedium
-                                      .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .titleMedium
-                                      .fontStyle,
-                                ),
-                            unselectedLabelStyle: FlutterFlowTheme.of(context)
-                                .titleMedium
-                                .override(
-                                  font: GoogleFonts.interTight(
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .titleMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .titleMedium
-                                        .fontStyle,
-                                  ),
-                                  letterSpacing: 0.0,
-                                  fontWeight: FlutterFlowTheme.of(context)
-                                      .titleMedium
-                                      .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .titleMedium
-                                      .fontStyle,
-                                ),
-                            labelColor:
-                                FlutterFlowTheme.of(context).primaryText,
-                            unselectedLabelColor:
-                                FlutterFlowTheme.of(context).secondaryText,
-                            backgroundColor:
-                                FlutterFlowTheme.of(context).accent1,
-                            unselectedBackgroundColor:
-                                FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
-                            borderColor: FlutterFlowTheme.of(context).secondary,
-                            unselectedBorderColor:
-                                FlutterFlowTheme.of(context).alternate,
-                            borderWidth: 1.0,
-                            borderRadius: 14.0,
-                            elevation: 0.0,
-                            buttonMargin: EdgeInsetsDirectional.fromSTEB(
-                                4.0, 0.0, 4.0, 0.0),
-                            padding: EdgeInsets.all(10.0),
-                            tabs: [
-                              Tab(
-                                text: 'BINGO',
-                              ),
-                            ],
-                            controller: _model.tabBarController,
-                            onTap: (i) async {
-                              [() async {}][i]();
-                            },
-                          ),
+                          dense: true,
                         ),
                         Expanded(
                           child: TabBarView(
@@ -206,7 +132,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                               KeepAliveWidgetWrapper(
                                 builder: (context) => Padding(
                                   padding: EdgeInsetsDirectional.fromSTEB(
-                                      0.0, 40.0, 0.0, 0.0),
+                                      0.0, 10.0, 0.0, 0.0),
                                   child: Column(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -229,7 +155,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                                           autovalidateMode:
                                               AutovalidateMode.disabled,
                                           child: Padding(
-                                            padding: EdgeInsets.all(18.0),
+                                            padding: EdgeInsets.all(12.0),
                                             child: Column(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
@@ -313,7 +239,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                                                                   false,
                                                               decoration:
                                                                   InputDecoration(
-                                                                isDense: false,
+                                                                isDense: true,
                                                                 labelText:
                                                                     'Le Numero du Bingo',
                                                                 hintText: '#',
@@ -725,10 +651,10 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                                                           wrapped: true,
                                                         ),
                                                       ].divide(SizedBox(
-                                                          height: 15.0)),
+                                                          height: 8.0)),
                                                     ),
                                                     SizedBox(
-                                                      height: 175.0,
+                                                      height: 128.0,
                                                       child: VerticalDivider(
                                                         thickness: 2.0,
                                                         color: FlutterFlowTheme
@@ -787,7 +713,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                                                                   false,
                                                               decoration:
                                                                   InputDecoration(
-                                                                isDense: false,
+                                                                isDense: true,
                                                                 labelText:
                                                                     'Le Numero du Bingo',
                                                                 hintText: '#',
@@ -946,7 +872,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                                                                   false,
                                                               decoration:
                                                                   InputDecoration(
-                                                                isDense: false,
+                                                                isDense: true,
                                                                 labelText:
                                                                     'Valeur',
                                                                 hintText:
@@ -1106,7 +1032,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                                                                   false,
                                                               decoration:
                                                                   InputDecoration(
-                                                                isDense: false,
+                                                                isDense: true,
                                                                 labelText:
                                                                     'Le nom du tirage',
                                                                 hintText:
@@ -1363,10 +1289,10 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                                                           ),
                                                         ),
                                                       ].divide(SizedBox(
-                                                          height: 15.0)),
+                                                          height: 8.0)),
                                                     ),
                                                     SizedBox(
-                                                      height: 175.0,
+                                                      height: 128.0,
                                                       child: VerticalDivider(
                                                         thickness: 2.0,
                                                         color: Colors.white,
@@ -1423,7 +1349,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                                                                   false,
                                                               decoration:
                                                                   InputDecoration(
-                                                                isDense: false,
+                                                                isDense: true,
                                                                 labelText:
                                                                     'Le Numero du Bingo',
                                                                 hintText: '#',
@@ -1582,7 +1508,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                                                                   false,
                                                               decoration:
                                                                   InputDecoration(
-                                                                isDense: false,
+                                                                isDense: true,
                                                                 labelText:
                                                                     'Valeur',
                                                                 hintText:
@@ -1742,7 +1668,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                                                                   false,
                                                               decoration:
                                                                   InputDecoration(
-                                                                isDense: false,
+                                                                isDense: true,
                                                                 labelText:
                                                                     'Le nom du tirage',
                                                                 hintText:
@@ -1999,7 +1925,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                                                           ),
                                                         ),
                                                       ].divide(SizedBox(
-                                                          height: 15.0)),
+                                                          height: 8.0)),
                                                     ),
                                                   ],
                                                 ),

@@ -68,9 +68,6 @@ class _YoutubeWidgetState extends State<YoutubeWidget> {
                       children: [
                         const AdminSectionHeader(
                           title: 'Chaîne YouTube',
-                          description:
-                              'Accédez aux outils de publication vidéo et '
-                              'suivez l’évolution de ce module.',
                           icon: Icons.play_circle_fill_rounded,
                         ),
                         _YoutubeEmptyState(
@@ -142,20 +139,6 @@ class _YoutubeEmptyState extends StatelessWidget {
             'La gestion vidéo arrive bientôt',
             textAlign: TextAlign.center,
             style: theme.headlineSmall.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 10),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
-            child: Text(
-              'La publication directe n’est pas encore configurée dans ce '
-              'tableau de bord. En attendant, utilisez YouTube Studio pour '
-              'gérer les vidéos de la chaîne.',
-              textAlign: TextAlign.center,
-              style: theme.bodyMedium.copyWith(
-                color: theme.secondaryText,
-                height: 1.55,
-              ),
-            ),
           ),
           const SizedBox(height: 24),
           OutlinedButton.icon(

@@ -116,9 +116,6 @@ class _TiragesWidgetState extends State<TiragesWidget> {
                         children: [
                           const AdminSectionHeader(
                             title: 'Gestion des tirages',
-                            description:
-                                'Saisissez et publiez les résultats officiels '
-                                'pour chaque région et chaque période.',
                             icon: Icons.confirmation_number_rounded,
                           ),
                           Card(

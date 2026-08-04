@@ -95,9 +95,6 @@ class _PredictionsWidgetState extends State<PredictionsWidget>
                       padding: EdgeInsets.symmetric(horizontal: 20.0),
                       child: AdminSectionHeader(
                         title: 'Prédictions',
-                        description:
-                            'Préparez les sélections du jour et consultez '
-                            'rapidement les publications précédentes.',
                         icon: Icons.auto_graph_rounded,
                       ),
                     ),

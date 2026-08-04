@@ -20,11 +20,6 @@ class _SidenavWidgetState extends State<SidenavWidget> {
   late SidenavModel _model;
   final ScrollController _navigationScrollController = ScrollController();
 
-  static final _overviewItems = <_NavItem>[
-    _NavItem('Vue d’ensemble', Icons.space_dashboard_rounded,
-        DashboardWidget.routeName, DashboardWidget.routePath),
-  ];
-
   static final _operationItems = <_NavItem>[
     _NavItem('Tirages', Icons.confirmation_number_rounded,
         TiragesWidget.routeName, TiragesWidget.routePath),
@@ -188,16 +183,6 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _NavMenuGroup(
-                              title: 'TABLEAU DE BORD',
-                              items: _overviewItems,
-                              currentRoute: currentRoute,
-                              onNavigate: (route) {
-                                if (inModal) Navigator.of(context).pop();
-                                context.goNamed(route);
-                              },
-                            ),
-                            const SizedBox(height: 18),
                             _NavMenuGroup(
                               title: 'OPÉRATIONS',
                               items: _operationItems,

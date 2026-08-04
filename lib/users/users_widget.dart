@@ -146,10 +146,6 @@ class _UsersWidgetState extends State<UsersWidget> {
                                     children: [
                                       const AdminSectionHeader(
                                         title: 'Utilisateurs',
-                                        description:
-                                            'Recherchez un membre, vérifiez '
-                                            'son statut et gérez rapidement '
-                                            'son abonnement.',
                                         icon: Icons.people_alt_rounded,
                                       ),
                                       Card(

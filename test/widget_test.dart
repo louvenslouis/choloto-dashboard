@@ -30,7 +30,6 @@ void main() {
     );
 
     expect(find.text('Tirages'), findsOneWidget);
-    expect(find.text('Administration CHOLOTO'), findsOneWidget);
     expect(find.text('En ligne'), findsOneWidget);
     expect(find.byTooltip('Open navigation menu'), findsOneWidget);
   });
@@ -42,7 +41,6 @@ void main() {
         home: Scaffold(
           body: AdminSectionHeader(
             title: 'Utilisateurs',
-            description: 'Gérez les membres de la communauté.',
             icon: Icons.people_alt_rounded,
           ),
         ),
@@ -51,6 +49,5 @@ void main() {
 
     expect(find.text('ESPACE DE GESTION'), findsOneWidget);
     expect(find.text('Utilisateurs'), findsOneWidget);
-    expect(find.text('Gérez les membres de la communauté.'), findsOneWidget);
   });
 }

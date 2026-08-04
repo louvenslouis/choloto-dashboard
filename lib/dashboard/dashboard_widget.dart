@@ -321,15 +321,6 @@ class _WelcomeBanner extends StatelessWidget {
                   letterSpacing: -.65,
                 ),
               ),
-              const SizedBox(height: 10),
-              Text(
-                'Tirages, membres et contenus réunis dans un espace clair, '
-                'rapide et précis.',
-                style: theme.bodyMedium.copyWith(
-                  color: Colors.white.withValues(alpha: .82),
-                  height: 1.45,
-                ),
-              ),
               const SizedBox(height: 20),
               FilledButton.icon(
                 style: FilledButton.styleFrom(
@@ -574,7 +565,6 @@ class _ActivityPanel extends StatelessWidget {
     final theme = FlutterFlowTheme.of(context);
     return _Panel(
       title: 'Derniers tirages',
-      subtitle: 'Activité de publication récente',
       trailing: TextButton(
         onPressed: () => context.goNamed(TiragesWidget.routeName),
         child: const Text('Tout voir'),
@@ -662,35 +652,30 @@ class _QuickActions extends StatelessWidget {
   Widget build(BuildContext context) {
     return _Panel(
       title: 'Accès rapides',
-      subtitle: 'Vos actions les plus courantes',
       child: Column(
         children: [
           _ActionTile(
             icon: Icons.confirmation_number_rounded,
             color: const Color(0xFFE6B800),
             title: 'Saisir un tirage',
-            subtitle: 'Ajouter les nouveaux numéros',
             onTap: () => context.goNamed(TiragesWidget.routeName),
           ),
           _ActionTile(
             icon: Icons.auto_graph_rounded,
             color: const Color(0xFF6D5BD0),
             title: 'Créer une prédiction',
-            subtitle: 'Préparer les prochaines tendances',
             onTap: () => context.goNamed(PredictionsWidget.routeName),
           ),
           _ActionTile(
             icon: Icons.people_alt_rounded,
             color: const Color(0xFF3A7CA5),
             title: 'Gérer les membres',
-            subtitle: 'Consulter les abonnements',
             onTap: () => context.goNamed(UsersWidget.routeName),
           ),
           _ActionTile(
             icon: Icons.play_circle_fill_rounded,
             color: const Color(0xFFE34D59),
             title: 'Mettre à jour YouTube',
-            subtitle: 'Gérer le direct et les vidéos',
             onTap: () => context.goNamed(YoutubeWidget.routeName),
           ),
         ],
@@ -704,13 +689,11 @@ class _ActionTile extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.title,
-    required this.subtitle,
     required this.onTap,
   });
   final IconData icon;
   final Color color;
   final String title;
-  final String subtitle;
   final VoidCallback onTap;
 
   @override
@@ -732,10 +715,6 @@ class _ActionTile extends StatelessWidget {
         title,
         style: theme.bodyMedium.copyWith(fontWeight: FontWeight.w700),
       ),
-      subtitle: Text(
-        subtitle,
-        style: theme.bodySmall.copyWith(color: theme.secondaryText),
-      ),
       trailing: Icon(Icons.chevron_right_rounded, color: theme.secondaryText),
     );
   }
@@ -744,12 +723,10 @@ class _ActionTile extends StatelessWidget {
 class _Panel extends StatelessWidget {
   const _Panel({
     required this.title,
-    required this.subtitle,
     required this.child,
     this.trailing,
   });
   final String title;
-  final String subtitle;
   final Widget child;
   final Widget? trailing;
 
@@ -776,21 +753,10 @@ class _Panel extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: theme.titleMedium
-                          .copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      style:
-                          theme.bodySmall.copyWith(color: theme.secondaryText),
-                    ),
-                  ],
+                child: Text(
+                  title,
+                  style:
+                      theme.titleMedium.copyWith(fontWeight: FontWeight.w800),
                 ),
               ),
               if (trailing != null) trailing!,

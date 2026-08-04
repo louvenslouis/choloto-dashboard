@@ -120,9 +120,6 @@ class _CroixWidgetState extends State<CroixWidget> {
                       children: [
                         const AdminSectionHeader(
                           title: 'Croix de la chance',
-                          description:
-                              'Mettez à jour la combinaison active et gardez '
-                              'un œil sur les publications récentes.',
                           icon: Icons.brightness_7_rounded,
                         ),
                         Text(

@@ -63,15 +63,6 @@ class AdminMobileAppBar extends StatelessWidget implements PreferredSizeWidget {
                     letterSpacing: -.2,
                   ),
                 ),
-                Text(
-                  'Administration CHOLOTO',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.labelSmall.copyWith(
-                    color: theme.secondaryText,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
               ],
             ),
           ),
@@ -132,15 +123,15 @@ class AdminSectionHeader extends StatelessWidget {
   const AdminSectionHeader({
     super.key,
     required this.title,
-    required this.description,
     required this.icon,
     this.eyebrow = 'ESPACE DE GESTION',
+    this.dense = false,
   });
 
   final String title;
-  final String description;
   final IconData icon;
   final String eyebrow;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
@@ -150,8 +141,14 @@ class AdminSectionHeader extends StatelessWidget {
     return Semantics(
       header: true,
       child: Padding(
-        padding:
-            EdgeInsets.fromLTRB(2, compact ? 24 : 34, 2, compact ? 20 : 26),
+        padding: dense
+            ? const EdgeInsets.fromLTRB(2, 16, 2, 14)
+            : EdgeInsets.fromLTRB(
+                2,
+                compact ? 24 : 34,
+                2,
+                compact ? 20 : 26,
+              ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -195,14 +192,6 @@ class AdminSectionHeader extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       letterSpacing: -.6,
                       height: 1.12,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    description,
-                    style: theme.bodyMedium.copyWith(
-                      color: theme.secondaryText,
-                      height: 1.5,
                     ),
                   ),
                 ],
