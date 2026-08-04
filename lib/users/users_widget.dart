@@ -1,5 +1,5 @@
 import '/backend/backend.dart';
-import '/components/mobile_sidenav_widget.dart';
+import '/components/admin_ui.dart';
 import '/components/paiement_widget.dart';
 import '/components/user_widget.dart';
 import '/flutter_flow/flutter_flow_choice_chips.dart';
@@ -65,50 +65,21 @@ class _UsersWidgetState extends State<UsersWidget> {
       },
       child: Scaffold(
         key: scaffoldKey,
-        backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
+        backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
+        appBar: MediaQuery.sizeOf(context).width < 992
+            ? const AdminMobileAppBar(title: 'Utilisateurs')
+            : null,
+        drawer: MediaQuery.sizeOf(context).width < 992
+            ? const Drawer(
+                width: 288,
+                child: SidenavWidget(forceVisible: true),
+              )
+            : null,
         body: SafeArea(
           top: true,
           child: Column(
             mainAxisSize: MainAxisSize.max,
             children: [
-              if (responsiveVisibility(
-                context: context,
-                tabletLandscape: false,
-                desktop: false,
-              ))
-                InkWell(
-                  splashColor: Colors.transparent,
-                  focusColor: Colors.transparent,
-                  hoverColor: Colors.transparent,
-                  highlightColor: Colors.transparent,
-                  onTap: () async {
-                    logFirebaseEvent('USERS_PAGE_Container_d57n0k9q_ON_TAP');
-                    logFirebaseEvent('mobileSidenav_bottom_sheet');
-                    await showModalBottomSheet(
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      enableDrag: false,
-                      context: context,
-                      builder: (context) {
-                        return GestureDetector(
-                          onTap: () {
-                            FocusScope.of(context).unfocus();
-                            FocusManager.instance.primaryFocus?.unfocus();
-                          },
-                          child: Padding(
-                            padding: MediaQuery.viewInsetsOf(context),
-                            child: SidenavWidget(),
-                          ),
-                        );
-                      },
-                    ).then((value) => safeSetState(() {}));
-                  },
-                  child: wrapWithModel(
-                    model: _model.mobileSidenavModel,
-                    updateCallback: () => safeSetState(() {}),
-                    child: MobileSidenavWidget(),
-                  ),
-                ),
               Expanded(
                 child: Row(
                   mainAxisSize: MainAxisSize.max,
@@ -163,6 +134,9 @@ class _UsersWidgetState extends State<UsersWidget> {
                                 constraints: BoxConstraints(
                                   maxWidth: 970.0,
                                 ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20.0,
+                                ),
                                 decoration: BoxDecoration(),
                                 child: SingleChildScrollView(
                                   child: Column(
@@ -170,47 +144,13 @@ class _UsersWidgetState extends State<UsersWidget> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      if (responsiveVisibility(
-                                        context: context,
-                                        phone: false,
-                                        tablet: false,
-                                      ))
-                                        Container(
-                                          width: double.infinity,
-                                          height: 24.0,
-                                          decoration: BoxDecoration(),
-                                        ),
-                                      Padding(
-                                        padding: EdgeInsetsDirectional.fromSTEB(
-                                            16.0, 16.0, 0.0, 4.0),
-                                        child: Text(
-                                          'UTILISATEURS',
-                                          style: FlutterFlowTheme.of(context)
-                                              .headlineMedium
-                                              .override(
-                                                font: GoogleFonts.interTight(
-                                                  fontWeight:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .headlineMedium
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .headlineMedium
-                                                          .fontStyle,
-                                                ),
-                                                letterSpacing: 0.0,
-                                                fontWeight:
-                                                    FlutterFlowTheme.of(context)
-                                                        .headlineMedium
-                                                        .fontWeight,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .headlineMedium
-                                                        .fontStyle,
-                                              ),
-                                        ),
+                                      const AdminSectionHeader(
+                                        title: 'Utilisateurs',
+                                        description:
+                                            'Recherchez un membre, vérifiez '
+                                            'son statut et gérez rapidement '
+                                            'son abonnement.',
+                                        icon: Icons.people_alt_rounded,
                                       ),
                                       Card(
                                         clipBehavior:
@@ -236,15 +176,14 @@ class _UsersWidgetState extends State<UsersWidget> {
                                                   onChanged: (_) =>
                                                       EasyDebounce.debounce(
                                                     '_model.textController',
-                                                    Duration(
-                                                        milliseconds: 2000),
+                                                    Duration(milliseconds: 300),
                                                     () => safeSetState(() {}),
                                                   ),
                                                   autofocus: false,
                                                   obscureText: false,
                                                   decoration: InputDecoration(
                                                     labelText:
-                                                        'Rechercher par Email ou Nom',
+                                                        'Rechercher par nom ou e-mail',
                                                     labelStyle: FlutterFlowTheme
                                                             .of(context)
                                                         .labelMedium

@@ -1,5 +1,6 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/components/admin_ui.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -82,7 +83,16 @@ class _CroixWidgetState extends State<CroixWidget> {
       },
       child: Scaffold(
         key: scaffoldKey,
-        backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
+        backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
+        appBar: MediaQuery.sizeOf(context).width < 992
+            ? const AdminMobileAppBar(title: 'Croix de la chance')
+            : null,
+        drawer: MediaQuery.sizeOf(context).width < 992
+            ? const Drawer(
+                width: 288,
+                child: SidenavWidget(forceVisible: true),
+              )
+            : null,
         body: SafeArea(
           top: true,
           child: Row(
@@ -102,13 +112,21 @@ class _CroixWidgetState extends State<CroixWidget> {
                     constraints: BoxConstraints(
                       maxWidth: 970.0,
                     ),
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
                     decoration: BoxDecoration(),
                     child: Column(
                       mainAxisSize: MainAxisSize.max,
                       mainAxisAlignment: MainAxisAlignment.start,
                       children: [
+                        const AdminSectionHeader(
+                          title: 'Croix de la chance',
+                          description:
+                              'Mettez à jour la combinaison active et gardez '
+                              'un œil sur les publications récentes.',
+                          icon: Icons.brightness_7_rounded,
+                        ),
                         Text(
-                          'Mise a jour',
+                          'Mise à jour',
                           style:
                               FlutterFlowTheme.of(context).bodyMedium.override(
                                     font: GoogleFonts.inter(
@@ -1289,19 +1307,19 @@ class _CroixWidgetState extends State<CroixWidget> {
                                   context: context,
                                   builder: (alertDialogContext) {
                                     return AlertDialog(
-                                      title: Text('Verification'),
+                                      title: Text('Vérifier la publication'),
                                       content: Text(
                                           '${_model.list.elementAtOrNull(0)} ; ${_model.list.elementAtOrNull(1)} ; ${_model.list.elementAtOrNull(2)} ; ${_model.list.elementAtOrNull(3)} ; ${_model.list.elementAtOrNull(5)} ; ${_model.list.elementAtOrNull(6)} ; ${_model.list.elementAtOrNull(7)} ; ${_model.list.elementAtOrNull(8)}'),
                                       actions: [
                                         TextButton(
                                           onPressed: () => Navigator.pop(
                                               alertDialogContext, false),
-                                          child: Text('Cancel'),
+                                          child: Text('Annuler'),
                                         ),
                                         TextButton(
                                           onPressed: () => Navigator.pop(
                                               alertDialogContext, true),
-                                          child: Text('Confirm'),
+                                          child: Text('Confirmer'),
                                         ),
                                       ],
                                     );
@@ -1327,7 +1345,7 @@ class _CroixWidgetState extends State<CroixWidget> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    'Updated',
+                                    'Mise à jour publiée',
                                     style: TextStyle(
                                       color: FlutterFlowTheme.of(context)
                                           .primaryText,
@@ -1355,7 +1373,7 @@ class _CroixWidgetState extends State<CroixWidget> {
                               );
                             }
                           },
-                          text: 'UPDATE',
+                          text: 'Publier la mise à jour',
                           options: FFButtonOptions(
                             height: 40.0,
                             padding: EdgeInsetsDirectional.fromSTEB(

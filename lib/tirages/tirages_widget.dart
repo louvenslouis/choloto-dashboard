@@ -1,5 +1,6 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/components/admin_ui.dart';
 import '/flutter_flow/flutter_flow_choice_chips.dart';
 import '/flutter_flow/flutter_flow_drop_down.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -76,7 +77,16 @@ class _TiragesWidgetState extends State<TiragesWidget> {
       },
       child: Scaffold(
         key: scaffoldKey,
-        backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
+        backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
+        appBar: MediaQuery.sizeOf(context).width < 992
+            ? const AdminMobileAppBar(title: 'Tirages')
+            : null,
+        drawer: MediaQuery.sizeOf(context).width < 992
+            ? const Drawer(
+                width: 288,
+                child: SidenavWidget(forceVisible: true),
+              )
+            : null,
         body: SafeArea(
           top: true,
           child: Row(
@@ -96,6 +106,7 @@ class _TiragesWidgetState extends State<TiragesWidget> {
                     constraints: BoxConstraints(
                       maxWidth: 970.0,
                     ),
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
                     decoration: BoxDecoration(),
                     child: Container(
                       width: 0.0,
@@ -103,6 +114,13 @@ class _TiragesWidgetState extends State<TiragesWidget> {
                       child: Column(
                         mainAxisSize: MainAxisSize.max,
                         children: [
+                          const AdminSectionHeader(
+                            title: 'Gestion des tirages',
+                            description:
+                                'Saisissez et publiez les résultats officiels '
+                                'pour chaque région et chaque période.',
+                            icon: Icons.confirmation_number_rounded,
+                          ),
                           Card(
                             clipBehavior: Clip.antiAliasWithSaveLayer,
                             color: FlutterFlowTheme.of(context).warning,
@@ -704,8 +722,20 @@ class _TiragesWidgetState extends State<TiragesWidget> {
                                               },
                                             ),
                                           });
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context)
+                                              ..hideCurrentSnackBar()
+                                              ..showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'Tirage de New York publié '
+                                                    'avec succès.',
+                                                  ),
+                                                ),
+                                              );
+                                          }
                                         },
-                                        text: 'Update',
+                                        text: 'Publier le tirage',
                                         options: FFButtonOptions(
                                           height: 40.0,
                                           padding:
@@ -1480,8 +1510,20 @@ class _TiragesWidgetState extends State<TiragesWidget> {
                                               },
                                             ),
                                           });
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context)
+                                              ..hideCurrentSnackBar()
+                                              ..showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'Tirage de Floride publié '
+                                                    'avec succès.',
+                                                  ),
+                                                ),
+                                              );
+                                          }
                                         },
-                                        text: 'Update',
+                                        text: 'Publier le tirage',
                                         options: FFButtonOptions(
                                           height: 40.0,
                                           padding:

@@ -1,5 +1,6 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/components/admin_ui.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/schema/structs/index.dart';
 import '/components/prediction_card_widget.dart';
@@ -66,7 +67,16 @@ class _PredictionsWidgetState extends State<PredictionsWidget>
       },
       child: Scaffold(
         key: scaffoldKey,
-        backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
+        backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
+        appBar: MediaQuery.sizeOf(context).width < 992
+            ? const AdminMobileAppBar(title: 'Prédictions')
+            : null,
+        drawer: MediaQuery.sizeOf(context).width < 992
+            ? const Drawer(
+                width: 288,
+                child: SidenavWidget(forceVisible: true),
+              )
+            : null,
         body: SafeArea(
           top: true,
           child: Row(
@@ -81,6 +91,16 @@ class _PredictionsWidgetState extends State<PredictionsWidget>
               Expanded(
                 child: Column(
                   children: [
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20.0),
+                      child: AdminSectionHeader(
+                        title: 'Prédictions',
+                        description:
+                            'Préparez les sélections du jour et consultez '
+                            'rapidement les publications précédentes.',
+                        icon: Icons.auto_graph_rounded,
+                      ),
+                    ),
                     Align(
                       alignment: Alignment(0.0, 0),
                       child: FlutterFlowButtonTabBar(
@@ -137,7 +157,7 @@ class _PredictionsWidgetState extends State<PredictionsWidget>
                             EdgeInsetsDirectional.fromSTEB(8.0, 0.0, 8.0, 0.0),
                         tabs: [
                           Tab(
-                            text: 'Predictions',
+                            text: 'Prédictions',
                           ),
                           Tab(
                             text: 'Historique',
@@ -451,7 +471,8 @@ class _PredictionsWidgetState extends State<PredictionsWidget>
                                                         .showSnackBar(
                                                       SnackBar(
                                                         content: Text(
-                                                          'step 1 block test',
+                                                          'Préparation des '
+                                                          'prédictions…',
                                                           style: TextStyle(
                                                             color: FlutterFlowTheme
                                                                     .of(context)
@@ -742,7 +763,8 @@ class _PredictionsWidgetState extends State<PredictionsWidget>
                                                         .showSnackBar(
                                                       SnackBar(
                                                         content: Text(
-                                                          'Suivant',
+                                                          'Validation des '
+                                                          'sélections…',
                                                           style: TextStyle(
                                                             color: FlutterFlowTheme
                                                                     .of(context)
@@ -974,7 +996,9 @@ class _PredictionsWidgetState extends State<PredictionsWidget>
                                                         .showSnackBar(
                                                       SnackBar(
                                                         content: Text(
-                                                          'creation1',
+                                                          'Prédictions '
+                                                          'publiées avec '
+                                                          'succès.',
                                                           style: TextStyle(
                                                             color: FlutterFlowTheme
                                                                     .of(context)
@@ -992,7 +1016,8 @@ class _PredictionsWidgetState extends State<PredictionsWidget>
 
                                                     safeSetState(() {});
                                                   },
-                                                  text: 'UPDATE',
+                                                  text:
+                                                      'Publier les prédictions',
                                                   options: FFButtonOptions(
                                                     height: 40.0,
                                                     padding:
@@ -1099,7 +1124,8 @@ class _PredictionsWidgetState extends State<PredictionsWidget>
                                           .showSnackBar(
                                         SnackBar(
                                           content: Text(
-                                            'Impossible de supprimmer, veuillez reessayer',
+                                            'Suppression impossible pour le '
+                                            'moment. Veuillez réessayer.',
                                             style: TextStyle(
                                               color:
                                                   FlutterFlowTheme.of(context)

@@ -1,6 +1,7 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/backend/schema/structs/index.dart';
+import '/components/admin_ui.dart';
 import '/flutter_flow/flutter_flow_button_tabbar.dart';
 import '/flutter_flow/flutter_flow_choice_chips.dart';
 import '/flutter_flow/flutter_flow_drop_down.dart';
@@ -87,7 +88,16 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
       },
       child: Scaffold(
         key: scaffoldKey,
-        backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
+        backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
+        appBar: MediaQuery.sizeOf(context).width < 992
+            ? const AdminMobileAppBar(title: 'Publications BINGO')
+            : null,
+        drawer: MediaQuery.sizeOf(context).width < 992
+            ? const Drawer(
+                width: 288,
+                child: SidenavWidget(forceVisible: true),
+              )
+            : null,
         body: SafeArea(
           top: true,
           child: Row(
@@ -107,9 +117,17 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                     constraints: BoxConstraints(
                       maxWidth: 970.0,
                     ),
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
                     decoration: BoxDecoration(),
                     child: Column(
                       children: [
+                        const AdminSectionHeader(
+                          title: 'Publications BINGO',
+                          description:
+                              'Composez les grilles, vérifiez les informations '
+                              'et gérez leur historique de publication.',
+                          icon: Icons.newspaper_rounded,
+                        ),
                         Align(
                           alignment: Alignment(0.0, 0),
                           child: FlutterFlowButtonTabBar(
@@ -2114,8 +2132,22 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                                                             },
                                                           ),
                                                         });
+                                                        if (context.mounted) {
+                                                          ScaffoldMessenger.of(
+                                                              context)
+                                                            ..hideCurrentSnackBar()
+                                                            ..showSnackBar(
+                                                              const SnackBar(
+                                                                content: Text(
+                                                                  'BINGO '
+                                                                  'publié avec '
+                                                                  'succès.',
+                                                                ),
+                                                              ),
+                                                            );
+                                                        }
                                                       },
-                                                      text: 'Update',
+                                                      text: 'Publier le BINGO',
                                                       options: FFButtonOptions(
                                                         height: 40.0,
                                                         padding:

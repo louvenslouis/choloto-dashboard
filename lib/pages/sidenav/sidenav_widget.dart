@@ -18,6 +18,7 @@ class SidenavWidget extends StatefulWidget {
 
 class _SidenavWidgetState extends State<SidenavWidget> {
   late SidenavModel _model;
+  final ScrollController _navigationScrollController = ScrollController();
 
   static final _operationItems = <_NavItem>[
     _NavItem('Tirages', Icons.confirmation_number_rounded,
@@ -43,6 +44,7 @@ class _SidenavWidgetState extends State<SidenavWidget> {
 
   @override
   void dispose() {
+    _navigationScrollController.dispose();
     _model.maybeDispose();
     super.dispose();
   }
@@ -148,38 +150,46 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                   ),
                   const SizedBox(height: 18),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _NavMenuGroup(
-                          title: 'OPÉRATIONS',
-                          items: _operationItems,
-                          currentRoute: currentRoute,
-                          onNavigate: (route) {
-                            if (inModal) Navigator.of(context).pop();
-                            context.goNamed(route);
-                          },
+                    child: Scrollbar(
+                      controller: _navigationScrollController,
+                      child: SingleChildScrollView(
+                        controller: _navigationScrollController,
+                        padding: const EdgeInsets.only(right: 4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _NavMenuGroup(
+                              title: 'OPÉRATIONS',
+                              items: _operationItems,
+                              currentRoute: currentRoute,
+                              onNavigate: (route) {
+                                if (inModal) Navigator.of(context).pop();
+                                context.goNamed(route);
+                              },
+                            ),
+                            const SizedBox(height: 10),
+                            _NavMenuGroup(
+                              title: 'COMMUNAUTÉ',
+                              items: _communityItems,
+                              currentRoute: currentRoute,
+                              onNavigate: (route) {
+                                if (inModal) Navigator.of(context).pop();
+                                context.goNamed(route);
+                              },
+                            ),
+                            const SizedBox(height: 10),
+                            const _NavGroupLabel('OUTILS'),
+                            const SizedBox(height: 3),
+                            _NavTile(
+                              label: 'Messagerie',
+                              icon: Icons.alternate_email_rounded,
+                              selected: false,
+                              onTap: () =>
+                                  launchURL('https://email.choloto.com'),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 10),
-                        _NavMenuGroup(
-                          title: 'COMMUNAUTÉ',
-                          items: _communityItems,
-                          currentRoute: currentRoute,
-                          onNavigate: (route) {
-                            if (inModal) Navigator.of(context).pop();
-                            context.goNamed(route);
-                          },
-                        ),
-                        const SizedBox(height: 10),
-                        const _NavGroupLabel('OUTILS'),
-                        const SizedBox(height: 3),
-                        _NavTile(
-                          label: 'Messagerie',
-                          icon: Icons.alternate_email_rounded,
-                          selected: false,
-                          onTap: () => launchURL('https://email.choloto.com'),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                   Divider(color: Colors.white.withValues(alpha: .10)),
