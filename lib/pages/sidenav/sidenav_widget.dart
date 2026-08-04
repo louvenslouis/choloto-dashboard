@@ -4,6 +4,7 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
 import '/main.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'sidenav_model.dart';
 export 'sidenav_model.dart';
 
@@ -84,11 +85,14 @@ class _SidenavWidgetState extends State<SidenavWidget> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<FFAppState>();
+
     final theme = FlutterFlowTheme.of(context);
     final inModal = ModalRoute.of(context) is PopupRoute;
-    final showNavigation = MediaQuery.sizeOf(context).width >= 992 ||
-        inModal ||
-        widget.forceVisible;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 992;
+    final showNavigation = isDesktop || inModal || widget.forceVisible;
+    final canCollapse = isDesktop && !widget.forceVisible && !inModal;
+    final isCollapsed = canCollapse && FFAppState().sideNavCollapsed;
     final currentRoute = getCurrentRoute(context);
 
     if (!showNavigation) return const SizedBox.shrink();
@@ -100,7 +104,7 @@ class _SidenavWidgetState extends State<SidenavWidget> {
       color: const Color(0xFF10243A),
       child: SafeArea(
         child: SizedBox(
-          width: 264,
+          width: isCollapsed ? 84 : 264,
           height: double.infinity,
           child: DecoratedBox(
             decoration: BoxDecoration(
@@ -114,66 +118,68 @@ class _SidenavWidgetState extends State<SidenavWidget> {
               ),
             ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 18, 14, 12),
+              padding: EdgeInsets.fromLTRB(
+                isCollapsed ? 10 : 14,
+                18,
+                isCollapsed ? 10 : 14,
+                12,
+              ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Row(
+                  if (isCollapsed)
+                    Column(
                       children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          padding: const EdgeInsets.all(3),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: .18),
-                                blurRadius: 16,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(11),
-                            child: Image.asset(
-                              'assets/images/Logo_Choloto_509.png',
-                              fit: BoxFit.cover,
+                        _CollapseButton(
+                          isCollapsed: true,
+                          onPressed: _toggleCollapsed,
+                        ),
+                        const SizedBox(height: 12),
+                        const _BrandLogo(size: 40),
+                      ],
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Row(
+                        children: [
+                          const _BrandLogo(size: 44),
+                          const SizedBox(width: 11),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'CHOLOTO',
+                                  style: theme.titleMedium.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                    letterSpacing: -.4,
+                                  ),
+                                ),
+                                Text(
+                                  'ESPACE ADMIN',
+                                  style: theme.labelSmall.copyWith(
+                                    color: theme.secondary,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.05,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 11),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'CHOLOTO',
-                                style: theme.titleMedium.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                  letterSpacing: -.4,
-                                ),
-                              ),
-                              Text(
-                                'ESPACE ADMIN',
-                                style: theme.labelSmall.copyWith(
-                                  color: theme.secondary,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1.05,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                          if (canCollapse) ...[
+                            const SizedBox(width: 4),
+                            _CollapseButton(
+                              isCollapsed: false,
+                              onPressed: _toggleCollapsed,
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 28),
+                  SizedBox(height: isCollapsed ? 20 : 28),
                   Expanded(
                     child: Scrollbar(
                       controller: _navigationScrollController,
@@ -187,6 +193,7 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                               title: 'OPÉRATIONS',
                               items: _operationItems,
                               currentRoute: currentRoute,
+                              collapsed: isCollapsed,
                               onNavigate: (route) {
                                 if (inModal) Navigator.of(context).pop();
                                 context.goNamed(route);
@@ -197,18 +204,22 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                               title: 'COMMUNAUTÉ',
                               items: _communityItems,
                               currentRoute: currentRoute,
+                              collapsed: isCollapsed,
                               onNavigate: (route) {
                                 if (inModal) Navigator.of(context).pop();
                                 context.goNamed(route);
                               },
                             ),
                             const SizedBox(height: 18),
-                            const _NavGroupLabel('OUTILS'),
-                            const SizedBox(height: 3),
+                            if (!isCollapsed) ...[
+                              const _NavGroupLabel('OUTILS'),
+                              const SizedBox(height: 3),
+                            ],
                             _NavTile(
                               label: 'Messagerie',
                               icon: Icons.alternate_email_rounded,
                               selected: false,
+                              collapsed: isCollapsed,
                               onTap: () =>
                                   launchURL('https://email.choloto.com'),
                             ),
@@ -227,6 +238,9 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                       ),
                     ),
                     child: Row(
+                      mainAxisAlignment: isCollapsed
+                          ? MainAxisAlignment.center
+                          : MainAxisAlignment.start,
                       children: [
                         CircleAvatar(
                           radius: 17,
@@ -239,31 +253,33 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Session active',
-                                style: theme.labelSmall.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
+                        if (!isCollapsed) ...[
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Session active',
+                                  style: theme.labelSmall.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 1),
-                              Text(
-                                email,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.labelSmall.copyWith(
-                                  color: Colors.white.withValues(alpha: .48),
-                                  fontSize: 10,
+                                const SizedBox(height: 1),
+                                Text(
+                                  email,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.labelSmall.copyWith(
+                                    color: Colors.white.withValues(alpha: .48),
+                                    fontSize: 10,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
@@ -276,6 +292,7 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                         ? Icons.light_mode_rounded
                         : Icons.dark_mode_rounded,
                     selected: false,
+                    collapsed: isCollapsed,
                     onTap: () => MyApp.of(context).setThemeMode(
                       Theme.of(context).brightness == Brightness.dark
                           ? ThemeMode.light
@@ -286,6 +303,7 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                     label: 'Déconnexion',
                     icon: Icons.logout_rounded,
                     selected: false,
+                    collapsed: isCollapsed,
                     destructive: true,
                     onTap: _signOut,
                   ),
@@ -294,6 +312,76 @@ class _SidenavWidgetState extends State<SidenavWidget> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _toggleCollapsed() {
+    final appState = FFAppState();
+    appState.update(() {
+      appState.sideNavCollapsed = !appState.sideNavCollapsed;
+    });
+  }
+}
+
+class _BrandLogo extends StatelessWidget {
+  const _BrandLogo({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .18),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(11),
+        child: Image.asset(
+          'assets/images/Logo_Choloto_509.png',
+          fit: BoxFit.cover,
+        ),
+      ),
+    );
+  }
+}
+
+class _CollapseButton extends StatelessWidget {
+  const _CollapseButton({
+    required this.isCollapsed,
+    required this.onPressed,
+  });
+
+  final bool isCollapsed;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: onPressed,
+      tooltip: isCollapsed ? 'Agrandir le menu' : 'Réduire le menu',
+      iconSize: 19,
+      visualDensity: VisualDensity.compact,
+      style: IconButton.styleFrom(
+        foregroundColor: Colors.white.withValues(alpha: .76),
+        backgroundColor: Colors.white.withValues(alpha: .07),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      icon: Icon(
+        isCollapsed
+            ? Icons.keyboard_double_arrow_right_rounded
+            : Icons.keyboard_double_arrow_left_rounded,
       ),
     );
   }
@@ -336,20 +424,24 @@ class _NavMenuGroup extends StatelessWidget {
     required this.items,
     required this.currentRoute,
     required this.onNavigate,
+    required this.collapsed,
   });
 
   final String title;
   final List<_NavItem> items;
   final String currentRoute;
   final ValueChanged<String> onNavigate;
+  final bool collapsed;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _NavGroupLabel(title),
-        const SizedBox(height: 7),
+        if (!collapsed) ...[
+          _NavGroupLabel(title),
+          const SizedBox(height: 7),
+        ],
         ...items.map(
           (item) => Padding(
             padding: const EdgeInsets.only(bottom: 3),
@@ -359,6 +451,7 @@ class _NavMenuGroup extends StatelessWidget {
               selected: currentRoute == item.routePath ||
                   (currentRoute == '/' &&
                       item.routeName == UsersWidget.routeName),
+              collapsed: collapsed,
               onTap: () => onNavigate(item.routeName),
             ),
           ),
@@ -374,6 +467,7 @@ class _NavTile extends StatelessWidget {
     required this.icon,
     required this.selected,
     required this.onTap,
+    required this.collapsed,
     this.destructive = false,
   });
 
@@ -381,6 +475,7 @@ class _NavTile extends StatelessWidget {
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
+  final bool collapsed;
   final bool destructive;
 
   @override
@@ -392,7 +487,7 @@ class _NavTile extends StatelessWidget {
             ? Colors.white
             : Colors.white.withValues(alpha: .67);
 
-    return Semantics(
+    final tile = Semantics(
       selected: selected,
       button: true,
       label: label,
@@ -414,15 +509,21 @@ class _NavTile extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(13),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            padding: EdgeInsets.symmetric(
+              horizontal: collapsed ? 8 : 10,
+              vertical: 9,
+            ),
             child: Row(
+              mainAxisAlignment: collapsed
+                  ? MainAxisAlignment.center
+                  : MainAxisAlignment.start,
               children: [
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 220),
                   curve: Curves.easeOutCubic,
                   width: 3,
                   height: selected ? 20 : 0,
-                  margin: const EdgeInsets.only(right: 9),
+                  margin: EdgeInsets.only(right: collapsed ? 7 : 9),
                   decoration: BoxDecoration(
                     color: selected ? theme.secondary : Colors.transparent,
                     borderRadius: BorderRadius.circular(99),
@@ -433,23 +534,33 @@ class _NavTile extends StatelessWidget {
                   size: 19,
                   color: selected ? theme.secondary : foreground,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.bodyMedium.copyWith(
-                      color: foreground,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                if (!collapsed) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.bodyMedium.copyWith(
+                        color: foreground,
+                        fontWeight:
+                            selected ? FontWeight.w600 : FontWeight.w500,
+                      ),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
         ),
       ),
+    );
+
+    if (!collapsed) return tile;
+    return Tooltip(
+      message: label,
+      waitDuration: const Duration(milliseconds: 350),
+      child: tile,
     );
   }
 }

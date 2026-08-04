@@ -42,6 +42,8 @@ class FFAppState extends ChangeNotifier {
     secureStorage.setString('ff_mail', value);
   }
 
+  bool sideNavCollapsed = false;
+
   void deleteMail() {
     secureStorage.delete(key: 'ff_mail');
   }
