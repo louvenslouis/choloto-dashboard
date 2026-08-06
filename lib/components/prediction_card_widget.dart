@@ -1,13 +1,7 @@
 import '/backend/schema/enums/enums.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
-import 'package:easy_debounce/easy_debounce.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'prediction_card_model.dart';
 export 'prediction_card_model.dart';
 
@@ -38,472 +32,256 @@ class _PredictionCardWidgetState extends State<PredictionCardWidget> {
   void initState() {
     super.initState();
     _model = createModel(context, () => PredictionCardModel());
-
-    // On component load action.
-    SchedulerBinding.instance.addPostFrameCallback((_) async {
-      logFirebaseEvent('PREDICTION_CARD_predictionCard_ON_INIT_S');
-      logFirebaseEvent('predictionCard_update_app_state');
-
-      safeSetState(() {});
-    });
-
     _model.id0TextController ??= TextEditingController();
     _model.id0FocusNode ??= FocusNode();
-
     _model.id1TextController ??= TextEditingController();
     _model.id1FocusNode ??= FocusNode();
-
     _model.id2TextController ??= TextEditingController();
     _model.id2FocusNode ??= FocusNode();
-
     _model.id3TextController ??= TextEditingController();
     _model.id3FocusNode ??= FocusNode();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {}));
   }
 
   @override
   void dispose() {
     _model.maybeDispose();
-
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    context.watch<FFAppState>();
+    final theme = FlutterFlowTheme.of(context);
+    final prediction = widget.parameter1;
 
     return Card(
-      clipBehavior: Clip.antiAliasWithSaveLayer,
-      color: FlutterFlowTheme.of(context).secondaryBackground,
-      elevation: 0.0,
+      clipBehavior: Clip.antiAlias,
+      color: theme.secondaryBackground,
+      elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20.0),
-        side: BorderSide(
-          color: FlutterFlowTheme.of(context).alternate,
-        ),
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: theme.alternate),
       ),
-      child: Padding(
-        padding: EdgeInsets.all(18.0),
-        child: Row(
-          mainAxisSize: MainAxisSize.max,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Container(
-              width: MediaQuery.sizeOf(context).width * 0.2,
-              decoration: BoxDecoration(),
-              child: Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 12.0, 0.0),
-                child: Text(
-                  widget!.parameter1!.name,
-                  style: FlutterFlowTheme.of(context).bodyMedium.override(
-                        font: GoogleFonts.inter(
-                          fontWeight: FontWeight.w500,
-                          fontStyle:
-                              FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                        ),
-                        letterSpacing: 0.0,
-                        fontWeight: FontWeight.w500,
-                        fontStyle:
-                            FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                      ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: Container(
-                width: MediaQuery.sizeOf(context).width * 0.8,
-                decoration: BoxDecoration(),
-                child: Row(
-                  mainAxisSize: MainAxisSize.max,
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 520;
+          final padding = compact ? 14.0 : 18.0;
+          final contentWidth = constraints.maxWidth - padding * 2;
+          const gap = 10.0;
+          final columns = compact ? 2 : 4;
+          final fieldWidth = (contentWidth - gap * (columns - 1)) / columns;
+
+          return Padding(
+            padding: EdgeInsets.all(padding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
                   children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: theme.accent1,
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      child: Icon(
+                        _iconForPrediction(prediction),
+                        color: theme.primary,
+                        size: 21,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: Container(
-                        width: 25.0,
-                        child: TextFormField(
-                          controller: _model.id0TextController,
-                          focusNode: _model.id0FocusNode,
-                          onChanged: (_) => EasyDebounce.debounce(
-                            '_model.id0TextController',
-                            Duration(milliseconds: 2000),
-                            () => safeSetState(() {}),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _labelForPrediction(prediction),
+                            style: theme.titleSmall.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                          onFieldSubmitted: (_) async {
-                            logFirebaseEvent(
-                                'PREDICTION_CARD_id0_ON_TEXTFIELD_SUBMIT');
-                          },
-                          autofocus: false,
-                          obscureText: false,
-                          decoration: InputDecoration(
-                            isDense: true,
-                            hintText: '#',
-                            enabledBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: Color(0x00000000),
-                                width: 0.0,
-                              ),
-                              borderRadius: BorderRadius.circular(12.0),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Saisissez les 4 valeurs',
+                            style: theme.bodySmall.copyWith(
+                              color: theme.secondaryText,
                             ),
-                            focusedBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: Color(0x00000000),
-                                width: 0.0,
-                              ),
-                              borderRadius: BorderRadius.circular(12.0),
-                            ),
-                            errorBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: FlutterFlowTheme.of(context).error,
-                                width: 0.0,
-                              ),
-                              borderRadius: BorderRadius.circular(12.0),
-                            ),
-                            focusedErrorBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: FlutterFlowTheme.of(context).error,
-                                width: 0.0,
-                              ),
-                              borderRadius: BorderRadius.circular(12.0),
-                            ),
-                            filled: true,
-                            fillColor: FlutterFlowTheme.of(context).alternate,
-                            suffixIcon:
-                                _model.id0TextController!.text.isNotEmpty
-                                    ? InkWell(
-                                        onTap: () async {
-                                          _model.id0TextController?.clear();
-                                          safeSetState(() {});
-                                        },
-                                        child: Icon(
-                                          Icons.clear,
-                                          size: 22,
-                                        ),
-                                      )
-                                    : null,
                           ),
-                          style:
-                              FlutterFlowTheme.of(context).bodyMedium.override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                          maxLength: 10,
-                          buildCounter: (context,
-                                  {required currentLength,
-                                  required isFocused,
-                                  maxLength}) =>
-                              null,
-                          cursorColor: FlutterFlowTheme.of(context).primaryText,
-                          enableInteractiveSelection: true,
-                          validator: _model.id0TextControllerValidator
-                              .asValidator(context),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.primaryBackground,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text(
+                        '4 NUMÉROS',
+                        style: theme.labelSmall.copyWith(
+                          color: theme.secondaryText,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: .55,
                         ),
                       ),
                     ),
-                    Expanded(
-                      child: Container(
-                        width: 25.0,
-                        child: TextFormField(
-                          controller: _model.id1TextController,
-                          focusNode: _model.id1FocusNode,
-                          onChanged: (_) => EasyDebounce.debounce(
-                            '_model.id1TextController',
-                            Duration(milliseconds: 2000),
-                            () => safeSetState(() {}),
-                          ),
-                          onFieldSubmitted: (_) async {
-                            logFirebaseEvent(
-                                'PREDICTION_CARD_id1_ON_TEXTFIELD_SUBMIT');
-                          },
-                          autofocus: false,
-                          obscureText: false,
-                          decoration: InputDecoration(
-                            isDense: true,
-                            hintText: '#',
-                            enabledBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: Color(0x00000000),
-                                width: 0.0,
-                              ),
-                              borderRadius: BorderRadius.circular(12.0),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: Color(0x00000000),
-                                width: 0.0,
-                              ),
-                              borderRadius: BorderRadius.circular(12.0),
-                            ),
-                            errorBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: FlutterFlowTheme.of(context).error,
-                                width: 0.0,
-                              ),
-                              borderRadius: BorderRadius.circular(12.0),
-                            ),
-                            focusedErrorBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: FlutterFlowTheme.of(context).error,
-                                width: 0.0,
-                              ),
-                              borderRadius: BorderRadius.circular(12.0),
-                            ),
-                            filled: true,
-                            fillColor: FlutterFlowTheme.of(context).alternate,
-                            suffixIcon:
-                                _model.id1TextController!.text.isNotEmpty
-                                    ? InkWell(
-                                        onTap: () async {
-                                          _model.id1TextController?.clear();
-                                          safeSetState(() {});
-                                        },
-                                        child: Icon(
-                                          Icons.clear,
-                                          size: 22,
-                                        ),
-                                      )
-                                    : null,
-                          ),
-                          style:
-                              FlutterFlowTheme.of(context).bodyMedium.override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                          maxLength: 10,
-                          buildCounter: (context,
-                                  {required currentLength,
-                                  required isFocused,
-                                  maxLength}) =>
-                              null,
-                          cursorColor: FlutterFlowTheme.of(context).primaryText,
-                          enableInteractiveSelection: true,
-                          validator: _model.id1TextControllerValidator
-                              .asValidator(context),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Container(
-                        width: 25.0,
-                        child: TextFormField(
-                          controller: _model.id2TextController,
-                          focusNode: _model.id2FocusNode,
-                          onChanged: (_) => EasyDebounce.debounce(
-                            '_model.id2TextController',
-                            Duration(milliseconds: 2000),
-                            () => safeSetState(() {}),
-                          ),
-                          onFieldSubmitted: (_) async {
-                            logFirebaseEvent(
-                                'PREDICTION_CARD_id2_ON_TEXTFIELD_SUBMIT');
-                          },
-                          autofocus: false,
-                          obscureText: false,
-                          decoration: InputDecoration(
-                            isDense: true,
-                            hintText: '#',
-                            enabledBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: Color(0x00000000),
-                                width: 0.0,
-                              ),
-                              borderRadius: BorderRadius.circular(12.0),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: Color(0x00000000),
-                                width: 0.0,
-                              ),
-                              borderRadius: BorderRadius.circular(12.0),
-                            ),
-                            errorBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: FlutterFlowTheme.of(context).error,
-                                width: 0.0,
-                              ),
-                              borderRadius: BorderRadius.circular(12.0),
-                            ),
-                            focusedErrorBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: FlutterFlowTheme.of(context).error,
-                                width: 0.0,
-                              ),
-                              borderRadius: BorderRadius.circular(12.0),
-                            ),
-                            filled: true,
-                            fillColor: FlutterFlowTheme.of(context).alternate,
-                            suffixIcon:
-                                _model.id2TextController!.text.isNotEmpty
-                                    ? InkWell(
-                                        onTap: () async {
-                                          _model.id2TextController?.clear();
-                                          safeSetState(() {});
-                                        },
-                                        child: Icon(
-                                          Icons.clear,
-                                          size: 22,
-                                        ),
-                                      )
-                                    : null,
-                          ),
-                          style:
-                              FlutterFlowTheme.of(context).bodyMedium.override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                          maxLength: 10,
-                          buildCounter: (context,
-                                  {required currentLength,
-                                  required isFocused,
-                                  maxLength}) =>
-                              null,
-                          cursorColor: FlutterFlowTheme.of(context).primaryText,
-                          enableInteractiveSelection: true,
-                          validator: _model.id2TextControllerValidator
-                              .asValidator(context),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Container(
-                        width: 25.0,
-                        child: TextFormField(
-                          controller: _model.id3TextController,
-                          focusNode: _model.id3FocusNode,
-                          onChanged: (_) => EasyDebounce.debounce(
-                            '_model.id3TextController',
-                            Duration(milliseconds: 2000),
-                            () => safeSetState(() {}),
-                          ),
-                          onFieldSubmitted: (_) async {
-                            logFirebaseEvent(
-                                'PREDICTION_CARD_id3_ON_TEXTFIELD_SUBMIT');
-                          },
-                          autofocus: false,
-                          obscureText: false,
-                          decoration: InputDecoration(
-                            isDense: true,
-                            hintText: '#',
-                            enabledBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: Color(0x00000000),
-                                width: 0.0,
-                              ),
-                              borderRadius: BorderRadius.circular(12.0),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: Color(0x00000000),
-                                width: 0.0,
-                              ),
-                              borderRadius: BorderRadius.circular(12.0),
-                            ),
-                            errorBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: FlutterFlowTheme.of(context).error,
-                                width: 0.0,
-                              ),
-                              borderRadius: BorderRadius.circular(12.0),
-                            ),
-                            focusedErrorBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: FlutterFlowTheme.of(context).error,
-                                width: 0.0,
-                              ),
-                              borderRadius: BorderRadius.circular(12.0),
-                            ),
-                            filled: true,
-                            fillColor: FlutterFlowTheme.of(context).alternate,
-                            suffixIcon:
-                                _model.id3TextController!.text.isNotEmpty
-                                    ? InkWell(
-                                        onTap: () async {
-                                          _model.id3TextController?.clear();
-                                          safeSetState(() {});
-                                        },
-                                        child: Icon(
-                                          Icons.clear,
-                                          size: 22,
-                                        ),
-                                      )
-                                    : null,
-                          ),
-                          style:
-                              FlutterFlowTheme.of(context).bodyMedium.override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                          maxLength: 10,
-                          buildCounter: (context,
-                                  {required currentLength,
-                                  required isFocused,
-                                  maxLength}) =>
-                              null,
-                          cursorColor: FlutterFlowTheme.of(context).primaryText,
-                          enableInteractiveSelection: true,
-                          validator: _model.id3TextControllerValidator
-                              .asValidator(context),
-                        ),
-                      ),
-                    ),
-                  ].divide(SizedBox(width: 4.0)),
+                  ],
                 ),
-              ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: gap,
+                  runSpacing: gap,
+                  children: [
+                    _PredictionInput(
+                      width: fieldWidth,
+                      index: 1,
+                      controller: _model.id0TextController!,
+                      focusNode: _model.id0FocusNode!,
+                      validator: _model.id0TextControllerValidator,
+                      onChanged: () => safeSetState(() {}),
+                    ),
+                    _PredictionInput(
+                      width: fieldWidth,
+                      index: 2,
+                      controller: _model.id1TextController!,
+                      focusNode: _model.id1FocusNode!,
+                      validator: _model.id1TextControllerValidator,
+                      onChanged: () => safeSetState(() {}),
+                    ),
+                    _PredictionInput(
+                      width: fieldWidth,
+                      index: 3,
+                      controller: _model.id2TextController!,
+                      focusNode: _model.id2FocusNode!,
+                      validator: _model.id2TextControllerValidator,
+                      onChanged: () => safeSetState(() {}),
+                    ),
+                    _PredictionInput(
+                      width: fieldWidth,
+                      index: 4,
+                      controller: _model.id3TextController!,
+                      focusNode: _model.id3FocusNode!,
+                      validator: _model.id3TextControllerValidator,
+                      onChanged: () => safeSetState(() {}),
+                      last: true,
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
+          );
+        },
+      ),
+    );
+  }
+
+  String _labelForPrediction(Predictions? prediction) {
+    switch (prediction) {
+      case Predictions.boulFavoris:
+        return 'Boules favorites';
+      case Predictions.boloto:
+        return 'Boloto';
+      case Predictions.extra:
+        return 'Extra';
+      case Predictions.chif3:
+        return 'Chiffre 3';
+      case Predictions.chif4:
+        return 'Chiffre 4';
+      case Predictions.mariages:
+        return 'Mariages';
+      case Predictions.ggNyFloNy:
+        return 'GG · NY · FL';
+      case Predictions.soutni:
+        return 'Soutni';
+      case null:
+        return 'Prédiction';
+    }
+  }
+
+  IconData _iconForPrediction(Predictions? prediction) {
+    switch (prediction) {
+      case Predictions.mariages:
+        return Icons.favorite_rounded;
+      case Predictions.chif3:
+      case Predictions.chif4:
+        return Icons.pin_rounded;
+      case Predictions.ggNyFloNy:
+        return Icons.public_rounded;
+      default:
+        return Icons.auto_graph_rounded;
+    }
+  }
+}
+
+class _PredictionInput extends StatelessWidget {
+  const _PredictionInput({
+    required this.width,
+    required this.index,
+    required this.controller,
+    required this.focusNode,
+    required this.validator,
+    required this.onChanged,
+    this.last = false,
+  });
+
+  final double width;
+  final int index;
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final String? Function(BuildContext, String?)? validator;
+  final VoidCallback onChanged;
+  final bool last;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    return SizedBox(
+      width: width,
+      child: TextFormField(
+        controller: controller,
+        focusNode: focusNode,
+        onChanged: (_) => onChanged(),
+        keyboardType: TextInputType.number,
+        textInputAction: last ? TextInputAction.done : TextInputAction.next,
+        textAlign: TextAlign.center,
+        maxLength: 10,
+        buildCounter: (_, {currentLength = 0, isFocused = false, maxLength}) =>
+            null,
+        decoration: InputDecoration(
+          isDense: true,
+          labelText: 'N° $index',
+          hintText: '—',
+          floatingLabelAlignment: FloatingLabelAlignment.center,
+          contentPadding: const EdgeInsets.fromLTRB(10, 18, 10, 14),
+          suffixIconConstraints: const BoxConstraints(
+            minWidth: 34,
+            minHeight: 34,
+          ),
+          suffixIcon: controller.text.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: 'Effacer',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  onPressed: () {
+                    controller.clear();
+                    onChanged();
+                  },
+                  icon: Icon(
+                    Icons.close_rounded,
+                    size: 17,
+                    color: theme.secondaryText,
+                  ),
+                ),
         ),
+        style: theme.titleMedium.copyWith(fontWeight: FontWeight.w800),
+        validator:
+            validator == null ? null : (value) => validator!(context, value),
       ),
     );
   }

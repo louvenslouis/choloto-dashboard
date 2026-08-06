@@ -1,5 +1,6 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/components/admin_ui.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/pages/sidenav/sidenav_widget.dart';
@@ -68,6 +69,12 @@ class _DashboardWidgetState extends State<DashboardWidget> {
           : const Drawer(
               width: 264,
               child: SidenavWidget(forceVisible: true),
+            ),
+      bottomNavigationBar: isDesktop
+          ? null
+          : AdminMobileBottomBar(
+              activeDestination: AdminMobileDestination.dashboard,
+              onOpenMenu: () => scaffoldKey.currentState?.openDrawer(),
             ),
       body: SafeArea(
         child: Row(
@@ -268,15 +275,16 @@ class _WelcomeBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
     return Container(
-      padding: const EdgeInsets.all(26),
+      padding: EdgeInsets.all(isMobile ? 20 : 26),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFF17334F), Color(0xFF10243A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(isMobile ? 20 : 24),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF10243A).withValues(alpha: .13),
@@ -314,7 +322,8 @@ class _WelcomeBanner extends StatelessWidget {
               const SizedBox(height: 14),
               Text(
                 'Gérez l’essentiel,\nen toute simplicité.',
-                style: theme.headlineLarge.copyWith(
+                style: (compact ? theme.headlineMedium : theme.headlineLarge)
+                    .copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
                   height: 1.1,
@@ -322,16 +331,21 @@ class _WelcomeBanner extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFC928),
-                  foregroundColor: const Color(0xFF10243A),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              SizedBox(
+                width: compact ? double.infinity : null,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFC928),
+                    foregroundColor: const Color(0xFF10243A),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 14,
+                    ),
+                  ),
+                  onPressed: onPrimaryAction,
+                  icon: const Icon(Icons.add_rounded, size: 20),
+                  label: const Text('Nouveau tirage'),
                 ),
-                onPressed: onPrimaryAction,
-                icon: const Icon(Icons.add_rounded, size: 20),
-                label: const Text('Nouveau tirage'),
               ),
             ],
           );
@@ -445,15 +459,19 @@ class _StatsGrid extends StatelessWidget {
             ? 4
             : constraints.maxWidth >= 560
                 ? 2
-                : 1;
+                : constraints.maxWidth >= 330
+                    ? 2
+                    : 1;
         final gap = 14.0;
         final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+        final compactCards = width < 230;
         return Wrap(
           spacing: gap,
           runSpacing: gap,
           children: stats
               .map((stat) => SizedBox(
                     width: width,
+                    height: compactCards ? 112 : null,
                     child: _StatCard(stat: stat, loading: loading),
                   ))
               .toList(),
@@ -480,78 +498,92 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
-    return Material(
-      color: theme.secondaryBackground,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: () => context.goNamed(stat.route),
-        child: Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 230;
+        return Material(
+          color: theme.secondaryBackground,
+          borderRadius: BorderRadius.circular(18),
+          child: InkWell(
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: theme.alternate.withValues(alpha: .75)),
-            boxShadow: [
-              BoxShadow(
-                color: theme.primaryText.withValues(alpha: .035),
-                blurRadius: 18,
-                offset: const Offset(0, 6),
+            onTap: () => context.goNamed(stat.route),
+            child: Container(
+              padding: EdgeInsets.all(compact ? 14 : 18),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                border:
+                    Border.all(color: theme.alternate.withValues(alpha: .75)),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.primaryText.withValues(alpha: .035),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: stat.color.withValues(alpha: .12),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(stat.icon, color: stat.color),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 180),
-                      child: loading
-                          ? Container(
-                              key: const ValueKey('loading'),
-                              width: 48,
-                              height: 22,
-                              decoration: BoxDecoration(
-                                color: theme.alternate,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                            )
-                          : Text(
-                              '${stat.value ?? 0}',
-                              key: ValueKey(stat.value),
-                              style: theme.headlineMedium.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
+              child: Row(
+                children: [
+                  Container(
+                    width: compact ? 40 : 46,
+                    height: compact ? 40 : 46,
+                    decoration: BoxDecoration(
+                      color: stat.color.withValues(alpha: .12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      stat.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style:
-                          theme.bodySmall.copyWith(color: theme.secondaryText),
+                    child: Icon(stat.icon, color: stat.color, size: 22),
+                  ),
+                  SizedBox(width: compact ? 10 : 14),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 180),
+                          child: loading
+                              ? Container(
+                                  key: const ValueKey('loading'),
+                                  width: 42,
+                                  height: 20,
+                                  decoration: BoxDecoration(
+                                    color: theme.alternate,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                )
+                              : Text(
+                                  '${stat.value ?? 0}',
+                                  key: ValueKey(stat.value),
+                                  style: (compact
+                                          ? theme.titleLarge
+                                          : theme.headlineMedium)
+                                      .copyWith(fontWeight: FontWeight.w800),
+                                ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          stat.label,
+                          maxLines: compact ? 2 : 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.bodySmall.copyWith(
+                            color: theme.secondaryText,
+                            height: 1.15,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  if (!compact)
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: theme.secondaryText,
+                      size: 20,
+                    ),
+                ],
               ),
-              Icon(Icons.chevron_right_rounded,
-                  color: theme.secondaryText, size: 20),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -733,8 +765,9 @@ class _Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
+    final compact = MediaQuery.sizeOf(context).width < 600;
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(compact ? 16 : 20),
       decoration: BoxDecoration(
         color: theme.secondaryBackground,
         borderRadius: BorderRadius.circular(20),

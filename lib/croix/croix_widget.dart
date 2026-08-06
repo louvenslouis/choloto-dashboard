@@ -93,6 +93,12 @@ class _CroixWidgetState extends State<CroixWidget> {
                 child: SidenavWidget(forceVisible: true),
               )
             : null,
+        bottomNavigationBar: MediaQuery.sizeOf(context).width < 992
+            ? AdminMobileBottomBar(
+                activeDestination: AdminMobileDestination.more,
+                onOpenMenu: () => scaffoldKey.currentState?.openDrawer(),
+              )
+            : null,
         body: SafeArea(
           top: true,
           child: Row(
@@ -1308,29 +1314,21 @@ class _CroixWidgetState extends State<CroixWidget> {
                               }),
                             ]);
                             logFirebaseEvent('Button_alert_dialog');
-                            var confirmDialogResponse = await showDialog<bool>(
-                                  context: context,
-                                  builder: (alertDialogContext) {
-                                    return AlertDialog(
-                                      title: Text('Vérifier la publication'),
-                                      content: Text(
-                                          '${_model.list.elementAtOrNull(0)} ; ${_model.list.elementAtOrNull(1)} ; ${_model.list.elementAtOrNull(2)} ; ${_model.list.elementAtOrNull(3)} ; ${_model.list.elementAtOrNull(5)} ; ${_model.list.elementAtOrNull(6)} ; ${_model.list.elementAtOrNull(7)} ; ${_model.list.elementAtOrNull(8)}'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(
-                                              alertDialogContext, false),
-                                          child: Text('Annuler'),
-                                        ),
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(
-                                              alertDialogContext, true),
-                                          child: Text('Confirmer'),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                ) ??
-                                false;
+                            final confirmDialogResponse =
+                                await showAdminConfirmDialog(
+                              context: context,
+                              title: 'Vérifier la publication',
+                              message: '${_model.list.elementAtOrNull(0)} · '
+                                  '${_model.list.elementAtOrNull(1)} · '
+                                  '${_model.list.elementAtOrNull(2)} · '
+                                  '${_model.list.elementAtOrNull(3)}\n'
+                                  '${_model.list.elementAtOrNull(5)} · '
+                                  '${_model.list.elementAtOrNull(6)} · '
+                                  '${_model.list.elementAtOrNull(7)} · '
+                                  '${_model.list.elementAtOrNull(8)}',
+                              confirmLabel: 'Publier',
+                              icon: Icons.fact_check_outlined,
+                            );
                             if (confirmDialogResponse) {
                               logFirebaseEvent('Button_backend_call');
 

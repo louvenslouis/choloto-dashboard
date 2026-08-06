@@ -77,6 +77,12 @@ class _PredictionsWidgetState extends State<PredictionsWidget>
                 child: SidenavWidget(forceVisible: true),
               )
             : null,
+        bottomNavigationBar: MediaQuery.sizeOf(context).width < 992
+            ? AdminMobileBottomBar(
+                activeDestination: AdminMobileDestination.predictions,
+                onOpenMenu: () => scaffoldKey.currentState?.openDrawer(),
+              )
+            : null,
         body: SafeArea(
           top: true,
           child: Row(
@@ -1086,35 +1092,17 @@ class _PredictionsWidgetState extends State<PredictionsWidget>
                                     logFirebaseEvent(
                                         'PREDICTIONS_SUPPRIMER_LA_DERNIRE_PUBLICA');
                                     logFirebaseEvent('Button_alert_dialog');
-                                    var confirmDialogResponse =
-                                        await showDialog<bool>(
-                                              context: context,
-                                              builder: (alertDialogContext) {
-                                                return AlertDialog(
-                                                  title: Text(
-                                                      'Supprimer la dernière prédiction'),
-                                                  content: Text(
-                                                      'Voulez-vous vraiment supprimer la dernière prédiction ?'),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.pop(
-                                                              alertDialogContext,
-                                                              false),
-                                                      child: Text('Fermer'),
-                                                    ),
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.pop(
-                                                              alertDialogContext,
-                                                              true),
-                                                      child: Text('Supprimer'),
-                                                    ),
-                                                  ],
-                                                );
-                                              },
-                                            ) ??
-                                            false;
+                                    final confirmDialogResponse =
+                                        await showAdminConfirmDialog(
+                                      context: context,
+                                      title: 'Supprimer la prédiction ?',
+                                      message:
+                                          'Cette action supprimera la dernière '
+                                          'prédiction publiée.',
+                                      confirmLabel: 'Supprimer',
+                                      icon: Icons.delete_outline_rounded,
+                                      destructive: true,
+                                    );
                                     if (confirmDialogResponse) {
                                       logFirebaseEvent('Button_show_snack_bar');
                                       ScaffoldMessenger.of(context)

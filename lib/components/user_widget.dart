@@ -1,12 +1,8 @@
 import '/backend/backend.dart';
-import '/flutter_flow/flutter_flow_icon_button.dart';
+import '/components/admin_ui.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'user_model.dart';
 export 'user_model.dart';
 
@@ -35,226 +31,262 @@ class _UserWidgetState extends State<UserWidget> {
   void initState() {
     super.initState();
     _model = createModel(context, () => UserModel());
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {}));
   }
 
   @override
   void dispose() {
     _model.maybeDispose();
-
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      clipBehavior: Clip.antiAliasWithSaveLayer,
-      color: FlutterFlowTheme.of(context).secondaryBackground,
-      elevation: 0.0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8.0),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(8.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.max,
-          children: [
-            Align(
-              alignment: AlignmentDirectional(1.0, -1.0),
-              child: FlutterFlowIconButton(
-                borderRadius: 8.0,
-                buttonSize: 40.0,
-                fillColor: FlutterFlowTheme.of(context).warning,
-                icon: Icon(
-                  Icons.close,
-                  color: FlutterFlowTheme.of(context).primaryText,
-                  size: 24.0,
-                ),
-                onPressed: () async {
-                  logFirebaseEvent('USER_COMP_close_ICN_ON_TAP');
-                  logFirebaseEvent('IconButton_dismiss_dialog');
-                  Navigator.pop(context);
-                },
-              ),
+    final theme = FlutterFlowTheme.of(context);
+    final user = widget.infos;
+    final name = user?.displayName.trim().isNotEmpty == true
+        ? user!.displayName.trim()
+        : 'Membre CHOLOTO';
+    final email = user?.email.trim().isNotEmpty == true
+        ? user!.email.trim()
+        : 'E-mail non renseigné';
+    final endDate = user?.endSub;
+    final active = endDate != null && endDate.isAfter(DateTime.now());
+    final initial = name.characters.first.toUpperCase();
+
+    return Padding(
+      padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 390 ? 18 : 22),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AdminDialogHeader(
+            title: 'Profil du membre',
+            subtitle: 'Informations et statut de l’abonnement',
+            icon: Icons.person_rounded,
+            onClose: () => Navigator.pop(context),
+          ),
+          const SizedBox(height: 22),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: theme.primaryBackground,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: theme.alternate),
             ),
-            Row(
-              mainAxisSize: MainAxisSize.max,
+            child: Row(
+              children: [
+                Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    color: theme.accent1,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: theme.secondary.withValues(alpha: .35),
+                      width: 2,
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: user?.photoUrl.isNotEmpty == true
+                      ? Image.network(
+                          user!.photoUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _AvatarInitial(
+                            initial: initial,
+                          ),
+                        )
+                      : _AvatarInitial(initial: initial),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.titleMedium.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.bodySmall.copyWith(
+                          color: theme.secondaryText,
+                        ),
+                      ),
+                      const SizedBox(height: 9),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: (active ? theme.success : theme.warning)
+                              .withValues(alpha: .12),
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                        child: Text(
+                          active ? 'ABONNEMENT ACTIF' : 'ABONNEMENT INACTIF',
+                          style: theme.labelSmall.copyWith(
+                            color: active ? theme.success : theme.primaryText,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: .45,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 430 ? 2 : 1;
+              const gap = 12.0;
+              final width =
+                  (constraints.maxWidth - gap * (columns - 1)) / columns;
+              final items = [
+                _UserInfoTile(
+                  icon: Icons.calendar_month_rounded,
+                  label: 'Mois actifs',
+                  value: '${user?.memberTime ?? 0}',
+                ),
+                _UserInfoTile(
+                  icon: Icons.pin_rounded,
+                  label: 'Code personnel',
+                  value: user?.codePersonnel.isNotEmpty == true
+                      ? user!.codePersonnel
+                      : 'Non renseigné',
+                ),
+                _UserInfoTile(
+                  icon: Icons.event_available_rounded,
+                  label: 'Fin de l’abonnement',
+                  value: endDate == null
+                      ? 'Non définie'
+                      : DateFormat('d MMM y', 'fr').format(endDate),
+                ),
+                _UserInfoTile(
+                  icon: Icons.account_balance_wallet_rounded,
+                  label: 'Paiement',
+                  value: _paymentLabel(user?.method?.name),
+                ),
+              ];
+
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: items
+                    .map((item) => SizedBox(width: width, child: item))
+                    .toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _paymentLabel(String? method) {
+    switch (method) {
+      case 'moncash':
+        return 'MonCash';
+      case 'cash':
+        return 'Espèces';
+      case 'stripe':
+        return 'Carte / Stripe';
+      default:
+        return 'Non renseigné';
+    }
+  }
+}
+
+class _AvatarInitial extends StatelessWidget {
+  const _AvatarInitial({required this.initial});
+
+  final String initial;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    return Center(
+      child: Text(
+        initial,
+        style: theme.headlineSmall.copyWith(
+          color: theme.primary,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _UserInfoTile extends StatelessWidget {
+  const _UserInfoTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    return Container(
+      constraints: const BoxConstraints(minHeight: 84),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.secondaryBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.alternate),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: theme.accent1,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: theme.primary, size: 20),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  valueOrDefault<String>(
-                    widget!.infos?.displayName,
-                    'NULL',
+                  label,
+                  style: theme.labelSmall.copyWith(
+                    color: theme.secondaryText,
+                    fontWeight: FontWeight.w600,
                   ),
-                  style: FlutterFlowTheme.of(context).bodyMedium.override(
-                        font: GoogleFonts.inter(
-                          fontWeight: FlutterFlowTheme.of(context)
-                              .bodyMedium
-                              .fontWeight,
-                          fontStyle:
-                              FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                        ),
-                        letterSpacing: 0.0,
-                        fontWeight:
-                            FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                        fontStyle:
-                            FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                      ),
                 ),
-              ].divide(SizedBox(width: 8.0)),
-            ),
-            Material(
-              color: Colors.transparent,
-              child: ListTile(
-                title: Text(
-                  'Nbre de mois actif',
-                  style: FlutterFlowTheme.of(context).titleLarge.override(
-                        font: GoogleFonts.interTight(
-                          fontWeight: FlutterFlowTheme.of(context)
-                              .titleLarge
-                              .fontWeight,
-                          fontStyle:
-                              FlutterFlowTheme.of(context).titleLarge.fontStyle,
-                        ),
-                        letterSpacing: 0.0,
-                        fontWeight:
-                            FlutterFlowTheme.of(context).titleLarge.fontWeight,
-                        fontStyle:
-                            FlutterFlowTheme.of(context).titleLarge.fontStyle,
-                      ),
-                ),
-                subtitle: Text(
-                  valueOrDefault<String>(
-                    widget!.infos?.memberTime?.toString(),
-                    '1',
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.bodyMedium.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
-                  style: FlutterFlowTheme.of(context).labelMedium.override(
-                        font: GoogleFonts.inter(
-                          fontWeight: FlutterFlowTheme.of(context)
-                              .labelMedium
-                              .fontWeight,
-                          fontStyle: FlutterFlowTheme.of(context)
-                              .labelMedium
-                              .fontStyle,
-                        ),
-                        letterSpacing: 0.0,
-                        fontWeight:
-                            FlutterFlowTheme.of(context).labelMedium.fontWeight,
-                        fontStyle:
-                            FlutterFlowTheme.of(context).labelMedium.fontStyle,
-                      ),
                 ),
-                tileColor: FlutterFlowTheme.of(context).secondaryBackground,
-                dense: false,
-                contentPadding:
-                    EdgeInsetsDirectional.fromSTEB(12.0, 0.0, 12.0, 0.0),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-              ),
+              ],
             ),
-            Material(
-              color: Colors.transparent,
-              child: ListTile(
-                title: Text(
-                  'Code',
-                  style: FlutterFlowTheme.of(context).titleLarge.override(
-                        font: GoogleFonts.interTight(
-                          fontWeight: FlutterFlowTheme.of(context)
-                              .titleLarge
-                              .fontWeight,
-                          fontStyle:
-                              FlutterFlowTheme.of(context).titleLarge.fontStyle,
-                        ),
-                        letterSpacing: 0.0,
-                        fontWeight:
-                            FlutterFlowTheme.of(context).titleLarge.fontWeight,
-                        fontStyle:
-                            FlutterFlowTheme.of(context).titleLarge.fontStyle,
-                      ),
-                ),
-                subtitle: Text(
-                  valueOrDefault<String>(
-                    widget!.infos?.codePersonnel,
-                    '####',
-                  ),
-                  style: FlutterFlowTheme.of(context).labelMedium.override(
-                        font: GoogleFonts.inter(
-                          fontWeight: FlutterFlowTheme.of(context)
-                              .labelMedium
-                              .fontWeight,
-                          fontStyle: FlutterFlowTheme.of(context)
-                              .labelMedium
-                              .fontStyle,
-                        ),
-                        letterSpacing: 0.0,
-                        fontWeight:
-                            FlutterFlowTheme.of(context).labelMedium.fontWeight,
-                        fontStyle:
-                            FlutterFlowTheme.of(context).labelMedium.fontStyle,
-                      ),
-                ),
-                tileColor: FlutterFlowTheme.of(context).secondaryBackground,
-                dense: false,
-                contentPadding:
-                    EdgeInsetsDirectional.fromSTEB(12.0, 0.0, 12.0, 0.0),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-              ),
-            ),
-            Material(
-              color: Colors.transparent,
-              child: ListTile(
-                title: Text(
-                  'Fin de l\'abonnement',
-                  style: FlutterFlowTheme.of(context).titleLarge.override(
-                        font: GoogleFonts.interTight(
-                          fontWeight: FlutterFlowTheme.of(context)
-                              .titleLarge
-                              .fontWeight,
-                          fontStyle:
-                              FlutterFlowTheme.of(context).titleLarge.fontStyle,
-                        ),
-                        letterSpacing: 0.0,
-                        fontWeight:
-                            FlutterFlowTheme.of(context).titleLarge.fontWeight,
-                        fontStyle:
-                            FlutterFlowTheme.of(context).titleLarge.fontStyle,
-                      ),
-                ),
-                subtitle: Text(
-                  valueOrDefault<String>(
-                    widget!.infos?.endSub?.toString(),
-                    '####',
-                  ),
-                  style: FlutterFlowTheme.of(context).labelMedium.override(
-                        font: GoogleFonts.inter(
-                          fontWeight: FlutterFlowTheme.of(context)
-                              .labelMedium
-                              .fontWeight,
-                          fontStyle: FlutterFlowTheme.of(context)
-                              .labelMedium
-                              .fontStyle,
-                        ),
-                        letterSpacing: 0.0,
-                        fontWeight:
-                            FlutterFlowTheme.of(context).labelMedium.fontWeight,
-                        fontStyle:
-                            FlutterFlowTheme.of(context).labelMedium.fontStyle,
-                      ),
-                ),
-                tileColor: FlutterFlowTheme.of(context).secondaryBackground,
-                dense: false,
-                contentPadding:
-                    EdgeInsetsDirectional.fromSTEB(12.0, 0.0, 12.0, 0.0),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -97,6 +97,12 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                 child: SidenavWidget(forceVisible: true),
               )
             : null,
+        bottomNavigationBar: MediaQuery.sizeOf(context).width < 992
+            ? AdminMobileBottomBar(
+                activeDestination: AdminMobileDestination.more,
+                onOpenMenu: () => scaffoldKey.currentState?.openDrawer(),
+              )
+            : null,
         body: SafeArea(
           top: true,
           child: Row(
@@ -2373,30 +2379,21 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                                                                       'PUBLICATIONS_PAGE_delete_ICN_ON_TAP');
                                                                   logFirebaseEvent(
                                                                       'IconButton_alert_dialog');
-                                                                  var confirmDialogResponse =
-                                                                      await showDialog<
-                                                                              bool>(
-                                                                            context:
-                                                                                context,
-                                                                            builder:
-                                                                                (alertDialogContext) {
-                                                                              return AlertDialog(
-                                                                                title: Text('Supprimer'),
-                                                                                content: Text('Veux-tu supprimer ce Bingo?'),
-                                                                                actions: [
-                                                                                  TextButton(
-                                                                                    onPressed: () => Navigator.pop(alertDialogContext, false),
-                                                                                    child: Text('Annuler'),
-                                                                                  ),
-                                                                                  TextButton(
-                                                                                    onPressed: () => Navigator.pop(alertDialogContext, true),
-                                                                                    child: Text('Supprimer'),
-                                                                                  ),
-                                                                                ],
-                                                                              );
-                                                                            },
-                                                                          ) ??
-                                                                          false;
+                                                                  final confirmDialogResponse =
+                                                                      await showAdminConfirmDialog(
+                                                                    context:
+                                                                        context,
+                                                                    title:
+                                                                        'Supprimer ce BINGO ?',
+                                                                    message:
+                                                                        'Cette publication sera supprimée définitivement.',
+                                                                    confirmLabel:
+                                                                        'Supprimer',
+                                                                    icon: Icons
+                                                                        .delete_outline_rounded,
+                                                                    destructive:
+                                                                        true,
+                                                                  );
                                                                   if (confirmDialogResponse) {
                                                                     logFirebaseEvent(
                                                                         'IconButton_backend_call');

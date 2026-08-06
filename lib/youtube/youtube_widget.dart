@@ -18,6 +18,7 @@ class YoutubeWidget extends StatefulWidget {
 
 class _YoutubeWidgetState extends State<YoutubeWidget> {
   late YoutubeModel _model;
+  final scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
@@ -38,6 +39,7 @@ class _YoutubeWidgetState extends State<YoutubeWidget> {
     final isDesktop = MediaQuery.sizeOf(context).width >= 992;
 
     return Scaffold(
+      key: scaffoldKey,
       backgroundColor: theme.primaryBackground,
       appBar:
           isDesktop ? null : const AdminMobileAppBar(title: 'Chaîne YouTube'),
@@ -46,6 +48,12 @@ class _YoutubeWidgetState extends State<YoutubeWidget> {
           : const Drawer(
               width: 264,
               child: SidenavWidget(forceVisible: true),
+            ),
+      bottomNavigationBar: isDesktop
+          ? null
+          : AdminMobileBottomBar(
+              activeDestination: AdminMobileDestination.more,
+              onOpenMenu: () => scaffoldKey.currentState?.openDrawer(),
             ),
       body: SafeArea(
         child: Row(

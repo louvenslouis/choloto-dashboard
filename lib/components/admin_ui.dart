@@ -1,5 +1,14 @@
 import '/flutter_flow/flutter_flow_theme.dart';
+import '/flutter_flow/flutter_flow_util.dart';
 import 'package:flutter/material.dart';
+
+enum AdminMobileDestination {
+  dashboard,
+  tirages,
+  predictions,
+  users,
+  more,
+}
 
 /// Shared presentation widgets for the administration workspace.
 ///
@@ -14,12 +23,12 @@ class AdminMobileAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
 
   @override
-  Size get preferredSize => const Size.fromHeight(70);
+  Size get preferredSize => const Size.fromHeight(68);
 
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
-    final compact = MediaQuery.sizeOf(context).width < 390;
+    final compact = MediaQuery.sizeOf(context).width < 370;
 
     return AppBar(
       toolbarHeight: preferredSize.height,
@@ -28,26 +37,48 @@ class AdminMobileAppBar extends StatelessWidget implements PreferredSizeWidget {
       backgroundColor: theme.secondaryBackground,
       surfaceTintColor: Colors.transparent,
       foregroundColor: theme.primaryText,
-      titleSpacing: 2,
-      title: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              color: theme.accent1,
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(
-              Icons.grid_view_rounded,
-              size: 19,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? theme.secondary
-                  : theme.primary,
+      leadingWidth: 60,
+      leading: Builder(
+        builder: (context) => Padding(
+          padding: const EdgeInsets.only(left: 12, top: 10, bottom: 10),
+          child: IconButton(
+            tooltip: 'Ouvrir le menu',
+            onPressed: () => Scaffold.of(context).openDrawer(),
+            icon: const Icon(Icons.menu_rounded, size: 22),
+            style: IconButton.styleFrom(
+              foregroundColor: theme.primaryText,
+              backgroundColor: theme.primaryBackground,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(13),
+                side: BorderSide(color: theme.alternate),
+              ),
             ),
           ),
-          const SizedBox(width: 10),
+        ),
+      ),
+      titleSpacing: 8,
+      title: Row(
+        children: [
+          if (!compact) ...[
+            Container(
+              width: 34,
+              height: 34,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(color: theme.alternate),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.asset(
+                  'assets/images/Logo_Choloto_509.png',
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+          ],
           Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -59,7 +90,7 @@ class AdminMobileAppBar extends StatelessWidget implements PreferredSizeWidget {
                   overflow: TextOverflow.ellipsis,
                   style: theme.titleSmall.copyWith(
                     color: theme.primaryText,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     letterSpacing: -.2,
                   ),
                 ),
@@ -70,7 +101,7 @@ class AdminMobileAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       actions: [
         Padding(
-          padding: const EdgeInsets.only(right: 12),
+          padding: const EdgeInsets.only(right: 14),
           child: Semantics(
             label: 'Système opérationnel',
             child: Container(
@@ -96,7 +127,7 @@ class AdminMobileAppBar extends StatelessWidget implements PreferredSizeWidget {
                       shape: BoxShape.circle,
                     ),
                   ),
-                  if (!compact) ...[
+                  if (MediaQuery.sizeOf(context).width >= 410) ...[
                     const SizedBox(width: 6),
                     Text(
                       'En ligne',
@@ -117,6 +148,404 @@ class AdminMobileAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
     );
   }
+}
+
+/// Persistent shortcuts for the most common administration tasks on phones.
+/// Secondary screens stay available from the drawer via the "Menu" item.
+class AdminMobileBottomBar extends StatelessWidget {
+  const AdminMobileBottomBar({
+    super.key,
+    required this.activeDestination,
+    required this.onOpenMenu,
+  });
+
+  final AdminMobileDestination activeDestination;
+  final VoidCallback onOpenMenu;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    final selectedIndex = activeDestination.index;
+
+    return Material(
+      color: theme.secondaryBackground,
+      child: SafeArea(
+        top: false,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(color: theme.alternate.withValues(alpha: .9)),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: theme.primaryText.withValues(alpha: .06),
+                blurRadius: 18,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: NavigationBarTheme(
+            data: NavigationBarThemeData(
+              labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                final selected = states.contains(WidgetState.selected);
+                return theme.labelSmall.copyWith(
+                  color: selected ? theme.primaryText : theme.secondaryText,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  fontSize: 10.5,
+                );
+              }),
+              iconTheme: WidgetStateProperty.resolveWith((states) {
+                final selected = states.contains(WidgetState.selected);
+                return IconThemeData(
+                  color: selected ? theme.primary : theme.secondaryText,
+                  size: selected ? 24 : 22,
+                );
+              }),
+            ),
+            child: NavigationBar(
+              height: 68,
+              selectedIndex: selectedIndex,
+              animationDuration: const Duration(milliseconds: 280),
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              backgroundColor: theme.secondaryBackground,
+              indicatorColor: theme.secondary.withValues(alpha: .22),
+              surfaceTintColor: Colors.transparent,
+              onDestinationSelected: (index) {
+                if (index == selectedIndex && index != 4) return;
+                switch (index) {
+                  case 0:
+                    context.goNamed('Dashboard');
+                    return;
+                  case 1:
+                    context.goNamed('tirages');
+                    return;
+                  case 2:
+                    context.goNamed('predictions');
+                    return;
+                  case 3:
+                    context.goNamed('users');
+                    return;
+                  case 4:
+                    onOpenMenu();
+                    return;
+                }
+              },
+              destinations: const [
+                NavigationDestination(
+                  tooltip: 'Tableau de bord',
+                  icon: Icon(Icons.space_dashboard_outlined),
+                  selectedIcon: Icon(Icons.space_dashboard_rounded),
+                  label: 'Accueil',
+                ),
+                NavigationDestination(
+                  tooltip: 'Gérer les tirages',
+                  icon: Icon(Icons.confirmation_number_outlined),
+                  selectedIcon: Icon(Icons.confirmation_number_rounded),
+                  label: 'Tirages',
+                ),
+                NavigationDestination(
+                  tooltip: 'Gérer les prédictions',
+                  icon: Icon(Icons.auto_graph_outlined),
+                  selectedIcon: Icon(Icons.auto_graph_rounded),
+                  label: 'Prévisions',
+                ),
+                NavigationDestination(
+                  tooltip: 'Gérer les membres',
+                  icon: Icon(Icons.people_alt_outlined),
+                  selectedIcon: Icon(Icons.people_alt_rounded),
+                  label: 'Membres',
+                ),
+                NavigationDestination(
+                  tooltip: 'Ouvrir le menu complet',
+                  icon: Icon(Icons.menu_rounded),
+                  label: 'Menu',
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AdminDialogFrame extends StatelessWidget {
+  const AdminDialogFrame({
+    super.key,
+    required this.child,
+    this.maxWidth = 520,
+  });
+
+  final Widget child;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final mobile = size.width < 600;
+
+    return Dialog(
+      elevation: 0,
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: mobile ? 12 : 28,
+        vertical: mobile ? 16 : 28,
+      ),
+      backgroundColor: Colors.transparent,
+      child: SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: maxWidth,
+            maxHeight: size.height * .9,
+          ),
+          child: Material(
+            color: FlutterFlowTheme.of(context).secondaryBackground,
+            surfaceTintColor: Colors.transparent,
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(mobile ? 24 : 28),
+              side: BorderSide(
+                color: FlutterFlowTheme.of(context).alternate,
+              ),
+            ),
+            child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              child: child,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AdminDialogHeader extends StatelessWidget {
+  const AdminDialogHeader({
+    super.key,
+    required this.title,
+    required this.icon,
+    required this.onClose,
+    this.subtitle,
+    this.iconColor,
+  });
+
+  final String title;
+  final String? subtitle;
+  final IconData icon;
+  final Color? iconColor;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    final color = iconColor ?? theme.primary;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: .11),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(icon, color: color, size: 22),
+        ),
+        const SizedBox(width: 13),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: theme.titleLarge.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -.35,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 3),
+                Text(
+                  subtitle!,
+                  style: theme.bodySmall.copyWith(
+                    color: theme.secondaryText,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          tooltip: 'Fermer',
+          onPressed: onClose,
+          icon: const Icon(Icons.close_rounded, size: 21),
+          style: IconButton.styleFrom(
+            backgroundColor: theme.primaryBackground,
+            foregroundColor: theme.secondaryText,
+            minimumSize: const Size(44, 44),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(13),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+Future<bool> showAdminConfirmDialog({
+  required BuildContext context,
+  required String title,
+  required String message,
+  required String confirmLabel,
+  String cancelLabel = 'Annuler',
+  IconData icon = Icons.help_outline_rounded,
+  bool destructive = false,
+}) async {
+  return await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AdminConfirmDialog(
+          title: title,
+          message: message,
+          confirmLabel: confirmLabel,
+          cancelLabel: cancelLabel,
+          icon: icon,
+          destructive: destructive,
+        ),
+      ) ??
+      false;
+}
+
+class AdminConfirmDialog extends StatelessWidget {
+  const AdminConfirmDialog({
+    super.key,
+    required this.title,
+    required this.message,
+    required this.confirmLabel,
+    required this.cancelLabel,
+    required this.icon,
+    this.destructive = false,
+  });
+
+  final String title;
+  final String message;
+  final String confirmLabel;
+  final String cancelLabel;
+  final IconData icon;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    final actionColor = destructive ? theme.error : theme.primary;
+
+    return AdminDialogFrame(
+      maxWidth: 440,
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AdminDialogHeader(
+              title: title,
+              icon: icon,
+              iconColor: actionColor,
+              onClose: () => Navigator.pop(context, false),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              message,
+              style: theme.bodyMedium.copyWith(
+                color: theme.secondaryText,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 24),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final stack = constraints.maxWidth < 330;
+                final cancel = OutlinedButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text(cancelLabel),
+                );
+                final confirm = FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: actionColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text(confirmLabel),
+                );
+
+                if (stack) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      confirm,
+                      const SizedBox(height: 10),
+                      cancel,
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: cancel),
+                    const SizedBox(width: 12),
+                    Expanded(child: confirm),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> showAdminNoticeDialog({
+  required BuildContext context,
+  required String title,
+  required String message,
+  String buttonLabel = 'Compris',
+  IconData icon = Icons.info_outline_rounded,
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AdminDialogFrame(
+      maxWidth: 440,
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AdminDialogHeader(
+              title: title,
+              icon: icon,
+              onClose: () => Navigator.pop(dialogContext),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              message,
+              style: FlutterFlowTheme.of(dialogContext).bodyMedium.copyWith(
+                    color: FlutterFlowTheme.of(dialogContext).secondaryText,
+                    height: 1.5,
+                  ),
+            ),
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(buttonLabel),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class AdminSectionHeader extends StatelessWidget {

@@ -1,4 +1,5 @@
 import '/auth/firebase_auth/auth_util.dart';
+import '/components/admin_ui.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
@@ -51,28 +52,14 @@ class _SidenavWidgetState extends State<SidenavWidget> {
   }
 
   Future<void> _signOut() async {
-    final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Text('Se déconnecter ?'),
-            content: const Text(
-              'Votre session administrateur sera fermée sur cet appareil.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('Annuler'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: const Text('Déconnecter'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+    final confirmed = await showAdminConfirmDialog(
+      context: context,
+      title: 'Se déconnecter ?',
+      message: 'Votre session administrateur sera fermée sur cet appareil.',
+      confirmLabel: 'Déconnecter',
+      icon: Icons.logout_rounded,
+      destructive: true,
+    );
     if (!confirmed || !mounted) return;
 
     GoRouter.of(context).prepareAuthEvent();

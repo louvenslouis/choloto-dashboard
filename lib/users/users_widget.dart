@@ -86,6 +86,12 @@ class _UsersWidgetState extends State<UsersWidget> {
                 child: SidenavWidget(forceVisible: true),
               )
             : null,
+        bottomNavigationBar: MediaQuery.sizeOf(context).width < 992
+            ? AdminMobileBottomBar(
+                activeDestination: AdminMobileDestination.users,
+                onOpenMenu: () => scaffoldKey.currentState?.openDrawer(),
+              )
+            : null,
         body: SafeArea(
           top: true,
           child: Column(
@@ -914,42 +920,12 @@ class _UsersWidgetState extends State<UsersWidget> {
                                                               context: context,
                                                               builder:
                                                                   (dialogContext) {
-                                                                return Dialog(
-                                                                  elevation: 0,
-                                                                  insetPadding:
-                                                                      EdgeInsets
-                                                                          .zero,
-                                                                  backgroundColor:
-                                                                      Colors
-                                                                          .transparent,
-                                                                  alignment: AlignmentDirectional(
-                                                                          0.0,
-                                                                          0.0)
-                                                                      .resolve(
-                                                                          Directionality.of(
-                                                                              context)),
+                                                                return AdminDialogFrame(
+                                                                  maxWidth: 560,
                                                                   child:
-                                                                      GestureDetector(
-                                                                    onTap: () {
-                                                                      FocusScope.of(
-                                                                              dialogContext)
-                                                                          .unfocus();
-                                                                      FocusManager
-                                                                          .instance
-                                                                          .primaryFocus
-                                                                          ?.unfocus();
-                                                                    },
-                                                                    child:
-                                                                        Container(
-                                                                      width: MediaQuery.sizeOf(context)
-                                                                              .width *
-                                                                          0.85,
-                                                                      child:
-                                                                          UserWidget(
-                                                                        infos:
-                                                                            namesItem,
-                                                                      ),
-                                                                    ),
+                                                                      UserWidget(
+                                                                    infos:
+                                                                        namesItem,
                                                                   ),
                                                                 );
                                                               },
@@ -1264,45 +1240,12 @@ class _UsersWidgetState extends State<UsersWidget> {
                                                             context: context,
                                                             builder:
                                                                 (dialogContext) {
-                                                              return Dialog(
-                                                                elevation: 0,
-                                                                insetPadding:
-                                                                    EdgeInsets
-                                                                        .zero,
-                                                                backgroundColor:
-                                                                    Colors
-                                                                        .transparent,
-                                                                alignment: AlignmentDirectional(
-                                                                        0.0,
-                                                                        0.0)
-                                                                    .resolve(
-                                                                        Directionality.of(
-                                                                            context)),
+                                                              return AdminDialogFrame(
+                                                                maxWidth: 560,
                                                                 child:
-                                                                    GestureDetector(
-                                                                  onTap: () {
-                                                                    FocusScope.of(
-                                                                            dialogContext)
-                                                                        .unfocus();
-                                                                    FocusManager
-                                                                        .instance
-                                                                        .primaryFocus
-                                                                        ?.unfocus();
-                                                                  },
-                                                                  child:
-                                                                      Container(
-                                                                    height: MediaQuery.sizeOf(context)
-                                                                            .height *
-                                                                        10.8,
-                                                                    width:
-                                                                        1080.0,
-                                                                    child:
-                                                                        PaiementWidget(
-                                                                      refUser:
-                                                                          namesItem
-                                                                              .reference,
-                                                                    ),
-                                                                  ),
+                                                                    PaiementWidget(
+                                                                  refUser: namesItem
+                                                                      .reference,
                                                                 ),
                                                               );
                                                             },

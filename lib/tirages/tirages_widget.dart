@@ -87,6 +87,12 @@ class _TiragesWidgetState extends State<TiragesWidget> {
                 child: SidenavWidget(forceVisible: true),
               )
             : null,
+        bottomNavigationBar: MediaQuery.sizeOf(context).width < 992
+            ? AdminMobileBottomBar(
+                activeDestination: AdminMobileDestination.tirages,
+                onOpenMenu: () => scaffoldKey.currentState?.openDrawer(),
+              )
+            : null,
         body: SafeArea(
           top: true,
           child: Row(
