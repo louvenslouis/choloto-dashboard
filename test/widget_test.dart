@@ -9,6 +9,11 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   testWidgets('the mobile administration header is visible and accessible',
       (tester) async {
+    tester.view.physicalSize = const Size(340, 720);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
@@ -18,7 +23,10 @@ void main() {
     );
 
     expect(find.text('CHOLOTO'), findsOneWidget);
+    expect(find.text('ESPACE ADMIN'), findsOneWidget);
+    expect(find.text('En ligne'), findsOneWidget);
     expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('the shared mobile app bar exposes its page and status',

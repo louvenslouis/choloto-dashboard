@@ -1,11 +1,6 @@
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'menubutton_model.dart';
 export 'menubutton_model.dart';
 
@@ -51,49 +46,68 @@ class _MenubuttonWidgetState extends State<MenubuttonWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    final selected = widget.bgColor != null;
+
     return Padding(
-      padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: AnimatedContainer(
-        duration: Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
         width: double.infinity,
-        height: 44.0,
+        constraints: const BoxConstraints(minHeight: 48),
         decoration: BoxDecoration(
-          color: FlutterFlowTheme.of(context).primaryBackground,
-          borderRadius: BorderRadius.circular(12.0),
-          shape: BoxShape.rectangle,
-        ),
-        child: Padding(
-          padding: EdgeInsetsDirectional.fromSTEB(8.0, 0.0, 6.0, 0.0),
-          child: Row(
-            mainAxisSize: MainAxisSize.max,
-            children: [
-              widget!.icon!,
-              Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(12.0, 0.0, 0.0, 0.0),
-                child: Text(
-                  valueOrDefault<String>(
-                    widget!.name,
-                    'Blink',
+          color: widget.bgColor ?? theme.secondaryBackground,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected
+                ? theme.secondary.withValues(alpha: .32)
+                : theme.alternate,
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: theme.primaryText.withValues(alpha: .045),
+                    blurRadius: 14,
+                    offset: const Offset(0, 5),
                   ),
-                  style: FlutterFlowTheme.of(context).bodyMedium.override(
-                        font: GoogleFonts.inter(
-                          fontWeight: FlutterFlowTheme.of(context)
-                              .bodyMedium
-                              .fontWeight,
-                          fontStyle:
-                              FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                        ),
-                        letterSpacing: 0.0,
-                        fontWeight:
-                            FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                        fontStyle:
-                            FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                      ),
+                ]
+              : null,
+        ),
+        padding: const EdgeInsets.fromLTRB(8, 6, 12, 6),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: selected
+                    ? theme.secondary.withValues(alpha: .18)
+                    : theme.primaryBackground,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: IconTheme.merge(
+                data: IconThemeData(
+                  color: selected ? theme.primary : theme.secondaryText,
+                  size: 19,
+                ),
+                child: widget.icon ?? const Icon(Icons.circle_outlined),
+              ),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Text(
+                valueOrDefault<String>(widget.name, 'Menu'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.bodyMedium.copyWith(
+                  color: theme.primaryText,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

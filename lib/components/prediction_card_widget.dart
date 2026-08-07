@@ -1,4 +1,5 @@
 import '/backend/schema/enums/enums.dart';
+import '/components/admin_ui.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import 'package:flutter/material.dart';
@@ -53,14 +54,10 @@ class _PredictionCardWidgetState extends State<PredictionCardWidget> {
     final theme = FlutterFlowTheme.of(context);
     final prediction = widget.parameter1;
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      color: theme.secondaryBackground,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: theme.alternate),
-      ),
+    return AdminSurface(
+      padding: EdgeInsets.zero,
+      radius: 20,
+      showShadow: true,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 520;
@@ -77,18 +74,14 @@ class _PredictionCardWidgetState extends State<PredictionCardWidget> {
               children: [
                 Row(
                   children: [
-                    Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: theme.accent1,
-                        borderRadius: BorderRadius.circular(13),
-                      ),
-                      child: Icon(
-                        _iconForPrediction(prediction),
-                        color: theme.primary,
-                        size: 21,
-                      ),
+                    AdminIconTile(
+                      icon: _iconForPrediction(prediction),
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? theme.secondary
+                          : theme.primary,
+                      size: 42,
+                      iconSize: 21,
+                      radius: 13,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -111,24 +104,10 @@ class _PredictionCardWidgetState extends State<PredictionCardWidget> {
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.primaryBackground,
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        '4 NUMÉROS',
-                        style: theme.labelSmall.copyWith(
-                          color: theme.secondaryText,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: .55,
-                        ),
-                      ),
+                    AdminStatusPill(
+                      label: '4 NUMÉROS',
+                      color: theme.secondaryText,
+                      compact: true,
                     ),
                   ],
                 ),
@@ -254,8 +233,20 @@ class _PredictionInput extends StatelessWidget {
             null,
         decoration: InputDecoration(
           isDense: true,
+          filled: true,
+          fillColor: theme.primaryBackground,
           labelText: 'N° $index',
           hintText: '—',
+          labelStyle: theme.labelMedium.copyWith(
+            color: theme.secondaryText,
+            fontWeight: FontWeight.w700,
+          ),
+          floatingLabelStyle: theme.labelSmall.copyWith(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? theme.secondary
+                : theme.tertiary,
+            fontWeight: FontWeight.w800,
+          ),
           floatingLabelAlignment: FloatingLabelAlignment.center,
           contentPadding: const EdgeInsets.fromLTRB(10, 18, 10, 14),
           suffixIconConstraints: const BoxConstraints(

@@ -114,13 +114,10 @@ class _PaiementWidgetState extends State<PaiementWidget> {
                 : (value) => setState(() => _model.dropDownValue = value),
           ),
           const SizedBox(height: 16),
-          Container(
+          AdminSurface(
             padding: const EdgeInsets.fromLTRB(10, 14, 10, 8),
-            decoration: BoxDecoration(
-              color: theme.primaryBackground,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: theme.alternate),
-            ),
+            color: theme.primaryBackground,
+            radius: 18,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -131,7 +128,9 @@ class _PaiementWidgetState extends State<PaiementWidget> {
                       Icon(
                         Icons.event_available_rounded,
                         size: 20,
-                        color: theme.primary,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? theme.secondary
+                            : theme.primary,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -176,29 +175,21 @@ class _PaiementWidgetState extends State<PaiementWidget> {
             ),
           ),
           const SizedBox(height: 14),
-          Container(
+          AdminSurface(
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: theme.accent1,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: theme.secondary.withValues(alpha: .26),
-              ),
-            ),
+            color: theme.accent1,
+            borderColor: theme.secondary.withValues(alpha: .26),
+            radius: 16,
             child: Row(
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: theme.secondary.withValues(alpha: .2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.add_task_rounded,
-                    color: theme.primary,
-                    size: 21,
-                  ),
+                AdminIconTile(
+                  icon: Icons.add_task_rounded,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? theme.secondary
+                      : theme.primary,
+                  size: 40,
+                  iconSize: 21,
+                  radius: 12,
                 ),
                 const SizedBox(width: 12),
                 Expanded(

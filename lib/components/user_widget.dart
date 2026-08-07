@@ -52,6 +52,62 @@ class _UserWidgetState extends State<UserWidget> {
     final endDate = user?.endSub;
     final active = endDate != null && endDate.isAfter(DateTime.now());
     final initial = name.characters.first.toUpperCase();
+    final avatar = Container(
+      width: 58,
+      height: 58,
+      decoration: BoxDecoration(
+        color: theme.accent1,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: theme.secondary.withValues(alpha: .35),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.primaryText.withValues(alpha: .08),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: user?.photoUrl.isNotEmpty == true
+          ? Image.network(
+              user!.photoUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => _AvatarInitial(initial: initial),
+            )
+          : _AvatarInitial(initial: initial),
+    );
+
+    Widget identityDetails({required bool centered}) => Column(
+          crossAxisAlignment:
+              centered ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+          children: [
+            Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: centered ? TextAlign.center : TextAlign.start,
+              style: theme.titleMedium.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              email,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: centered ? TextAlign.center : TextAlign.start,
+              style: theme.bodySmall.copyWith(color: theme.secondaryText),
+            ),
+            const SizedBox(height: 9),
+            AdminStatusPill(
+              label: active ? 'ABONNEMENT ACTIF' : 'ABONNEMENT INACTIF',
+              color: active ? theme.success : theme.warning,
+              foregroundColor: active ? theme.success : theme.primaryText,
+              compact: true,
+            ),
+          ],
+        );
 
     return Padding(
       padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 390 ? 18 : 22),
@@ -66,84 +122,30 @@ class _UserWidgetState extends State<UserWidget> {
             onClose: () => Navigator.pop(context),
           ),
           const SizedBox(height: 22),
-          Container(
+          AdminSurface(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: theme.primaryBackground,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: theme.alternate),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 58,
-                  height: 58,
-                  decoration: BoxDecoration(
-                    color: theme.accent1,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: theme.secondary.withValues(alpha: .35),
-                      width: 2,
-                    ),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: user?.photoUrl.isNotEmpty == true
-                      ? Image.network(
-                          user!.photoUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _AvatarInitial(
-                            initial: initial,
-                          ),
-                        )
-                      : _AvatarInitial(initial: initial),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            color: theme.primaryBackground,
+            radius: 18,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final stacked = constraints.maxWidth < 300;
+                if (stacked) {
+                  return Column(
                     children: [
-                      Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.titleMedium.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        email,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.bodySmall.copyWith(
-                          color: theme.secondaryText,
-                        ),
-                      ),
-                      const SizedBox(height: 9),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: (active ? theme.success : theme.warning)
-                              .withValues(alpha: .12),
-                          borderRadius: BorderRadius.circular(99),
-                        ),
-                        child: Text(
-                          active ? 'ABONNEMENT ACTIF' : 'ABONNEMENT INACTIF',
-                          style: theme.labelSmall.copyWith(
-                            color: active ? theme.success : theme.primaryText,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: .45,
-                          ),
-                        ),
-                      ),
+                      avatar,
+                      const SizedBox(height: 13),
+                      identityDetails(centered: true),
                     ],
-                  ),
-                ),
-              ],
+                  );
+                }
+                return Row(
+                  children: [
+                    avatar,
+                    const SizedBox(width: 14),
+                    Expanded(child: identityDetails(centered: false)),
+                  ],
+                );
+              },
             ),
           ),
           const SizedBox(height: 16),
@@ -220,7 +222,9 @@ class _AvatarInitial extends StatelessWidget {
       child: Text(
         initial,
         style: theme.headlineSmall.copyWith(
-          color: theme.primary,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? theme.secondary
+              : theme.primary,
           fontWeight: FontWeight.w800,
         ),
       ),
@@ -242,51 +246,49 @@ class _UserInfoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
-    return Container(
+    return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 84),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: theme.secondaryBackground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.alternate),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: theme.accent1,
-              borderRadius: BorderRadius.circular(12),
+      child: AdminSurface(
+        padding: const EdgeInsets.all(14),
+        radius: 16,
+        child: Row(
+          children: [
+            AdminIconTile(
+              icon: icon,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? theme.secondary
+                  : theme.primary,
+              size: 38,
+              iconSize: 20,
+              radius: 12,
             ),
-            child: Icon(icon, color: theme.primary, size: 20),
-          ),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  label,
-                  style: theme.labelSmall.copyWith(
-                    color: theme.secondaryText,
-                    fontWeight: FontWeight.w600,
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    label,
+                    style: theme.labelSmall.copyWith(
+                      color: theme.secondaryText,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.bodyMedium.copyWith(
-                    fontWeight: FontWeight.w800,
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

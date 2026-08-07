@@ -10,6 +10,137 @@ enum AdminMobileDestination {
   more,
 }
 
+/// Neutral content surface shared by cards, summaries and dialog sections.
+/// It deliberately carries no interaction so wrapping existing controls does
+/// not change their behavior.
+class AdminSurface extends StatelessWidget {
+  const AdminSurface({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(16),
+    this.color,
+    this.borderColor,
+    this.radius = 18,
+    this.showShadow = false,
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final Color? color;
+  final Color? borderColor;
+  final double radius;
+  final bool showShadow;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: color ?? theme.secondaryBackground,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: borderColor ?? theme.alternate),
+        boxShadow: showShadow
+            ? [
+                BoxShadow(
+                  color: theme.primaryText.withValues(alpha: .055),
+                  blurRadius: 20,
+                  offset: const Offset(0, 7),
+                ),
+              ]
+            : null,
+      ),
+      child: child,
+    );
+  }
+}
+
+/// Branded icon treatment used across headings, cards and dialogs.
+class AdminIconTile extends StatelessWidget {
+  const AdminIconTile({
+    super.key,
+    required this.icon,
+    this.color,
+    this.size = 44,
+    this.iconSize = 22,
+    this.radius = 14,
+  });
+
+  final IconData icon;
+  final Color? color;
+  final double size;
+  final double iconSize;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    final accent = color ?? theme.primary;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: .10),
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: accent.withValues(alpha: .16)),
+      ),
+      child: Icon(icon, color: accent, size: iconSize),
+    );
+  }
+}
+
+/// Small status or metadata label with one consistent pill treatment.
+class AdminStatusPill extends StatelessWidget {
+  const AdminStatusPill({
+    super.key,
+    required this.label,
+    required this.color,
+    this.leading,
+    this.compact = false,
+    this.foregroundColor,
+  });
+
+  final String label;
+  final Color color;
+  final Widget? leading;
+  final bool compact;
+  final Color? foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 10,
+        vertical: compact ? 5 : 7,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .10),
+        borderRadius: BorderRadius.circular(theme.designToken.radius.full),
+        border: Border.all(color: color.withValues(alpha: .17)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (leading != null) ...[
+            leading!,
+            const SizedBox(width: 6),
+          ],
+          Text(
+            label,
+            style: theme.labelSmall.copyWith(
+              color: foregroundColor ?? color,
+              fontSize: compact ? 10 : null,
+              fontWeight: FontWeight.w800,
+              letterSpacing: compact ? .35 : 0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Shared presentation widgets for the administration workspace.
 ///
 /// Keeping the page heading and the mobile navigation in one place makes the
@@ -104,42 +235,40 @@ class AdminMobileAppBar extends StatelessWidget implements PreferredSizeWidget {
           padding: const EdgeInsets.only(right: 14),
           child: Semantics(
             label: 'Système opérationnel',
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: compact ? 8 : 10,
-                vertical: 7,
-              ),
-              decoration: BoxDecoration(
-                color: theme.success.withValues(alpha: .10),
-                borderRadius: BorderRadius.circular(99),
-                border: Border.all(
-                  color: theme.success.withValues(alpha: .16),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      color: theme.success,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  if (MediaQuery.sizeOf(context).width >= 410) ...[
-                    const SizedBox(width: 6),
-                    Text(
-                      'En ligne',
-                      style: theme.labelSmall.copyWith(
+            child: MediaQuery.sizeOf(context).width >= 410
+                ? AdminStatusPill(
+                    label: 'En ligne',
+                    color: theme.success,
+                    compact: compact,
+                    leading: Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
                         color: theme.success,
-                        fontWeight: FontWeight.w700,
+                        shape: BoxShape.circle,
                       ),
                     ),
-                  ],
-                ],
-              ),
-            ),
+                  )
+                : Container(
+                    width: 34,
+                    height: 34,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: theme.success.withValues(alpha: .10),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: theme.success.withValues(alpha: .17),
+                      ),
+                    ),
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: theme.success,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
           ),
         ),
       ],
@@ -178,9 +307,9 @@ class AdminMobileBottomBar extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: theme.primaryText.withValues(alpha: .06),
-                blurRadius: 18,
-                offset: const Offset(0, -4),
+                color: theme.primaryText.withValues(alpha: .055),
+                blurRadius: 22,
+                offset: const Offset(0, -6),
               ),
             ],
           ),
@@ -300,6 +429,9 @@ class AdminDialogFrame extends StatelessWidget {
           child: Material(
             color: FlutterFlowTheme.of(context).secondaryBackground,
             surfaceTintColor: Colors.transparent,
+            elevation: 12,
+            shadowColor:
+                FlutterFlowTheme.of(context).primaryText.withValues(alpha: .14),
             clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(mobile ? 24 : 28),
@@ -342,15 +474,7 @@ class AdminDialogHeader extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: .11),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(icon, color: color, size: 22),
-        ),
+        AdminIconTile(icon: icon, color: color),
         const SizedBox(width: 13),
         Expanded(
           child: Column(
@@ -387,6 +511,7 @@ class AdminDialogHeader extends StatelessWidget {
             minimumSize: const Size(44, 44),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(13),
+              side: BorderSide(color: theme.alternate),
             ),
           ),
         ),
@@ -467,17 +592,19 @@ class AdminConfirmDialog extends StatelessWidget {
             LayoutBuilder(
               builder: (context, constraints) {
                 final stack = constraints.maxWidth < 330;
-                final cancel = OutlinedButton(
+                final cancel = OutlinedButton.icon(
                   onPressed: () => Navigator.pop(context, false),
-                  child: Text(cancelLabel),
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  label: Text(cancelLabel),
                 );
-                final confirm = FilledButton(
+                final confirm = FilledButton.icon(
                   style: FilledButton.styleFrom(
                     backgroundColor: actionColor,
                     foregroundColor: Colors.white,
                   ),
                   onPressed: () => Navigator.pop(context, true),
-                  child: Text(confirmLabel),
+                  icon: Icon(icon, size: 18),
+                  label: Text(confirmLabel),
                 );
 
                 if (stack) {
@@ -537,9 +664,10 @@ Future<void> showAdminNoticeDialog({
                   ),
             ),
             const SizedBox(height: 24),
-            FilledButton(
+            FilledButton.icon(
               onPressed: () => Navigator.pop(dialogContext),
-              child: Text(buttonLabel),
+              icon: const Icon(Icons.check_rounded, size: 18),
+              label: Text(buttonLabel),
             ),
           ],
         ),
@@ -581,23 +709,13 @@ class AdminSectionHeader extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: compact ? 42 : 46,
-              height: compact ? 42 : 46,
-              decoration: BoxDecoration(
-                color: theme.accent1,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: theme.secondary.withValues(alpha: .24),
-                ),
-              ),
-              child: Icon(
-                icon,
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? theme.secondary
-                    : theme.primary,
-                size: compact ? 21 : 23,
-              ),
+            AdminIconTile(
+              icon: icon,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? theme.secondary
+                  : theme.primary,
+              size: compact ? 42 : 46,
+              iconSize: compact ? 21 : 23,
             ),
             SizedBox(width: compact ? 13 : 16),
             Expanded(

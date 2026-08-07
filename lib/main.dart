@@ -171,10 +171,21 @@ class _MyAppState extends State<MyApp> {
         listTileTheme: ListTileThemeData(
           iconColor: const Color(0xFF66758A),
           textColor: const Color(0xFF142033),
+          minLeadingWidth: 22,
+          minTileHeight: 48,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+        ),
+        iconButtonTheme: IconButtonThemeData(
+          style: IconButton.styleFrom(
+            foregroundColor: const Color(0xFF344156),
+            minimumSize: const Size(44, 44),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(13),
+            ),
+          ),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
@@ -202,6 +213,10 @@ class _MyAppState extends State<MyApp> {
           focusedErrorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: const BorderSide(color: Color(0xFFE14F5A), width: 1.5),
+          ),
+          disabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFFE8EDF3)),
           ),
         ),
         filledButtonTheme: FilledButtonThemeData(
@@ -233,6 +248,50 @@ class _MyAppState extends State<MyApp> {
             ),
             textStyle: const TextStyle(fontWeight: FontWeight.w700),
           ),
+        ),
+        chipTheme: ChipThemeData(
+          backgroundColor: const Color(0xFFF5F7FA),
+          selectedColor: const Color(0x29F6C744),
+          disabledColor: const Color(0xFFF1F4F8),
+          side: const BorderSide(color: Color(0xFFE4EAF1)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(999),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+          labelStyle: GoogleFonts.inter(
+            color: const Color(0xFF344156),
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+          secondaryLabelStyle: GoogleFonts.inter(
+            color: const Color(0xFF12263F),
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+          checkmarkColor: const Color(0xFF12263F),
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          height: 68,
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          indicatorColor: const Color(0x29F6C744),
+          elevation: 0,
+          iconTheme: WidgetStateProperty.resolveWith((states) => IconThemeData(
+                color: states.contains(WidgetState.selected)
+                    ? const Color(0xFF12263F)
+                    : const Color(0xFF66758A),
+                size: states.contains(WidgetState.selected) ? 24 : 22,
+              )),
+          labelTextStyle:
+              WidgetStateProperty.resolveWith((states) => GoogleFonts.inter(
+                    color: states.contains(WidgetState.selected)
+                        ? const Color(0xFF142033)
+                        : const Color(0xFF66758A),
+                    fontSize: 11,
+                    fontWeight: states.contains(WidgetState.selected)
+                        ? FontWeight.w800
+                        : FontWeight.w600,
+                  )),
         ),
         dialogTheme: DialogThemeData(
           backgroundColor: Colors.white,
@@ -352,8 +411,9 @@ class _MyAppState extends State<MyApp> {
           color: const Color(0xFF132333),
           surfaceTintColor: Colors.transparent,
           elevation: 0,
+          margin: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(20),
             side: const BorderSide(color: Color(0xFF26394B)),
           ),
         ),
@@ -361,6 +421,30 @@ class _MyAppState extends State<MyApp> {
           color: Color(0xFF2C4053),
           thickness: 1,
           space: 1,
+        ),
+        drawerTheme: const DrawerThemeData(
+          backgroundColor: Color(0xFF10243A),
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(),
+        ),
+        listTileTheme: ListTileThemeData(
+          iconColor: const Color(0xFFA9B6C5),
+          textColor: const Color(0xFFF4F7FA),
+          minLeadingWidth: 22,
+          minTileHeight: 48,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+        ),
+        iconButtonTheme: IconButtonThemeData(
+          style: IconButton.styleFrom(
+            foregroundColor: const Color(0xFFD8E2EA),
+            minimumSize: const Size(44, 44),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(13),
+            ),
+          ),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
@@ -425,6 +509,50 @@ class _MyAppState extends State<MyApp> {
             textStyle: const TextStyle(fontWeight: FontWeight.w700),
           ),
         ),
+        chipTheme: ChipThemeData(
+          backgroundColor: const Color(0xFF172A3A),
+          selectedColor: const Color(0x33FFD447),
+          disabledColor: const Color(0xFF101D29),
+          side: const BorderSide(color: Color(0xFF2C4053)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(999),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+          labelStyle: GoogleFonts.inter(
+            color: const Color(0xFFD8E2EA),
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+          secondaryLabelStyle: GoogleFonts.inter(
+            color: const Color(0xFFFFD447),
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+          checkmarkColor: const Color(0xFFFFD447),
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          height: 68,
+          backgroundColor: const Color(0xFF132333),
+          surfaceTintColor: Colors.transparent,
+          indicatorColor: const Color(0x33FFD447),
+          elevation: 0,
+          iconTheme: WidgetStateProperty.resolveWith((states) => IconThemeData(
+                color: states.contains(WidgetState.selected)
+                    ? const Color(0xFFFFD447)
+                    : const Color(0xFFA9B6C5),
+                size: states.contains(WidgetState.selected) ? 24 : 22,
+              )),
+          labelTextStyle:
+              WidgetStateProperty.resolveWith((states) => GoogleFonts.inter(
+                    color: states.contains(WidgetState.selected)
+                        ? const Color(0xFFF4F7FA)
+                        : const Color(0xFFA9B6C5),
+                    fontSize: 11,
+                    fontWeight: states.contains(WidgetState.selected)
+                        ? FontWeight.w800
+                        : FontWeight.w600,
+                  )),
+        ),
         dialogTheme: DialogThemeData(
           backgroundColor: const Color(0xFF132333),
           surfaceTintColor: Colors.transparent,
@@ -440,7 +568,7 @@ class _MyAppState extends State<MyApp> {
             height: 1.45,
           ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(24),
             side: const BorderSide(color: Color(0xFF2C4053)),
           ),
           actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
