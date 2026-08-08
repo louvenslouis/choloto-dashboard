@@ -3,7 +3,6 @@ import '/backend/backend.dart';
 import '/backend/schema/structs/index.dart';
 import '/components/admin_ui.dart';
 import '/flutter_flow/flutter_flow_choice_chips.dart';
-import '/flutter_flow/flutter_flow_drop_down.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -42,6 +41,17 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
     'BOLOTO',
   ];
 
+  static const List<String> _tirageOptions = [
+    'NEW YORK',
+    'GEORGIA',
+    'FLORIDA',
+    'NEW JERSEY',
+    'TEXAS',
+    'TENNESSEE',
+    'MARYLAND',
+    'PENNSYLVANIA',
+  ];
+
   late PublicationsModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
@@ -65,14 +75,8 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
     _model.numero2TextController ??= TextEditingController();
     _model.numero2FocusNode ??= FocusNode();
 
-    _model.nom2TextController ??= TextEditingController();
-    _model.nom2FocusNode ??= FocusNode();
-
     _model.numero3TextController ??= TextEditingController();
     _model.numero3FocusNode ??= FocusNode();
-
-    _model.nom3TextController ??= TextEditingController();
-    _model.nom3FocusNode ??= FocusNode();
 
     WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {}));
   }
@@ -88,12 +92,44 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
     required String? value,
     required ValueChanged<String?> onChanged,
   }) {
+    return _buildOptionSelector(
+      fieldLabel: 'Valeur',
+      sheetTitle: 'Choisir une valeur',
+      options: _valeurOptions,
+      icon: Icons.apps_rounded,
+      value: value,
+      onChanged: onChanged,
+    );
+  }
+
+  Widget _buildTirageSelector({
+    required String? value,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return _buildOptionSelector(
+      fieldLabel: 'Nom du tirage',
+      sheetTitle: 'Choisir le nom du tirage',
+      options: _tirageOptions,
+      icon: Icons.location_on_rounded,
+      value: value,
+      onChanged: onChanged,
+    );
+  }
+
+  Widget _buildOptionSelector({
+    required String fieldLabel,
+    required String sheetTitle,
+    required List<String> options,
+    required IconData icon,
+    required String? value,
+    required ValueChanged<String?> onChanged,
+  }) {
     final theme = FlutterFlowTheme.of(context);
 
     return Semantics(
       button: true,
-      label: 'Sélectionner une valeur',
-      value: value ?? 'Aucune valeur sélectionnée',
+      label: 'Sélectionner $fieldLabel',
+      value: value ?? 'Aucune sélection',
       child: InkWell(
         borderRadius: BorderRadius.circular(12.0),
         onTap: () async {
@@ -120,7 +156,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Choisir une valeur',
+                                sheetTitle,
                                 style: sheetTheme.titleMedium,
                               ),
                               const SizedBox(height: 4.0),
@@ -142,7 +178,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                     Wrap(
                       spacing: 10.0,
                       runSpacing: 10.0,
-                      children: _valeurOptions.map((option) {
+                      children: options.map((option) {
                         final isSelected = option == value;
 
                         return ChoiceChip(
@@ -202,7 +238,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Valeur',
+                      fieldLabel,
                       style: theme.labelSmall,
                     ),
                     Text(
@@ -226,7 +262,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                 ),
               ),
               Icon(
-                Icons.apps_rounded,
+                icon,
                 color: value == null ? theme.secondaryText : theme.primary,
                 size: 22.0,
               ),
@@ -554,83 +590,13 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                                                                   _model.valeur1Value =
                                                                       val),
                                                         ),
-                                                        FlutterFlowDropDown<
-                                                            String>(
-                                                          controller: _model
-                                                                  .nomtirage1ValueController ??=
-                                                              FormFieldController<
-                                                                  String>(null),
-                                                          options: [
-                                                            'NEW YORK',
-                                                            'GEORGIA',
-                                                            'FLORIDA',
-                                                            'NEW JERSEY',
-                                                            'TEXAS',
-                                                            'TENNESSEE',
-                                                            'MARYLAND',
-                                                            'PENNSYLVANIA'
-                                                          ],
+                                                        _buildTirageSelector(
+                                                          value: _model
+                                                              .nomtirage1Value,
                                                           onChanged: (val) =>
                                                               safeSetState(() =>
                                                                   _model.nomtirage1Value =
                                                                       val),
-                                                          width: 200.0,
-                                                          height: 40.0,
-                                                          textStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .override(
-                                                                    font: GoogleFonts
-                                                                        .inter(
-                                                                      fontWeight: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodyMedium
-                                                                          .fontWeight,
-                                                                      fontStyle: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodyMedium
-                                                                          .fontStyle,
-                                                                    ),
-                                                                    letterSpacing:
-                                                                        0.0,
-                                                                    fontWeight: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .fontWeight,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .fontStyle,
-                                                                  ),
-                                                          hintText: 'Tirage',
-                                                          icon: Icon(
-                                                            Icons
-                                                                .keyboard_arrow_down_rounded,
-                                                            color: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .secondaryText,
-                                                            size: 24.0,
-                                                          ),
-                                                          fillColor: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .secondaryBackground,
-                                                          elevation: 2.0,
-                                                          borderColor: Colors
-                                                              .transparent,
-                                                          borderWidth: 0.0,
-                                                          borderRadius: 8.0,
-                                                          margin:
-                                                              EdgeInsetsDirectional
-                                                                  .fromSTEB(
-                                                                      12.0,
-                                                                      0.0,
-                                                                      12.0,
-                                                                      0.0),
-                                                          hidesUnderline: true,
-                                                          isOverButton: false,
-                                                          isSearchable: false,
-                                                          isMultiSelect: false,
                                                         ),
                                                         FlutterFlowChoiceChips(
                                                           options: [
@@ -958,165 +924,13 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                                                                   _model.valeur2Value =
                                                                       val),
                                                         ),
-                                                        Padding(
-                                                          padding:
-                                                              EdgeInsets.all(
-                                                                  2.0),
-                                                          child: Container(
-                                                            width: 200.0,
-                                                            child:
-                                                                TextFormField(
-                                                              controller: _model
-                                                                  .nom2TextController,
-                                                              focusNode: _model
-                                                                  .nom2FocusNode,
-                                                              autofocus: false,
-                                                              obscureText:
-                                                                  false,
-                                                              decoration:
-                                                                  InputDecoration(
-                                                                isDense: true,
-                                                                labelText:
-                                                                    'Le nom du tirage',
-                                                                hintText:
-                                                                    'Ex: New York',
-                                                                hintStyle: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .override(
-                                                                      font: GoogleFonts
-                                                                          .inter(
-                                                                        fontWeight: FlutterFlowTheme.of(context)
-                                                                            .bodyMedium
-                                                                            .fontWeight,
-                                                                        fontStyle: FlutterFlowTheme.of(context)
-                                                                            .bodyMedium
-                                                                            .fontStyle,
-                                                                      ),
-                                                                      color: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .secondaryText,
-                                                                      letterSpacing:
-                                                                          0.0,
-                                                                      fontWeight: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodyMedium
-                                                                          .fontWeight,
-                                                                      fontStyle: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodyMedium
-                                                                          .fontStyle,
-                                                                    ),
-                                                                enabledBorder:
-                                                                    OutlineInputBorder(
-                                                                  borderSide:
-                                                                      BorderSide(
-                                                                    color: Color(
-                                                                        0xFFF3BF00),
-                                                                    width: 1.5,
-                                                                  ),
-                                                                  borderRadius:
-                                                                      BorderRadius
-                                                                          .circular(
-                                                                              24.0),
-                                                                ),
-                                                                focusedBorder:
-                                                                    OutlineInputBorder(
-                                                                  borderSide:
-                                                                      BorderSide(
-                                                                    color: Colors
-                                                                        .black,
-                                                                    width: 1.5,
-                                                                  ),
-                                                                  borderRadius:
-                                                                      BorderRadius
-                                                                          .circular(
-                                                                              24.0),
-                                                                ),
-                                                                errorBorder:
-                                                                    OutlineInputBorder(
-                                                                  borderSide:
-                                                                      BorderSide(
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .error,
-                                                                    width: 1.5,
-                                                                  ),
-                                                                  borderRadius:
-                                                                      BorderRadius
-                                                                          .circular(
-                                                                              24.0),
-                                                                ),
-                                                                focusedErrorBorder:
-                                                                    OutlineInputBorder(
-                                                                  borderSide:
-                                                                      BorderSide(
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .error,
-                                                                    width: 1.5,
-                                                                  ),
-                                                                  borderRadius:
-                                                                      BorderRadius
-                                                                          .circular(
-                                                                              24.0),
-                                                                ),
-                                                                filled: true,
-                                                                fillColor: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .secondaryBackground,
-                                                              ),
-                                                              style: FlutterFlowTheme
-                                                                      .of(context)
-                                                                  .bodyMedium
-                                                                  .override(
-                                                                    font: GoogleFonts
-                                                                        .inter(
-                                                                      fontWeight: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodyMedium
-                                                                          .fontWeight,
-                                                                      fontStyle: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodyMedium
-                                                                          .fontStyle,
-                                                                    ),
-                                                                    letterSpacing:
-                                                                        0.0,
-                                                                    fontWeight: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .fontWeight,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .fontStyle,
-                                                                  ),
-                                                              textAlign:
-                                                                  TextAlign
-                                                                      .center,
-                                                              minLines: 1,
-                                                              maxLength: 15,
-                                                              buildCounter: (context,
-                                                                      {required currentLength,
-                                                                      required isFocused,
-                                                                      maxLength}) =>
-                                                                  null,
-                                                              keyboardType:
-                                                                  TextInputType
-                                                                      .number,
-                                                              cursorColor:
-                                                                  FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .primaryText,
-                                                              enableInteractiveSelection:
-                                                                  false,
-                                                              validator: _model
-                                                                  .nom2TextControllerValidator
-                                                                  .asValidator(
-                                                                      context),
-                                                            ),
-                                                          ),
+                                                        _buildTirageSelector(
+                                                          value:
+                                                              _model.nom2Value,
+                                                          onChanged: (val) =>
+                                                              safeSetState(() =>
+                                                                  _model.nom2Value =
+                                                                      val),
                                                         ),
                                                         Container(
                                                           width: 200.0,
@@ -1442,165 +1256,13 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                                                                   _model.valeur3Value =
                                                                       val),
                                                         ),
-                                                        Padding(
-                                                          padding:
-                                                              EdgeInsets.all(
-                                                                  2.0),
-                                                          child: Container(
-                                                            width: 200.0,
-                                                            child:
-                                                                TextFormField(
-                                                              controller: _model
-                                                                  .nom3TextController,
-                                                              focusNode: _model
-                                                                  .nom3FocusNode,
-                                                              autofocus: false,
-                                                              obscureText:
-                                                                  false,
-                                                              decoration:
-                                                                  InputDecoration(
-                                                                isDense: true,
-                                                                labelText:
-                                                                    'Le nom du tirage',
-                                                                hintText:
-                                                                    'Ex: New York',
-                                                                hintStyle: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .override(
-                                                                      font: GoogleFonts
-                                                                          .inter(
-                                                                        fontWeight: FlutterFlowTheme.of(context)
-                                                                            .bodyMedium
-                                                                            .fontWeight,
-                                                                        fontStyle: FlutterFlowTheme.of(context)
-                                                                            .bodyMedium
-                                                                            .fontStyle,
-                                                                      ),
-                                                                      color: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .secondaryText,
-                                                                      letterSpacing:
-                                                                          0.0,
-                                                                      fontWeight: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodyMedium
-                                                                          .fontWeight,
-                                                                      fontStyle: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodyMedium
-                                                                          .fontStyle,
-                                                                    ),
-                                                                enabledBorder:
-                                                                    OutlineInputBorder(
-                                                                  borderSide:
-                                                                      BorderSide(
-                                                                    color: Color(
-                                                                        0xFFF3BF00),
-                                                                    width: 1.5,
-                                                                  ),
-                                                                  borderRadius:
-                                                                      BorderRadius
-                                                                          .circular(
-                                                                              24.0),
-                                                                ),
-                                                                focusedBorder:
-                                                                    OutlineInputBorder(
-                                                                  borderSide:
-                                                                      BorderSide(
-                                                                    color: Colors
-                                                                        .black,
-                                                                    width: 1.5,
-                                                                  ),
-                                                                  borderRadius:
-                                                                      BorderRadius
-                                                                          .circular(
-                                                                              24.0),
-                                                                ),
-                                                                errorBorder:
-                                                                    OutlineInputBorder(
-                                                                  borderSide:
-                                                                      BorderSide(
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .error,
-                                                                    width: 1.5,
-                                                                  ),
-                                                                  borderRadius:
-                                                                      BorderRadius
-                                                                          .circular(
-                                                                              24.0),
-                                                                ),
-                                                                focusedErrorBorder:
-                                                                    OutlineInputBorder(
-                                                                  borderSide:
-                                                                      BorderSide(
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .error,
-                                                                    width: 1.5,
-                                                                  ),
-                                                                  borderRadius:
-                                                                      BorderRadius
-                                                                          .circular(
-                                                                              24.0),
-                                                                ),
-                                                                filled: true,
-                                                                fillColor: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .secondaryBackground,
-                                                              ),
-                                                              style: FlutterFlowTheme
-                                                                      .of(context)
-                                                                  .bodyMedium
-                                                                  .override(
-                                                                    font: GoogleFonts
-                                                                        .inter(
-                                                                      fontWeight: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodyMedium
-                                                                          .fontWeight,
-                                                                      fontStyle: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodyMedium
-                                                                          .fontStyle,
-                                                                    ),
-                                                                    letterSpacing:
-                                                                        0.0,
-                                                                    fontWeight: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .fontWeight,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .fontStyle,
-                                                                  ),
-                                                              textAlign:
-                                                                  TextAlign
-                                                                      .center,
-                                                              minLines: 1,
-                                                              maxLength: 15,
-                                                              buildCounter: (context,
-                                                                      {required currentLength,
-                                                                      required isFocused,
-                                                                      maxLength}) =>
-                                                                  null,
-                                                              keyboardType:
-                                                                  TextInputType
-                                                                      .number,
-                                                              cursorColor:
-                                                                  FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .primaryText,
-                                                              enableInteractiveSelection:
-                                                                  false,
-                                                              validator: _model
-                                                                  .nom3TextControllerValidator
-                                                                  .asValidator(
-                                                                      context),
-                                                            ),
-                                                          ),
+                                                        _buildTirageSelector(
+                                                          value:
+                                                              _model.nom3Value,
+                                                          onChanged: (val) =>
+                                                              safeSetState(() =>
+                                                                  _model.nom3Value =
+                                                                      val),
                                                         ),
                                                         Container(
                                                           width: 200.0,
@@ -1766,8 +1428,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                                                                     valeur: _model
                                                                         .valeur2Value,
                                                                     tirage: _model
-                                                                        .nom2TextController
-                                                                        .text,
+                                                                        .nom2Value,
                                                                     boul: _model
                                                                         .numero2TextController
                                                                         .text,
@@ -1790,8 +1451,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                                                                     valeur: _model
                                                                         .valeur3Value,
                                                                     tirage: _model
-                                                                        .nom3TextController
-                                                                        .text,
+                                                                        .nom3Value,
                                                                     boul: _model
                                                                         .numero3TextController
                                                                         .text,
