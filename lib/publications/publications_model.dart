@@ -59,7 +59,6 @@ class PublicationsModel extends FlutterFlowModel<PublicationsWidget> {
 
   // State field(s) for valeur1 widget.
   String? valeur1Value;
-  FormFieldController<String>? valeur1ValueController;
   // State field(s) for nomtirage1 widget.
   String? nomtirage1Value;
   FormFieldController<String>? nomtirage1ValueController;
@@ -73,9 +72,7 @@ class PublicationsModel extends FlutterFlowModel<PublicationsWidget> {
   TextEditingController? numero2TextController;
   String? Function(BuildContext, String?)? numero2TextControllerValidator;
   // State field(s) for valeur2 widget.
-  FocusNode? valeur2FocusNode;
-  TextEditingController? valeur2TextController;
-  String? Function(BuildContext, String?)? valeur2TextControllerValidator;
+  String? valeur2Value;
   // State field(s) for nom2 widget.
   FocusNode? nom2FocusNode;
   TextEditingController? nom2TextController;
@@ -90,9 +87,7 @@ class PublicationsModel extends FlutterFlowModel<PublicationsWidget> {
   TextEditingController? numero3TextController;
   String? Function(BuildContext, String?)? numero3TextControllerValidator;
   // State field(s) for valeur3 widget.
-  FocusNode? valeur3FocusNode;
-  TextEditingController? valeur3TextController;
-  String? Function(BuildContext, String?)? valeur3TextControllerValidator;
+  String? valeur3Value;
   // State field(s) for nom3 widget.
   FocusNode? nom3FocusNode;
   TextEditingController? nom3TextController;
@@ -119,17 +114,11 @@ class PublicationsModel extends FlutterFlowModel<PublicationsWidget> {
     numero2FocusNode?.dispose();
     numero2TextController?.dispose();
 
-    valeur2FocusNode?.dispose();
-    valeur2TextController?.dispose();
-
     nom2FocusNode?.dispose();
     nom2TextController?.dispose();
 
     numero3FocusNode?.dispose();
     numero3TextController?.dispose();
-
-    valeur3FocusNode?.dispose();
-    valeur3TextController?.dispose();
 
     nom3FocusNode?.dispose();
     nom3TextController?.dispose();
