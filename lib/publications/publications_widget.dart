@@ -397,6 +397,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget>
                                                             '1er lot',
                                                             '2e lot',
                                                             '3e lot',
+                                                            '2 lots',
                                                             'LOTO 3',
                                                             'LOTO 4',
                                                             '2 Kabès',
