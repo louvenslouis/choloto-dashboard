@@ -7,3 +7,5 @@ export '/tirages/tirages_widget.dart' show TiragesWidget;
 export '/predictions/predictions_widget.dart' show PredictionsWidget;
 export '/youtube/youtube_widget.dart' show YoutubeWidget;
 export '/publications/publications_widget.dart' show PublicationsWidget;
+export '/publications_history/publications_history_widget.dart'
+    show PublicationsHistoryWidget;

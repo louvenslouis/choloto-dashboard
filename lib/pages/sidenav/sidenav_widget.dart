@@ -436,6 +436,7 @@ class _NavMenuGroup extends StatelessWidget {
               label: item.label,
               icon: item.icon,
               selected: currentRoute == item.routePath ||
+                  currentRoute.startsWith('${item.routePath}/') ||
                   (currentRoute == '/' &&
                       item.routeName == UsersWidget.routeName),
               collapsed: collapsed,

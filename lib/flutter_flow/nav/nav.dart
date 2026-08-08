@@ -127,6 +127,12 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           path: PublicationsWidget.routePath,
           requireAuth: true,
           builder: (context, params) => PublicationsWidget(),
+        ),
+        FFRoute(
+          name: PublicationsHistoryWidget.routeName,
+          path: PublicationsHistoryWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => const PublicationsHistoryWidget(),
         )
       ].map((r) => r.toRoute(appStateNotifier)).toList(),
     );
