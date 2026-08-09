@@ -403,10 +403,12 @@ class AdminDialogFrame extends StatelessWidget {
     super.key,
     required this.child,
     this.maxWidth = 520,
+    this.scrollable = true,
   });
 
   final Widget child;
   final double maxWidth;
+  final bool scrollable;
 
   @override
   Widget build(BuildContext context) {
@@ -439,10 +441,13 @@ class AdminDialogFrame extends StatelessWidget {
                 color: FlutterFlowTheme.of(context).alternate,
               ),
             ),
-            child: SingleChildScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              child: child,
-            ),
+            child: scrollable
+                ? SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    child: child,
+                  )
+                : child,
           ),
         ),
       ),

@@ -4,6 +4,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/pages/sidenav/sidenav_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 class PublicationsHistoryWidget extends StatefulWidget {
   const PublicationsHistoryWidget({super.key});
@@ -147,29 +148,20 @@ class _PublicationsHistoryWidgetState extends State<PublicationsHistoryWidget> {
                         : constraints.maxWidth >= 600.0
                             ? 2
                             : 1;
-                    const spacing = 16.0;
-                    final cardWidth =
-                        (constraints.maxWidth - spacing * (columnCount - 1)) /
-                            columnCount;
 
-                    return SingleChildScrollView(
+                    return MasonryGridView.count(
+                      crossAxisCount: columnCount,
+                      mainAxisSpacing: 16.0,
+                      crossAxisSpacing: 16.0,
                       padding: const EdgeInsets.only(bottom: 24.0),
-                      child: Wrap(
-                        spacing: spacing,
-                        runSpacing: spacing,
-                        children: publications
-                            .map(
-                              (publication) => SizedBox(
-                                width: cardWidth,
-                                child: _PublicationHistoryCard(
-                                  publication: publication,
-                                  onDelete: () =>
-                                      _deletePublication(publication),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                      ),
+                      itemCount: publications.length,
+                      itemBuilder: (context, index) {
+                        final publication = publications[index];
+                        return _PublicationHistoryCard(
+                          publication: publication,
+                          onDelete: () => _deletePublication(publication),
+                        );
+                      },
                     );
                   },
                 ),

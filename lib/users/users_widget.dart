@@ -96,7 +96,8 @@ class _UsersWidgetState extends State<UsersWidget> {
       barrierDismissible: false,
       context: context,
       builder: (_) => AdminDialogFrame(
-        maxWidth: 560,
+        maxWidth: 760,
+        scrollable: false,
         child: PaiementWidget(refUser: user.reference),
       ),
     );

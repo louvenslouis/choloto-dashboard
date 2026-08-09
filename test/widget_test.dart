@@ -1,9 +1,12 @@
 import 'package:c_h_o_l_o_t_o_dashboard/components/admin_ui.dart';
 import 'package:c_h_o_l_o_t_o_dashboard/components/mobile_sidenav_widget.dart';
+import 'package:c_h_o_l_o_t_o_dashboard/components/paiement_widget.dart';
 import 'package:c_h_o_l_o_t_o_dashboard/components/prediction_card_widget.dart';
 import 'package:c_h_o_l_o_t_o_dashboard/components/user_widget.dart';
 import 'package:c_h_o_l_o_t_o_dashboard/backend/schema/enums/enums.dart';
+import 'package:c_h_o_l_o_t_o_dashboard/flutter_flow/internationalization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -164,6 +167,45 @@ void main() {
     expect(find.text('Profil du membre'), findsOneWidget);
     expect(find.text('ABONNEMENT INACTIF'), findsOneWidget);
     expect(find.byTooltip('Fermer'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the payment dialog fits a narrow phone without scrolling',
+      (tester) async {
+    tester.view.physicalSize = const Size(340, 720);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('fr'),
+        supportedLocales: [Locale('fr')],
+        localizationsDelegates: [
+          FFLocalizationsDelegate(),
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: Scaffold(
+          body: AdminDialogFrame(
+            maxWidth: 760,
+            scrollable: false,
+            child: PaiementWidget(refUser: null),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Abonnement VIP'), findsOneWidget);
+    expect(find.text('Méthode de paiement'), findsOneWidget);
+    expect(find.text('Enregistrer'), findsOneWidget);
+    expect(
+      find.text('Le compteur de mois actifs sera augmenté de 1.'),
+      findsOneWidget,
+    );
+    expect(find.byType(SingleChildScrollView), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
