@@ -1,6 +1,7 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/admin_ui.dart';
+import '/components/publication_edit_dialogs.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -1532,8 +1533,30 @@ class _CroixWidgetState extends State<CroixWidget> {
                                                 .info,
                                             size: 24.0,
                                           ),
-                                          onPressed: () {
-                                            print('IconButton pressed ...');
+                                          onPressed: () async {
+                                            logFirebaseEvent(
+                                                'CROIX_HISTORY_EDIT_ON_TAP');
+                                            final saved =
+                                                await showCroixEditDialog(
+                                              context: context,
+                                              publication: listViewCroixRecord,
+                                            );
+                                            if (!saved || !context.mounted) {
+                                              return;
+                                            }
+                                            ScaffoldMessenger.of(context)
+                                              ..hideCurrentSnackBar()
+                                              ..showSnackBar(
+                                                SnackBar(
+                                                  content: const Text(
+                                                    'Croix de la Chance modifiée avec succès.',
+                                                  ),
+                                                  backgroundColor:
+                                                      FlutterFlowTheme.of(
+                                                              context)
+                                                          .success,
+                                                ),
+                                              );
                                           },
                                         ),
                                         FlutterFlowIconButton(

@@ -1,5 +1,6 @@
 import '/backend/backend.dart';
 import '/components/admin_ui.dart';
+import '/components/publication_edit_dialogs.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import 'package:flutter/material.dart';
@@ -80,6 +81,8 @@ class PredictionsHistoryWidget extends StatelessWidget {
                                 final publication = publications[index];
                                 return _PredictionHistoryCard(
                                   publication: publication,
+                                  onEdit: () =>
+                                      _editPublication(context, publication),
                                   onDelete: () =>
                                       _deletePublication(context, publication),
                                 );
@@ -134,6 +137,27 @@ class PredictionsHistoryWidget extends StatelessWidget {
         ),
       );
     }
+  }
+
+  Future<void> _editPublication(
+    BuildContext context,
+    PredictionRecord publication,
+  ) async {
+    logFirebaseEvent('PREDICTIONS_HISTORY_EDIT_ON_TAP');
+    final saved = await showPredictionEditDialog(
+      context: context,
+      publication: publication,
+    );
+    if (!saved || !context.mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: const Text('Prédictions modifiées avec succès.'),
+          backgroundColor: FlutterFlowTheme.of(context).success,
+        ),
+      );
   }
 }
 
@@ -194,10 +218,12 @@ class _HistoryHeading extends StatelessWidget {
 class _PredictionHistoryCard extends StatelessWidget {
   const _PredictionHistoryCard({
     required this.publication,
+    required this.onEdit,
     required this.onDelete,
   });
 
   final PredictionRecord publication;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   @override
@@ -283,18 +309,41 @@ class _PredictionHistoryCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Supprimer la publication',
-                    onPressed: onDelete,
-                    icon: const Icon(Icons.delete_outline_rounded, size: 20.0),
-                    style: IconButton.styleFrom(
-                      foregroundColor: theme.error,
-                      backgroundColor: theme.error.withValues(alpha: 0.08),
-                      minimumSize: const Size(40.0, 40.0),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.0),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Modifier la publication',
+                        onPressed: onEdit,
+                        icon: const Icon(Icons.edit_rounded, size: 20.0),
+                        style: IconButton.styleFrom(
+                          foregroundColor: theme.primary,
+                          backgroundColor:
+                              theme.primary.withValues(alpha: 0.08),
+                          minimumSize: const Size(40.0, 40.0),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12.0),
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 6.0),
+                      IconButton(
+                        tooltip: 'Supprimer la publication',
+                        onPressed: onDelete,
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 20.0,
+                        ),
+                        style: IconButton.styleFrom(
+                          foregroundColor: theme.error,
+                          backgroundColor: theme.error.withValues(alpha: 0.08),
+                          minimumSize: const Size(40.0, 40.0),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12.0),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

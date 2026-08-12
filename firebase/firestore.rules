@@ -1,51 +1,252 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Compatibility policy:
+    // - Public reads used by released clients stay public.
+    // - Legacy client-side writes stay available to authenticated users.
+    // - Existing field names remain accepted, but malformed payloads are rejected.
+    // This lets a future release move publisher writes behind an admin claim or
+    // Cloud Function without breaking applications that are already installed.
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && (
+        (('admin' in request.auth.token) && request.auth.token.admin == true) ||
+        (('email' in request.auth.token) &&
+          request.auth.token.email == 'sanonmaeva064@gmail.com')
+      );
+    }
+
+    function hasActiveVipAccess() {
+      return signedIn() && (
+        isAdmin() ||
+        (
+          exists(/databases/$(database)/documents/user/$(request.auth.uid)) &&
+          ('end_sub' in get(
+            /databases/$(database)/documents/user/$(request.auth.uid)
+          ).data) &&
+          get(
+            /databases/$(database)/documents/user/$(request.auth.uid)
+          ).data.end_sub is timestamp &&
+          get(
+            /databases/$(database)/documents/user/$(request.auth.uid)
+          ).data.end_sub >= request.time
+        )
+      );
+    }
+
+    function owns(field) {
+      return signedIn() && resource.data[field] == request.auth.uid;
+    }
+
+    function createsOwn(field) {
+      return signedIn() && request.resource.data[field] == request.auth.uid;
+    }
+
+    function keepsOwner(field) {
+      return request.resource.data[field] == resource.data[field];
+    }
+
+    function optionalString(data, field, maxLength) {
+      return !(field in data) ||
+          (data[field] is string && data[field].size() <= maxLength);
+    }
+
+    function optionalBool(data, field) {
+      return !(field in data) || data[field] is bool;
+    }
+
+    function optionalInt(data, field) {
+      return !(field in data) || data[field] is int;
+    }
+
+    function optionalTimestamp(data, field) {
+      return !(field in data) || data[field] is timestamp;
+    }
+
+    function optionalList(data, field, maxItems) {
+      return !(field in data) ||
+          (data[field] is list && data[field].size() <= maxItems);
+    }
+
+    function optionalMap(data, field) {
+      return !(field in data) || data[field] is map;
+    }
+
+    function validCroix(data) {
+      return data.keys().hasOnly(['date', 'created_by', 'numeros']) &&
+          optionalTimestamp(data, 'date') &&
+          optionalString(data, 'created_by', 128) &&
+          optionalList(data, 'numeros', 32);
+    }
+
+    function validResultat(data) {
+      return data.keys().hasOnly([
+            'date', 'bingo', 'periode', 'tirage', 'created_by', 'numeros'
+          ]) &&
+          optionalTimestamp(data, 'date') &&
+          optionalList(data, 'bingo', 32) &&
+          optionalString(data, 'periode', 64) &&
+          optionalString(data, 'tirage', 32) &&
+          optionalString(data, 'created_by', 128) &&
+          optionalList(data, 'numeros', 32);
+    }
+
+    function validPrediction(data) {
+      return data.keys().hasOnly([
+            'date',
+            'periode',
+            'pourcentage',
+            'created_by',
+            'starsRef',
+            'boloto',
+            'mariage',
+            'chif3',
+            'chif4',
+            'favori',
+            'soutni',
+            'extra'
+          ]) &&
+          optionalTimestamp(data, 'date') &&
+          optionalString(data, 'periode', 64) &&
+          optionalInt(data, 'pourcentage') &&
+          optionalString(data, 'created_by', 128) &&
+          optionalMap(data, 'boloto') &&
+          optionalMap(data, 'mariage') &&
+          optionalMap(data, 'chif3') &&
+          optionalMap(data, 'chif4') &&
+          optionalMap(data, 'favori') &&
+          optionalMap(data, 'soutni') &&
+          optionalMap(data, 'extra');
+    }
+
+    function validBingo(data) {
+      return data.keys().hasOnly(['date', 'dataStack', 'expiration']) &&
+          optionalTimestamp(data, 'date') &&
+          optionalList(data, 'dataStack', 32) &&
+          optionalTimestamp(data, 'expiration');
+    }
+
+    function validBingoStats(data) {
+      return data.keys().hasOnly(['user', 'gain']) &&
+          optionalString(data, 'user', 128) &&
+          optionalBool(data, 'gain');
+    }
+
+    function validYoutubeLink(data) {
+      return data.keys().hasOnly(['date', 'caption', 'link', 'id', 'expiration']) &&
+          optionalTimestamp(data, 'date') &&
+          optionalString(data, 'caption', 2000) &&
+          optionalString(data, 'link', 2048) &&
+          optionalString(data, 'id', 256) &&
+          optionalTimestamp(data, 'expiration');
+    }
+
+    function validSettings(data) {
+      return data.keys().hasOnly(['betaFeatures']) &&
+          optionalMap(data, 'betaFeatures');
+    }
+
+    function validPostText(data) {
+      return data.keys().hasOnly(['date', 'expiration', 'text', 'link']) &&
+          optionalTimestamp(data, 'date') &&
+          optionalTimestamp(data, 'expiration') &&
+          optionalString(data, 'text', 10000) &&
+          optionalString(data, 'link', 2048);
+    }
+
     match /croix/{document} {
-      allow create: if request.auth.uid == request.resource.data.created_by;
       allow read: if true;
-      allow write: if true;
-      allow delete: if true;
+      allow create: if isAdmin() && createsOwn('created_by') &&
+          validCroix(request.resource.data);
+      allow update: if isAdmin() && owns('created_by') && keepsOwner('created_by') &&
+          validCroix(request.resource.data);
+      allow delete: if isAdmin() && owns('created_by');
     }
 
     match /user/{document} {
-      allow create: if false;
-      allow read: if false;
-      allow write: if true;
-      allow delete: if true;
-    }
-
-    match /resultats/{document} {
-      allow create: if true;
-      allow read: if true;
-      allow write: if true;
-      allow delete: if true;
+      // Keep the released-client ownership contract unchanged, while guarding
+      // the uid access so unauthenticated requests fail cleanly.
+      allow create: if signedIn() && request.auth.uid == request.resource.data.uid;
+      allow read: if signedIn() &&
+          (request.auth.uid == resource.data.uid || isAdmin());
+      allow update: if signedIn() &&
+          (request.auth.uid == resource.data.uid || isAdmin()) &&
+          request.resource.data.uid == resource.data.uid;
+      allow delete: if signedIn() && request.auth.uid == resource.data.uid;
     }
 
     match /prediction/{document} {
-      allow create: if true;
+      allow read: if hasActiveVipAccess();
+      allow create: if isAdmin() && createsOwn('created_by') &&
+          validPrediction(request.resource.data);
+      allow update: if isAdmin() && owns('created_by') && keepsOwner('created_by') &&
+          validPrediction(request.resource.data);
+      allow delete: if isAdmin() && owns('created_by');
+    }
+
+    match /resultats/{document} {
       allow read: if true;
-      allow write: if false;
+      allow create: if isAdmin() && createsOwn('created_by') &&
+          validResultat(request.resource.data);
+      allow update: if isAdmin() && owns('created_by') && keepsOwner('created_by') &&
+          validResultat(request.resource.data);
+      allow delete: if isAdmin() && owns('created_by');
+    }
+
+    match /prediction/{parent}/userStars/{document} {
+      allow read: if true;
+      // Preserved for released clients. New writes should move to a callable
+      // function before this legacy authenticated path is retired.
+      allow create: if false;
+      allow update: if signedIn();
       allow delete: if false;
     }
 
-    match /bingo/{document} {
-      allow create: if true;
+    match /{path=**}/userStars/{document} {
       allow read: if true;
-      allow write: if true;
-      allow delete: if true;
+    }
+
+    match /bingo/{document} {
+      allow read: if true;
+      // The released dashboard is authenticated and does not store an owner on
+      // bingo documents, so authenticated publisher access remains compatible.
+      allow create, update: if isAdmin() && validBingo(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     match /bingo/{parent}/bingostats/{document} {
-      allow create: if true;
       allow read: if true;
-      allow write: if true;
-      allow delete: if true;
+      allow create: if signedIn() && validBingoStats(request.resource.data) &&
+          request.resource.data.user == request.auth.uid;
+      allow update: if signedIn() && validBingoStats(request.resource.data) &&
+          resource.data.user == request.auth.uid &&
+          request.resource.data.user == resource.data.user;
+      allow delete: if signedIn() && resource.data.user == request.auth.uid;
     }
 
     match /{path=**}/bingostats/{document} {
       allow read: if true;
     }
 
+    match /youtubeLinks/{document} {
+      allow read: if true;
+      allow create: if isAdmin() && validYoutubeLink(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    match /settings/{document} {
+      allow read: if true;
+      allow create: if isAdmin() && validSettings(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    match /postText/{document} {
+      allow read: if true;
+      allow create: if isAdmin() && validPostText(request.resource.data);
+      allow update, delete: if false;
+    }
   }
 }

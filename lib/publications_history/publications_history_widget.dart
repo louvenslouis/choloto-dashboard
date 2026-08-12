@@ -1,5 +1,6 @@
 import '/backend/backend.dart';
 import '/components/admin_ui.dart';
+import '/components/publication_edit_dialogs.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/pages/sidenav/sidenav_widget.dart';
@@ -159,6 +160,7 @@ class _PublicationsHistoryWidgetState extends State<PublicationsHistoryWidget> {
                         final publication = publications[index];
                         return _PublicationHistoryCard(
                           publication: publication,
+                          onEdit: () => _editPublication(publication),
                           onDelete: () => _deletePublication(publication),
                         );
                       },
@@ -185,15 +187,35 @@ class _PublicationsHistoryWidgetState extends State<PublicationsHistoryWidget> {
       await publication.reference.delete();
     }
   }
+
+  Future<void> _editPublication(BingoRecord publication) async {
+    logFirebaseEvent('PUBLICATIONS_HISTORY_EDIT_ON_TAP');
+    final saved = await showBingoEditDialog(
+      context: context,
+      publication: publication,
+    );
+    if (!saved || !mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: const Text('Publication BINGO modifiée avec succès.'),
+          backgroundColor: FlutterFlowTheme.of(context).success,
+        ),
+      );
+  }
 }
 
 class _PublicationHistoryCard extends StatelessWidget {
   const _PublicationHistoryCard({
     required this.publication,
+    required this.onEdit,
     required this.onDelete,
   });
 
   final BingoRecord publication;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   @override
@@ -287,18 +309,41 @@ class _PublicationHistoryCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Supprimer la publication',
-                    onPressed: onDelete,
-                    icon: const Icon(Icons.delete_outline_rounded, size: 20.0),
-                    style: IconButton.styleFrom(
-                      foregroundColor: theme.error,
-                      backgroundColor: theme.error.withValues(alpha: 0.08),
-                      minimumSize: const Size(40.0, 40.0),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.0),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Modifier la publication',
+                        onPressed: onEdit,
+                        icon: const Icon(Icons.edit_rounded, size: 20.0),
+                        style: IconButton.styleFrom(
+                          foregroundColor: theme.primary,
+                          backgroundColor:
+                              theme.primary.withValues(alpha: 0.08),
+                          minimumSize: const Size(40.0, 40.0),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12.0),
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 6.0),
+                      IconButton(
+                        tooltip: 'Supprimer la publication',
+                        onPressed: onDelete,
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 20.0,
+                        ),
+                        style: IconButton.styleFrom(
+                          foregroundColor: theme.error,
+                          backgroundColor: theme.error.withValues(alpha: 0.08),
+                          minimumSize: const Size(40.0, 40.0),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12.0),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
