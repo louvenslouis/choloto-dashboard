@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/admin_ui.dart';
@@ -8,6 +10,7 @@ import 'official_lottery_results_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 export 'tirages_model.dart';
 
@@ -22,30 +25,132 @@ class TiragesWidget extends StatefulWidget {
 }
 
 class _TiragesWidgetState extends State<TiragesWidget> {
+  static const _automaticRefreshInterval = Duration(minutes: 10);
+
   final scaffoldKey = GlobalKey<ScaffoldState>();
   final OfficialLotteryResultsService _officialService =
       OfficialLotteryResultsService();
 
   bool _loadingOfficialResults = true;
+  bool _loadingAutomaticPreference = true;
+  bool _savingAutomaticPreference = false;
+  bool _automaticPublicationEnabled = false;
+  bool _automaticPublicationRunning = false;
   DateTime? _lastOfficialCheck;
   List<OfficialLotteryProposal> _officialProposals = const [];
   List<String> _officialWarnings = const [];
   Set<String> _publishedOfficialIds = const {};
   Set<String> _publishingOfficialIds = const {};
+  Timer? _automaticRefreshTimer;
+
+  String get _automaticPublicationPreferenceKey =>
+      'tirages_automatic_publication_${currentUserUid.isEmpty ? 'admin' : currentUserUid}';
 
   @override
   void initState() {
     super.initState();
     logFirebaseEvent('screen_view', parameters: {'screen_name': 'tirages'});
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshOfficialResults();
+      _initializeOfficialResults();
     });
   }
 
   @override
   void dispose() {
+    _automaticRefreshTimer?.cancel();
     _officialService.dispose();
     super.dispose();
+  }
+
+  Future<void> _initializeOfficialResults() async {
+    await _loadAutomaticPublicationPreference();
+    if (mounted) await _refreshOfficialResults();
+  }
+
+  Future<void> _loadAutomaticPublicationPreference() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      final enabled =
+          preferences.getBool(_automaticPublicationPreferenceKey) ?? false;
+      if (!mounted) return;
+      safeSetState(() {
+        _automaticPublicationEnabled = enabled;
+        _loadingAutomaticPreference = false;
+      });
+      _syncAutomaticRefreshTimer();
+    } catch (_) {
+      if (!mounted) return;
+      safeSetState(() => _loadingAutomaticPreference = false);
+    }
+  }
+
+  void _syncAutomaticRefreshTimer() {
+    _automaticRefreshTimer?.cancel();
+    _automaticRefreshTimer = null;
+    if (!_automaticPublicationEnabled || !mounted) return;
+    _automaticRefreshTimer = Timer.periodic(
+      _automaticRefreshInterval,
+      (_) {
+        if (mounted && !_loadingOfficialResults) {
+          unawaited(_refreshOfficialResults());
+        }
+      },
+    );
+  }
+
+  Future<void> _setAutomaticPublicationEnabled(bool enabled) async {
+    if (_savingAutomaticPreference || _automaticPublicationRunning) return;
+
+    if (enabled) {
+      final confirmed = await showAdminConfirmDialog(
+        context: context,
+        title: 'Activer la publication automatique ?',
+        message: 'Les résultats officiels valides et non encore publiés '
+            'seront écrits dans Firebase sans validation supplémentaire.\n\n'
+            'Le contrôle automatique s’exécute toutes les 10 minutes tant que '
+            'cette page du dashboard reste ouverte.',
+        confirmLabel: 'Activer',
+        icon: Icons.auto_mode_rounded,
+      );
+      if (!confirmed || !mounted) return;
+    }
+
+    final previousValue = _automaticPublicationEnabled;
+    safeSetState(() {
+      _savingAutomaticPreference = true;
+      _automaticPublicationEnabled = enabled;
+    });
+
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      final saved = await preferences.setBool(
+        _automaticPublicationPreferenceKey,
+        enabled,
+      );
+      if (!saved) throw StateError('Preference not saved');
+      if (!mounted) return;
+      _syncAutomaticRefreshTimer();
+      _showMessage(
+        enabled
+            ? 'Publication automatique activée.'
+            : 'Publication automatique désactivée.',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      safeSetState(() => _automaticPublicationEnabled = previousValue);
+      _syncAutomaticRefreshTimer();
+      _showMessage(
+        'Impossible d’enregistrer ce réglage sur cet appareil.',
+        error: true,
+      );
+      return;
+    } finally {
+      if (mounted) {
+        safeSetState(() => _savingAutomaticPreference = false);
+      }
+    }
+
+    if (enabled && mounted) await _refreshOfficialResults();
   }
 
   Future<void> _refreshOfficialResults() async {
@@ -57,14 +162,21 @@ class _TiragesWidgetState extends State<TiragesWidget> {
       final result = await _officialService.fetchLatest();
       final warnings = [...result.warnings];
       Set<String> publishedIds;
+      var historyVerified = true;
       try {
         publishedIds = await _findPublishedProposalIds(result.proposals);
       } catch (_) {
+        historyVerified = false;
         publishedIds = <String>{};
         warnings.add(
           'Les résultats ont été reçus, mais la vérification de l’historique '
           'Firebase a échoué.',
         );
+        if (_automaticPublicationEnabled) {
+          warnings.add(
+            'Publication automatique suspendue pour éviter un doublon.',
+          );
+        }
       }
       if (!mounted) return;
       safeSetState(() {
@@ -74,6 +186,12 @@ class _TiragesWidgetState extends State<TiragesWidget> {
         _lastOfficialCheck = DateTime.now();
         _loadingOfficialResults = false;
       });
+      if (_automaticPublicationEnabled && historyVerified) {
+        await _publishOfficialProposalsAutomatically(
+          result.proposals,
+          publishedIds,
+        );
+      }
     } catch (_) {
       if (!mounted) return;
       safeSetState(() {
@@ -91,28 +209,26 @@ class _TiragesWidgetState extends State<TiragesWidget> {
   ) async {
     if (proposals.isEmpty) return <String>{};
 
+    final oldestDraw = proposals
+        .map((proposal) => proposal.drawDateTime)
+        .reduce((first, second) => first.isBefore(second) ? first : second);
     final documentSnapshots = await Future.wait(
       proposals.map(
         (proposal) => ResultatsRecord.collection.doc(proposal.documentId).get(),
       ),
     );
-    final historyByLottery = await Future.wait([
-      queryResultatsRecordOnce(
-        queryBuilder: (query) => query.where('tirage', isEqualTo: 'ny'),
+    final recentHistory = await queryResultatsRecordOnce(
+      queryBuilder: (query) => query.where(
+        'date',
+        isGreaterThanOrEqualTo: oldestDraw.subtract(const Duration(hours: 18)),
       ),
-      queryResultatsRecordOnce(
-        queryBuilder: (query) => query.where('tirage', isEqualTo: 'fl'),
-      ),
-    ]);
+    );
 
     final published = <String>{};
     for (var index = 0; index < proposals.length; index++) {
       final proposal = proposals[index];
-      final history = proposal.lottery == OfficialLottery.newYork
-          ? historyByLottery[0]
-          : historyByLottery[1];
       if (documentSnapshots[index].exists ||
-          history.any((record) => _matchesProposal(record, proposal))) {
+          recentHistory.any((record) => _matchesProposal(record, proposal))) {
         published.add(proposal.documentId);
       }
     }
@@ -165,27 +281,117 @@ class _TiragesWidgetState extends State<TiragesWidget> {
     );
     if (!confirmed || !mounted) return false;
 
-    final id = editedProposal.documentId;
+    final outcome = await _storeOfficialProposal(
+      editedProposal,
+      checkExistingHistory: true,
+    );
+    switch (outcome) {
+      case _OfficialPublicationOutcome.published:
+        _showMessage(
+          'Tirage de ${editedProposal.lotteryLabel} publié avec succès.',
+        );
+        return true;
+      case _OfficialPublicationOutcome.alreadyPublished:
+        _showMessage('Ce tirage est déjà publié dans Firebase.');
+        return false;
+      case _OfficialPublicationOutcome.failed:
+        _showMessage(
+          'La publication a échoué. Vérifie ta connexion et tes droits admin.',
+          error: true,
+        );
+        return false;
+    }
+  }
+
+  Future<void> _publishOfficialProposalsAutomatically(
+    List<OfficialLotteryProposal> proposals,
+    Set<String> publishedIds,
+  ) async {
+    if (_automaticPublicationRunning || currentUserUid.isEmpty) {
+      if (_automaticPublicationEnabled && currentUserUid.isEmpty) {
+        _showMessage('La session administrateur a expiré.', error: true);
+      }
+      return;
+    }
+
+    final candidates = proposals
+        .where((proposal) => !publishedIds.contains(proposal.documentId))
+        .where((proposal) => proposal.validateNumbers(proposal.numbers) == null)
+        .toList();
+    if (candidates.isEmpty) return;
+
+    safeSetState(() => _automaticPublicationRunning = true);
+    var publishedCount = 0;
+    var failureCount = 0;
+    try {
+      for (final proposal in candidates) {
+        if (!_automaticPublicationEnabled || !mounted) break;
+        final outcome = await _storeOfficialProposal(
+          proposal,
+          checkExistingHistory: false,
+        );
+        switch (outcome) {
+          case _OfficialPublicationOutcome.published:
+            publishedCount++;
+            break;
+          case _OfficialPublicationOutcome.alreadyPublished:
+            break;
+          case _OfficialPublicationOutcome.failed:
+            failureCount++;
+            break;
+        }
+      }
+    } finally {
+      if (mounted) {
+        safeSetState(() => _automaticPublicationRunning = false);
+      }
+    }
+
+    if (!mounted) return;
+    if (publishedCount > 0) {
+      _showMessage(
+        '$publishedCount tirage${publishedCount > 1 ? 's' : ''} '
+        'publié${publishedCount > 1 ? 's' : ''} automatiquement.',
+      );
+    }
+    if (failureCount > 0) {
+      _showMessage(
+        '$failureCount publication${failureCount > 1 ? 's' : ''} '
+        'automatique${failureCount > 1 ? 's' : ''} a échoué.',
+        error: true,
+      );
+    }
+  }
+
+  Future<_OfficialPublicationOutcome> _storeOfficialProposal(
+    OfficialLotteryProposal proposal, {
+    required bool checkExistingHistory,
+  }) async {
+    if (currentUserUid.isEmpty) return _OfficialPublicationOutcome.failed;
+
+    final id = proposal.documentId;
     safeSetState(() {
       _publishingOfficialIds = {..._publishingOfficialIds, id};
     });
 
     try {
-      final existingHistory = await queryResultatsRecordOnce(
-        queryBuilder: (query) => query.where(
-          'tirage',
-          isEqualTo: editedProposal.lotteryCode,
-        ),
-      );
-      if (existingHistory
-          .any((record) => _matchesProposal(record, editedProposal))) {
-        if (mounted) {
-          safeSetState(() {
-            _publishedOfficialIds = {..._publishedOfficialIds, id};
-          });
-          _showMessage('Ce tirage est déjà publié dans Firebase.');
+      if (checkExistingHistory) {
+        final existingHistory = await queryResultatsRecordOnce(
+          queryBuilder: (query) => query.where(
+            'date',
+            isGreaterThanOrEqualTo:
+                proposal.drawDateTime.subtract(const Duration(hours: 18)),
+          ),
+        );
+        if (existingHistory
+            .any((record) => _matchesProposal(record, proposal))) {
+          if (mounted) {
+            safeSetState(() {
+              _publishedOfficialIds = {..._publishedOfficialIds, id};
+            });
+          }
+          return _OfficialPublicationOutcome.alreadyPublished;
         }
-        return false;
       }
 
       final reference = ResultatsRecord.collection.doc(id);
@@ -196,39 +402,30 @@ class _TiragesWidgetState extends State<TiragesWidget> {
         }
         transaction.set(reference, {
           ...createResultatsRecordData(
-            date: editedProposal.drawDateTime,
-            periode: editedProposal.periodLabel,
-            tirage: editedProposal.lotteryCode,
+            date: proposal.drawDateTime,
+            periode: proposal.periodLabel,
+            tirage: proposal.lotteryCode,
             createdBy: currentUserUid,
           ),
-          ...mapToFirestore({'numeros': editedProposal.numbers}),
+          ...mapToFirestore({'numeros': proposal.numbers}),
         });
       });
 
-      if (!mounted) return true;
-      safeSetState(() {
-        _publishedOfficialIds = {..._publishedOfficialIds, id};
-      });
-      _showMessage(
-        'Tirage de ${editedProposal.lotteryLabel} publié avec succès.',
-      );
-      return true;
+      if (mounted) {
+        safeSetState(() {
+          _publishedOfficialIds = {..._publishedOfficialIds, id};
+        });
+      }
+      return _OfficialPublicationOutcome.published;
     } on _AlreadyPublishedException {
       if (mounted) {
         safeSetState(() {
           _publishedOfficialIds = {..._publishedOfficialIds, id};
         });
-        _showMessage('Ce tirage est déjà publié dans Firebase.');
       }
-      return false;
+      return _OfficialPublicationOutcome.alreadyPublished;
     } catch (_) {
-      if (mounted) {
-        _showMessage(
-          'La publication a échoué. Vérifie ta connexion et tes droits admin.',
-          error: true,
-        );
-      }
-      return false;
+      return _OfficialPublicationOutcome.failed;
     } finally {
       if (mounted) {
         safeSetState(() {
@@ -365,7 +562,15 @@ class _TiragesWidgetState extends State<TiragesWidget> {
                           warnings: _officialWarnings,
                           publishedIds: _publishedOfficialIds,
                           publishingIds: _publishingOfficialIds,
+                          automaticPublicationEnabled:
+                              _automaticPublicationEnabled,
+                          automaticPublicationBusy:
+                              _loadingAutomaticPreference ||
+                                  _savingAutomaticPreference ||
+                                  _automaticPublicationRunning,
                           onRefresh: _refreshOfficialResults,
+                          onAutomaticPublicationChanged:
+                              _setAutomaticPublicationEnabled,
                           onPublish: _publishOfficialProposal,
                         ),
                         const SizedBox(height: 22),
@@ -425,7 +630,10 @@ class _OfficialResultsPanel extends StatelessWidget {
     required this.warnings,
     required this.publishedIds,
     required this.publishingIds,
+    required this.automaticPublicationEnabled,
+    required this.automaticPublicationBusy,
     required this.onRefresh,
+    required this.onAutomaticPublicationChanged,
     required this.onPublish,
   });
 
@@ -435,7 +643,10 @@ class _OfficialResultsPanel extends StatelessWidget {
   final List<String> warnings;
   final Set<String> publishedIds;
   final Set<String> publishingIds;
+  final bool automaticPublicationEnabled;
+  final bool automaticPublicationBusy;
   final Future<void> Function() onRefresh;
+  final ValueChanged<bool> onAutomaticPublicationChanged;
   final Future<bool> Function(
     OfficialLotteryProposal proposal,
     List<String> numbers,
@@ -466,14 +677,18 @@ class _OfficialResultsPanel extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Résultats officiels à vérifier',
+                          automaticPublicationEnabled
+                              ? 'Résultats officiels automatiques'
+                              : 'Résultats officiels à vérifier',
                           style: theme.titleMedium.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          'Aucune publication n’est faite sans ta validation.',
+                          automaticPublicationEnabled
+                              ? 'Les nouveaux résultats valides sont publiés automatiquement.'
+                              : 'Aucune publication n’est faite sans ta validation.',
                           style: theme.bodySmall.copyWith(
                             color: theme.secondaryText,
                           ),
@@ -512,6 +727,71 @@ class _OfficialResultsPanel extends StatelessWidget {
                 ],
               );
             },
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+            decoration: BoxDecoration(
+              color: (automaticPublicationEnabled
+                      ? theme.success
+                      : theme.secondaryText)
+                  .withValues(alpha: .08),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(
+                color: (automaticPublicationEnabled
+                        ? theme.success
+                        : theme.alternate)
+                    .withValues(alpha: .55),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.auto_mode_rounded,
+                  color: automaticPublicationEnabled
+                      ? theme.success
+                      : theme.secondaryText,
+                  size: 22,
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Publication automatique',
+                        style: theme.titleSmall.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        automaticPublicationEnabled
+                            ? 'Active · contrôle toutes les 10 minutes lorsque cette page est ouverte'
+                            : 'Désactivée · validation humaine avant publication',
+                        style: theme.bodySmall.copyWith(
+                          color: theme.secondaryText,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (automaticPublicationBusy)
+                  const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                else
+                  Switch.adaptive(
+                    value: automaticPublicationEnabled,
+                    onChanged: onAutomaticPublicationChanged,
+                  ),
+              ],
+            ),
           ),
           if (lastChecked != null) ...[
             const SizedBox(height: 12),
@@ -1117,6 +1397,8 @@ class _Notice extends StatelessWidget {
 class _AlreadyPublishedException implements Exception {
   const _AlreadyPublishedException();
 }
+
+enum _OfficialPublicationOutcome { published, alreadyPublished, failed }
 
 String _formatDate(DateTime date) => '${date.day.toString().padLeft(2, '0')}/'
     '${date.month.toString().padLeft(2, '0')}/${date.year}';
