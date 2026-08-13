@@ -54,6 +54,7 @@ class _PaiementWidgetState extends State<PaiementWidget> {
         ),
         ...mapToFirestore({
           'member_time': FieldValue.increment(1),
+          'updated_time': FieldValue.serverTimestamp(),
         }),
       });
       if (mounted) Navigator.pop(context, true);

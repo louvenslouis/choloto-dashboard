@@ -5,6 +5,7 @@ import 'package:c_h_o_l_o_t_o_dashboard/components/prediction_card_widget.dart';
 import 'package:c_h_o_l_o_t_o_dashboard/components/user_widget.dart';
 import 'package:c_h_o_l_o_t_o_dashboard/backend/schema/enums/enums.dart';
 import 'package:c_h_o_l_o_t_o_dashboard/flutter_flow/internationalization.dart';
+import 'package:c_h_o_l_o_t_o_dashboard/users/users_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -114,6 +115,40 @@ void main() {
 
     expect(find.text('ESPACE DE GESTION'), findsOneWidget);
     expect(find.text('Utilisateurs'), findsOneWidget);
+  });
+
+  testWidgets('user sorting switches between alphabetical and recent changes',
+      (tester) async {
+    var selectedMode = UserSortMode.alphabetical;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => Center(
+              child: UserSortControl(
+                value: selectedMode,
+                onChanged: (mode) => setState(() => selectedMode = mode),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Alphabétique'), findsOneWidget);
+    await tester.tap(find.byType(UserSortControl));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ordre alphabétique'), findsOneWidget);
+    expect(find.text('Dernière modification'), findsOneWidget);
+
+    await tester.tap(find.text('Dernière modification'));
+    await tester.pumpAndSettle();
+
+    expect(selectedMode, UserSortMode.lastModified);
+    expect(find.text('Modifiés récemment'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('prediction cards reorganize inputs on a narrow phone',

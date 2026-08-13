@@ -8,11 +8,14 @@ import '/pages/sidenav/sidenav_widget.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'user_excel_exporter.dart';
 import 'users_model.dart';
 
 export 'users_model.dart';
 
 enum _UsersViewMode { cards, list }
+
+enum UserSortMode { alphabetical, lastModified }
 
 class UsersWidget extends StatefulWidget {
   const UsersWidget({super.key});
@@ -31,6 +34,8 @@ class _UsersWidgetState extends State<UsersWidget> {
   final scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isHeaderCollapsed = false;
   _UsersViewMode _viewMode = _UsersViewMode.cards;
+  UserSortMode _sortMode = UserSortMode.alphabetical;
+  bool _isExporting = false;
 
   @override
   void initState() {
@@ -63,7 +68,7 @@ class _UsersWidgetState extends State<UsersWidget> {
     final query = _model.textController?.text.trim().toLowerCase() ?? '';
     final now = DateTime.now();
 
-    return users.where((user) {
+    final filteredUsers = users.where((user) {
       final isVip = user.endSub != null && !user.endSub!.isBefore(now);
       final matchesFilter = switch (_model.filtres) {
         'VIP' => isVip,
@@ -79,6 +84,56 @@ class _UsersWidgetState extends State<UsersWidget> {
         user.codePersonnel,
       ].any((value) => value.toLowerCase().contains(query));
     }).toList();
+
+    filteredUsers.sort(_compareUsers);
+    return filteredUsers;
+  }
+
+  int _compareUsers(UserRecord first, UserRecord second) {
+    final alphabeticalComparison = _compareUsersAlphabetically(first, second);
+    if (_sortMode == UserSortMode.alphabetical) {
+      return alphabeticalComparison;
+    }
+
+    final firstModified = first.updatedTime ?? first.createdTime;
+    final secondModified = second.updatedTime ?? second.createdTime;
+    if (firstModified == null && secondModified == null) {
+      return alphabeticalComparison;
+    }
+    if (firstModified == null) return 1;
+    if (secondModified == null) return -1;
+
+    final recentFirst = secondModified.compareTo(firstModified);
+    return recentFirst == 0 ? alphabeticalComparison : recentFirst;
+  }
+
+  int _compareUsersAlphabetically(UserRecord first, UserRecord second) {
+    final firstName = first.displayName.trim().isEmpty
+        ? first.email.trim()
+        : first.displayName.trim();
+    final secondName = second.displayName.trim().isEmpty
+        ? second.email.trim()
+        : second.displayName.trim();
+    final nameComparison =
+        _alphabeticalKey(firstName).compareTo(_alphabeticalKey(secondName));
+    if (nameComparison != 0) return nameComparison;
+
+    return _alphabeticalKey(first.email)
+        .compareTo(_alphabeticalKey(second.email));
+  }
+
+  String _alphabeticalKey(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp('[àáâãäå]'), 'a')
+        .replaceAll(RegExp('[ç]'), 'c')
+        .replaceAll(RegExp('[èéêë]'), 'e')
+        .replaceAll(RegExp('[ìíîï]'), 'i')
+        .replaceAll(RegExp('[ñ]'), 'n')
+        .replaceAll(RegExp('[òóôõö]'), 'o')
+        .replaceAll(RegExp('[ùúûü]'), 'u')
+        .replaceAll(RegExp('[ýÿ]'), 'y');
   }
 
   Future<void> _showUser(UserRecord user) async {
@@ -107,6 +162,43 @@ class _UsersWidgetState extends State<UsersWidget> {
 
     if (saved == true && mounted) {
       setState(() => _usersFuture = queryUserRecordOnce());
+    }
+  }
+
+  Future<void> _exportUsers(List<UserRecord> users) async {
+    if (_isExporting || users.isEmpty) return;
+    setState(() => _isExporting = true);
+    logFirebaseEvent('USERS_EXPORT_EXCEL_ON_TAP');
+
+    try {
+      await UserExcelExporter.export(
+        users,
+        filterLabel: _model.filtres,
+        searchQuery: _model.textController?.text ?? '',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              '${users.length} ${users.length > 1 ? 'utilisateurs exportés' : 'utilisateur exporté'} vers Excel.',
+            ),
+          ),
+        );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'L’export Excel a échoué. Veuillez réessayer.',
+            ),
+          ),
+        );
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
     }
   }
 
@@ -200,6 +292,8 @@ class _UsersWidgetState extends State<UsersWidget> {
                             vipCount: vipCount,
                             resultCount: users.length,
                             viewMode: _viewMode,
+                            sortMode: _sortMode,
+                            isExporting: _isExporting,
                             onQueryChanged: (_) => setState(() {}),
                             onClearQuery: () {
                               _model.textController!.clear();
@@ -211,6 +305,17 @@ class _UsersWidgetState extends State<UsersWidget> {
                             onViewModeChanged: (mode) {
                               setState(() => _viewMode = mode);
                             },
+                            onSortModeChanged: (mode) {
+                              if (mode == _sortMode) return;
+                              logFirebaseEvent(
+                                'USERS_SORT_CHANGED',
+                                parameters: {'sort': mode.name},
+                              );
+                              setState(() => _sortMode = mode);
+                            },
+                            onExport: users.isEmpty
+                                ? null
+                                : () => _exportUsers(users),
                           ),
                           const SizedBox(height: 18),
                           Expanded(
@@ -310,10 +415,14 @@ class _UsersToolbar extends StatelessWidget {
     required this.vipCount,
     required this.resultCount,
     required this.viewMode,
+    required this.sortMode,
+    required this.isExporting,
     required this.onQueryChanged,
     required this.onClearQuery,
     required this.onFilterChanged,
     required this.onViewModeChanged,
+    required this.onSortModeChanged,
+    required this.onExport,
   });
 
   final TextEditingController controller;
@@ -323,10 +432,14 @@ class _UsersToolbar extends StatelessWidget {
   final int vipCount;
   final int resultCount;
   final _UsersViewMode viewMode;
+  final UserSortMode sortMode;
+  final bool isExporting;
   final ValueChanged<String> onQueryChanged;
   final VoidCallback onClearQuery;
   final ValueChanged<String> onFilterChanged;
   final ValueChanged<_UsersViewMode> onViewModeChanged;
+  final ValueChanged<UserSortMode> onSortModeChanged;
+  final VoidCallback? onExport;
 
   @override
   Widget build(BuildContext context) {
@@ -406,7 +519,11 @@ class _UsersToolbar extends StatelessWidget {
                 _ResultsAndViewMode(
                   count: resultCount,
                   viewMode: viewMode,
+                  sortMode: sortMode,
+                  isExporting: isExporting,
                   onViewModeChanged: onViewModeChanged,
+                  onSortModeChanged: onSortModeChanged,
+                  onExport: onExport,
                 ),
               ],
             );
@@ -426,7 +543,11 @@ class _UsersToolbar extends StatelessWidget {
               _ResultsAndViewMode(
                 count: resultCount,
                 viewMode: viewMode,
+                sortMode: sortMode,
+                isExporting: isExporting,
                 onViewModeChanged: onViewModeChanged,
+                onSortModeChanged: onSortModeChanged,
+                onExport: onExport,
               ),
             ],
           );
@@ -440,12 +561,20 @@ class _ResultsAndViewMode extends StatelessWidget {
   const _ResultsAndViewMode({
     required this.count,
     required this.viewMode,
+    required this.sortMode,
+    required this.isExporting,
     required this.onViewModeChanged,
+    required this.onSortModeChanged,
+    required this.onExport,
   });
 
   final int count;
   final _UsersViewMode viewMode;
+  final UserSortMode sortMode;
+  final bool isExporting;
   final ValueChanged<_UsersViewMode> onViewModeChanged;
+  final ValueChanged<UserSortMode> onSortModeChanged;
+  final VoidCallback? onExport;
 
   @override
   Widget build(BuildContext context) {
@@ -471,12 +600,182 @@ class _ResultsAndViewMode extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 10),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = MediaQuery.sizeOf(context).width < 560;
+            if (compact) {
+              return IconButton(
+                tooltip: 'Exporter vers Excel',
+                onPressed: isExporting ? null : onExport,
+                icon: isExporting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.file_download_outlined, size: 20),
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(44, 44),
+                  foregroundColor: theme.primary,
+                  backgroundColor: theme.accent1,
+                  side: BorderSide(
+                    color: theme.secondary.withValues(alpha: .35),
+                  ),
+                ),
+              );
+            }
+            return OutlinedButton.icon(
+              onPressed: isExporting ? null : onExport,
+              icon: isExporting
+                  ? const SizedBox(
+                      width: 17,
+                      height: 17,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.file_download_outlined, size: 19),
+              label: Text(isExporting ? 'Export…' : 'Exporter Excel'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 44),
+                foregroundColor: theme.primary,
+                side: BorderSide(
+                  color: theme.secondary.withValues(alpha: .55),
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(width: 10),
+        UserSortControl(
+          value: sortMode,
+          onChanged: onSortModeChanged,
+        ),
+        const SizedBox(width: 10),
         _ViewModeToggle(
           viewMode: viewMode,
           onChanged: onViewModeChanged,
         ),
       ],
+    );
+  }
+}
+
+class UserSortControl extends StatelessWidget {
+  const UserSortControl({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final UserSortMode value;
+  final ValueChanged<UserSortMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    final compact = MediaQuery.sizeOf(context).width < 560;
+    final label = switch (value) {
+      UserSortMode.alphabetical => 'Alphabétique',
+      UserSortMode.lastModified => 'Modifiés récemment',
+    };
+    final icon = switch (value) {
+      UserSortMode.alphabetical => Icons.sort_by_alpha_rounded,
+      UserSortMode.lastModified => Icons.history_rounded,
+    };
+
+    return Semantics(
+      button: true,
+      label: 'Trier les utilisateurs : $label',
+      child: Tooltip(
+        message: 'Trier les utilisateurs',
+        child: PopupMenuButton<UserSortMode>(
+          initialValue: value,
+          tooltip: '',
+          position: PopupMenuPosition.under,
+          onSelected: onChanged,
+          itemBuilder: (context) => [
+            _sortMenuItem(
+              context,
+              mode: UserSortMode.alphabetical,
+              icon: Icons.sort_by_alpha_rounded,
+              label: 'Ordre alphabétique',
+            ),
+            _sortMenuItem(
+              context,
+              mode: UserSortMode.lastModified,
+              icon: Icons.history_rounded,
+              label: 'Dernière modification',
+            ),
+          ],
+          child: Container(
+            height: 44,
+            padding: EdgeInsets.symmetric(horizontal: compact ? 11 : 14),
+            decoration: BoxDecoration(
+              color: theme.primaryBackground,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: theme.alternate),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 20, color: theme.primary),
+                if (!compact) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    label,
+                    style: theme.labelMedium.copyWith(
+                      color: theme.primaryText,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 18,
+                    color: theme.secondaryText,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  PopupMenuItem<UserSortMode> _sortMenuItem(
+    BuildContext context, {
+    required UserSortMode mode,
+    required IconData icon,
+    required String label,
+  }) {
+    final theme = FlutterFlowTheme.of(context);
+    final selected = value == mode;
+
+    return PopupMenuItem<UserSortMode>(
+      value: mode,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: selected ? theme.primary : theme.secondaryText,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: theme.bodyMedium.copyWith(
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+              ),
+            ),
+          ),
+          if (selected) ...[
+            const SizedBox(width: 12),
+            Icon(Icons.check_rounded, size: 19, color: theme.primary),
+          ],
+        ],
+      ),
     );
   }
 }
