@@ -10,6 +10,9 @@ void main() {
       () async {
     final service = OfficialLotteryResultsService(
       client: MockClient((request) async {
+        if (request.url.host.contains('cloudfunctions.net')) {
+          return http.Response('not deployed', 404);
+        }
         if (request.url.host == 'data.ny.gov') {
           return _jsonResponse([
             {
@@ -47,6 +50,9 @@ void main() {
         if (request.url.host == 'data.ny.gov') {
           return http.Response('unavailable', 503);
         }
+        if (request.url.host.contains('cloudfunctions.net')) {
+          return http.Response('unavailable', 502);
+        }
         return _floridaResponse(request.url.queryParameters['id']!);
       }),
     );
@@ -62,6 +68,71 @@ void main() {
     );
     expect(result.warnings.single, contains('New York'));
     expect(result.warnings.single, contains('503'));
+  });
+
+  test('uses the Firebase relay when it is available', () async {
+    final service = OfficialLotteryResultsService(
+      client: MockClient((request) async {
+        if (request.url.host.contains('cloudfunctions.net')) {
+          return _jsonResponse([
+            {
+              'draw_date': '2026-08-13T00:00:00.000',
+              'midday_daily': '007',
+              'midday_win_4': '0123',
+              'evening_daily': '890',
+              'evening_win_4': '0042',
+              '_choloto_source_name': 'New York Lottery',
+              '_choloto_source_url':
+                  'https://nylottery.ny.gov/all-winning-numbers/',
+            },
+          ]);
+        }
+        if (request.url.host == 'data.ny.gov') {
+          fail('NY Open Data should not be called after a successful relay');
+        }
+        return _floridaResponse(request.url.queryParameters['id']!);
+      }),
+    );
+
+    final result = await service.fetchLatest();
+
+    expect(result.warnings, isEmpty);
+    expect(result.proposals, hasLength(4));
+    expect(result.proposals[0].numbers, ['007', '01', '23']);
+    expect(result.proposals[1].numbers, ['890', '00', '42']);
+    expect(result.proposals[0].sourceName, 'New York Lottery');
+  });
+
+  test('falls back to NY Open Data when the relay is unavailable', () async {
+    final service = OfficialLotteryResultsService(
+      client: MockClient((request) async {
+        if (request.url.host.contains('cloudfunctions.net')) {
+          return http.Response('not deployed', 404);
+        }
+        if (request.url.host == 'data.ny.gov') {
+          return _jsonResponse([
+            {
+              'draw_date': '2026-08-13T00:00:00.000',
+              'midday_daily': '123',
+              'midday_win_4': '4567',
+              'evening_daily': '890',
+              'evening_win_4': '0012',
+            },
+          ]);
+        }
+        return _floridaResponse(request.url.queryParameters['id']!);
+      }),
+    );
+
+    final result = await service.fetchLatest();
+
+    expect(result.warnings, isEmpty);
+    expect(result.proposals[0].numbers, ['123', '45', '67']);
+    expect(result.proposals[1].numbers, ['890', '00', '12']);
+    expect(
+      result.proposals[0].sourceName,
+      'NY Open Data · Gaming Commission',
+    );
   });
 
   test('rejects malformed values before publication', () {

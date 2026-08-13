@@ -140,6 +140,11 @@ class OfficialLotteryResultsService {
     },
   );
 
+  static final Uri _newYorkRelayUrl = Uri.https(
+    'us-central1-choloto-6aa5b.cloudfunctions.net',
+    '/officialNewYorkResults',
+  );
+
   static Uri _floridaApiUrl(String gameId) => Uri.https(
         'apim-website-prod-eastus.azure-api.net',
         '/drawgamesapp/getLatestDrawGames',
@@ -203,10 +208,7 @@ class OfficialLotteryResultsService {
   }
 
   Future<List<OfficialLotteryProposal>> _fetchNewYork() async {
-    final rows = await _requestJsonList(
-      _newYorkApiUrl,
-      headers: const {'Accept': 'application/json'},
-    );
+    final rows = await _fetchNewYorkRows();
     final proposals = <OfficialLotteryProposal>[];
 
     for (final value in rows) {
@@ -241,6 +243,30 @@ class OfficialLotteryResultsService {
     return proposals;
   }
 
+  Future<List<dynamic>> _fetchNewYorkRows() async {
+    Object? relayError;
+    try {
+      return await _requestJsonList(
+        _newYorkRelayUrl,
+        headers: const {'Accept': 'application/json'},
+      );
+    } catch (error) {
+      relayError = error;
+    }
+
+    try {
+      return await _requestJsonList(
+        _newYorkApiUrl,
+        headers: const {'Accept': 'application/json'},
+      );
+    } catch (directError) {
+      throw HttpException(
+        'relais indisponible (${_readableError(relayError)}), '
+        'puis source directe indisponible (${_readableError(directError)})',
+      );
+    }
+  }
+
   void _appendNewYorkProposal(
     List<OfficialLotteryProposal> target, {
     required Map<String, dynamic> row,
@@ -253,6 +279,9 @@ class OfficialLotteryResultsService {
     final win4 = _digits(row[win4Field]);
     if (daily.length != 3 || win4.length != 4) return;
 
+    final sourceName = row['_choloto_source_name']?.toString().trim();
+    final sourceUrl = row['_choloto_source_url']?.toString().trim();
+
     target.add(
       OfficialLotteryProposal(
         lottery: OfficialLottery.newYork,
@@ -263,8 +292,11 @@ class OfficialLotteryResultsService {
           win4.substring(0, 2),
           win4.substring(2, 4),
         ]),
-        sourceName: 'NY Open Data · Gaming Commission',
-        sourceUrl: newYorkSourceUrl,
+        sourceName: sourceName?.isNotEmpty == true
+            ? sourceName!
+            : 'NY Open Data · Gaming Commission',
+        sourceUrl:
+            sourceUrl?.isNotEmpty == true ? sourceUrl! : newYorkSourceUrl,
       ),
     );
   }
