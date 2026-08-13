@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  schedule:
+    # Shortly after both NY drawings, with daylight/standard time coverage.
+    - cron: "5 3,4,19,20 * * *"
   workflow_dispatch:
 
 permissions:
@@ -33,6 +36,11 @@ jobs:
 
       - name: Build web application
         run: flutter build web --release --base-href "/choloto-dashboard/"
+
+      - name: Fetch official New York results
+        run: >-
+          node tools/fetch_new_york_results.mjs
+          build/web/data/official-new-york-results.json
 
       - name: Add GitHub Pages files
         run: |

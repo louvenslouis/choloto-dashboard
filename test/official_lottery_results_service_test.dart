@@ -10,6 +10,9 @@ void main() {
       () async {
     final service = OfficialLotteryResultsService(
       client: MockClient((request) async {
+        if (_isStaticSnapshot(request)) {
+          return http.Response('not generated', 404);
+        }
         if (request.url.host.contains('cloudfunctions.net')) {
           return http.Response('not deployed', 404);
         }
@@ -47,6 +50,9 @@ void main() {
   test('keeps the available source when the other source fails', () async {
     final service = OfficialLotteryResultsService(
       client: MockClient((request) async {
+        if (_isStaticSnapshot(request)) {
+          return http.Response('not generated', 404);
+        }
         if (request.url.host == 'data.ny.gov') {
           return http.Response('unavailable', 503);
         }
@@ -73,6 +79,9 @@ void main() {
   test('uses the Firebase relay when it is available', () async {
     final service = OfficialLotteryResultsService(
       client: MockClient((request) async {
+        if (_isStaticSnapshot(request)) {
+          return http.Response('not generated', 404);
+        }
         if (request.url.host.contains('cloudfunctions.net')) {
           return _jsonResponse([
             {
@@ -106,6 +115,9 @@ void main() {
   test('falls back to NY Open Data when the relay is unavailable', () async {
     final service = OfficialLotteryResultsService(
       client: MockClient((request) async {
+        if (_isStaticSnapshot(request)) {
+          return http.Response('not generated', 404);
+        }
         if (request.url.host.contains('cloudfunctions.net')) {
           return http.Response('not deployed', 404);
         }
@@ -135,6 +147,43 @@ void main() {
     );
   });
 
+  test('uses the same-origin NY snapshot before remote fallbacks', () async {
+    final now = DateTime.now();
+    final drawDate = '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}T00:00:00.000';
+    final service = OfficialLotteryResultsService(
+      client: MockClient((request) async {
+        if (_isStaticSnapshot(request)) {
+          return _jsonResponse([
+            {
+              'draw_date': drawDate,
+              'midday_daily': '128',
+              'midday_win_4': '3466',
+              'evening_daily': '901',
+              'evening_win_4': '0075',
+              '_choloto_source_name': 'New York Lottery',
+              '_choloto_source_url':
+                  'https://nylottery.ny.gov/all-winning-numbers/',
+            },
+          ]);
+        }
+        if (request.url.host.contains('cloudfunctions.net') ||
+            request.url.host == 'data.ny.gov') {
+          fail('Remote NY fallbacks should not be called after the snapshot');
+        }
+        return _floridaResponse(request.url.queryParameters['id']!);
+      }),
+    );
+
+    final result = await service.fetchLatest();
+
+    expect(result.warnings, isEmpty);
+    expect(result.proposals, hasLength(4));
+    expect(result.proposals[0].numbers, ['128', '34', '66']);
+    expect(result.proposals[1].numbers, ['901', '00', '75']);
+  });
+
   test('rejects malformed values before publication', () {
     final proposal = OfficialLotteryProposal(
       lottery: OfficialLottery.florida,
@@ -162,6 +211,9 @@ http.Response _jsonResponse(Object body) => http.Response(
       200,
       headers: const {'content-type': 'application/json'},
     );
+
+bool _isStaticSnapshot(http.Request request) =>
+    request.url.path.endsWith('/data/official-new-york-results.json');
 
 http.Response _floridaResponse(String gameId) {
   final game = switch (gameId) {

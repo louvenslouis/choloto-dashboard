@@ -145,6 +145,9 @@ class OfficialLotteryResultsService {
     '/officialNewYorkResults',
   );
 
+  static Uri get _newYorkStaticSnapshotUrl =>
+      Uri.base.resolve('data/official-new-york-results.json');
+
   static Uri _floridaApiUrl(String gameId) => Uri.https(
         'apim-website-prod-eastus.azure-api.net',
         '/drawgamesapp/getLatestDrawGames',
@@ -244,6 +247,13 @@ class OfficialLotteryResultsService {
   }
 
   Future<List<dynamic>> _fetchNewYorkRows() async {
+    Object? snapshotError;
+    try {
+      return await _requestFreshNewYorkSnapshot();
+    } catch (error) {
+      snapshotError = error;
+    }
+
     Object? relayError;
     try {
       return await _requestJsonList(
@@ -261,10 +271,37 @@ class OfficialLotteryResultsService {
       );
     } catch (directError) {
       throw HttpException(
+        'copie web indisponible (${_readableError(snapshotError)}), '
         'relais indisponible (${_readableError(relayError)}), '
         'puis source directe indisponible (${_readableError(directError)})',
       );
     }
+  }
+
+  Future<List<dynamic>> _requestFreshNewYorkSnapshot() async {
+    final rows = await _requestJsonList(
+      _newYorkStaticSnapshotUrl,
+      headers: const {'Accept': 'application/json'},
+    );
+
+    DateTime? latestDate;
+    for (final value in rows) {
+      if (value is! Map) continue;
+      final date = _parseIsoDate(value['draw_date']);
+      if (date != null && (latestDate == null || date.isAfter(latestDate))) {
+        latestDate = date;
+      }
+    }
+    if (latestDate == null) {
+      throw const FormatException('copie web NY sans date valide');
+    }
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    if (today.difference(latestDate).inDays > 2) {
+      throw const FormatException('copie web NY trop ancienne');
+    }
+    return rows;
   }
 
   void _appendNewYorkProposal(
