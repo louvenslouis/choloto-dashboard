@@ -80,18 +80,18 @@ class AppStateNotifier extends ChangeNotifier {
 }
 
 GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
-      initialLocation: '/',
+      initialLocation: TiragesWidget.routePath,
       debugLogDiagnostics: true,
       refreshListenable: appStateNotifier,
       navigatorKey: appNavigatorKey,
       errorBuilder: (context, state) =>
-          appStateNotifier.loggedIn ? UsersWidget() : ConnexionWidget(),
+          appStateNotifier.loggedIn ? TiragesWidget() : ConnexionWidget(),
       routes: [
         FFRoute(
           name: '_initialize',
           path: '/',
           builder: (context, _) =>
-              appStateNotifier.loggedIn ? UsersWidget() : ConnexionWidget(),
+              appStateNotifier.loggedIn ? TiragesWidget() : ConnexionWidget(),
         ),
         FFRoute(
           name: UsersWidget.routeName,

@@ -47,7 +47,7 @@ class _ConnexionWidgetState extends State<ConnexionWidget> {
       final allowedEmail = FFAppState().mail.trim().toLowerCase();
       final signedInEmail = currentUserEmail.trim().toLowerCase();
       if (allowedEmail.isNotEmpty && allowedEmail == signedInEmail) {
-        context.goNamedAuth(UsersWidget.routeName, context.mounted);
+        context.goNamedAuth(TiragesWidget.routeName, context.mounted);
         return;
       }
 
