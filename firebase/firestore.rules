@@ -125,7 +125,7 @@ service cloud.firestore {
     function validBingo(data) {
       return data.keys().hasOnly(['date', 'dataStack', 'expiration']) &&
           optionalTimestamp(data, 'date') &&
-          optionalList(data, 'dataStack', 32) &&
+          optionalList(data, 'dataStack', 6) &&
           optionalTimestamp(data, 'expiration');
     }
 

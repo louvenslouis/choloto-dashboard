@@ -49,6 +49,8 @@ class _BingoEditDialog extends StatefulWidget {
 }
 
 class _BingoEditDialogState extends State<_BingoEditDialog> {
+  static const int _maximumResults = 6;
+
   final _formKey = GlobalKey<FormState>();
   late final List<_BingoResultDraft> _results;
   bool _saving = false;
@@ -57,8 +59,10 @@ class _BingoEditDialogState extends State<_BingoEditDialog> {
   @override
   void initState() {
     super.initState();
-    _results =
-        widget.publication.dataStack.map(_BingoResultDraft.fromResult).toList();
+    _results = widget.publication.dataStack
+        .take(_maximumResults)
+        .map(_BingoResultDraft.fromResult)
+        .toList();
     if (_results.isEmpty) {
       _results.add(_BingoResultDraft.empty());
     }
@@ -81,18 +85,24 @@ class _BingoEditDialogState extends State<_BingoEditDialog> {
     });
 
     try {
-      await widget.publication.reference.update({
-        'dataStack': _results
-            .map(
-              (result) => {
-                'valeur': result.valeur.text.trim(),
-                'tirage': result.tirage.text.trim(),
-                'boul': result.boul.text.trim(),
-                'periode': result.periode.text.trim(),
-              },
-            )
-            .toList(),
+      final now = DateTime.now();
+      final replacementReference = BingoRecord.collection.doc();
+      final batch = FirebaseFirestore.instance.batch();
+
+      batch.set(replacementReference, {
+        ...createBingoRecordData(
+          date: now,
+          expiration: now.add(const Duration(days: 1)),
+        ),
+        ...mapToFirestore({
+          'dataStack': getDataStackListFirestoreData(
+            _results.map((result) => result.toStruct()).toList(),
+          ),
+        }),
       });
+      batch.delete(widget.publication.reference);
+      await batch.commit();
+
       if (mounted) Navigator.of(context).pop(true);
     } catch (_) {
       if (!mounted) return;
@@ -105,6 +115,7 @@ class _BingoEditDialogState extends State<_BingoEditDialog> {
   }
 
   void _addResult() {
+    if (_results.length >= _maximumResults) return;
     setState(() => _results.add(_BingoResultDraft.empty()));
   }
 
@@ -118,6 +129,7 @@ class _BingoEditDialogState extends State<_BingoEditDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
+    final canAdd = _results.length < _maximumResults;
 
     return AdminDialogFrame(
       maxWidth: 720.0,
@@ -132,7 +144,7 @@ class _BingoEditDialogState extends State<_BingoEditDialog> {
               AdminDialogHeader(
                 title: 'Modifier le BINGO',
                 subtitle:
-                    'Les valeurs de la publication sont déjà préremplies.',
+                    'Modifiez les endroits existants ou ajoutez-en jusqu’à six.',
                 icon: Icons.edit_rounded,
                 onClose: _saving ? () {} : () => Navigator.pop(context),
               ),
@@ -148,9 +160,16 @@ class _BingoEditDialogState extends State<_BingoEditDialog> {
               ],
               const SizedBox(height: 14.0),
               OutlinedButton.icon(
-                onPressed: _saving ? null : _addResult,
-                icon: const Icon(Icons.add_rounded, size: 18.0),
-                label: const Text('Ajouter un résultat'),
+                onPressed: _saving || !canAdd ? null : _addResult,
+                icon: Icon(
+                  canAdd ? Icons.add_rounded : Icons.check_circle_rounded,
+                  size: 18.0,
+                ),
+                label: Text(
+                  canAdd
+                      ? 'Ajouter un autre endroit'
+                      : 'Limite de six endroits atteinte',
+                ),
               ),
               if (_errorMessage != null) ...[
                 const SizedBox(height: 14.0),
@@ -164,7 +183,8 @@ class _BingoEditDialogState extends State<_BingoEditDialog> {
               ),
               const SizedBox(height: 2.0),
               Text(
-                'La date et l’expiration d’origine seront conservées.',
+                'L’ancienne publication sera remplacée par une nouvelle afin '
+                'de réafficher le pop-up BINGO dans l’application.',
                 textAlign: TextAlign.center,
                 style: theme.labelSmall.copyWith(color: theme.secondaryText),
               ),
@@ -201,6 +221,13 @@ class _BingoResultDraft {
   final TextEditingController tirage;
   final TextEditingController boul;
   final TextEditingController periode;
+
+  DataStackStruct toStruct() => DataStackStruct(
+        valeur: valeur.text.trim(),
+        tirage: tirage.text.trim(),
+        boul: boul.text.trim(),
+        periode: periode.text.trim(),
+      );
 
   void dispose() {
     valeur.dispose();

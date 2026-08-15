@@ -200,7 +200,9 @@ class _PublicationsHistoryWidgetState extends State<PublicationsHistoryWidget> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: const Text('Publication BINGO modifiée avec succès.'),
+          content: const Text(
+            'BINGO modifié et republié : le pop-up sera réaffiché.',
+          ),
           backgroundColor: FlutterFlowTheme.of(context).success,
         ),
       );
