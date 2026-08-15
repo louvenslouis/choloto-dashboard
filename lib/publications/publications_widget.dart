@@ -247,7 +247,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget> {
                           ),
                           const SizedBox(height: 3.0),
                           Text(
-                            'Commencez avec un endroit et ajoutez-en jusqu’à six.',
+                            'Commencez avec un BINGO et ajoutez-en jusqu’à six.',
                             style: theme.bodySmall.copyWith(
                               color: theme.secondaryText,
                             ),
@@ -298,8 +298,8 @@ class _PublicationsWidgetState extends State<PublicationsWidget> {
               ),
               label: Text(
                 canAdd
-                    ? 'Ajouter un autre endroit'
-                    : 'Limite de six endroits atteinte',
+                    ? 'Ajouter un autre BINGO'
+                    : 'Limite de six BINGO atteinte',
               ),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(46.0),
@@ -370,7 +370,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget> {
               const SizedBox(width: 10.0),
               Expanded(
                 child: Text(
-                  'Endroit ${index + 1}',
+                  'BINGO ${index + 1}',
                   style: theme.titleSmall.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
@@ -379,7 +379,7 @@ class _PublicationsWidgetState extends State<PublicationsWidget> {
               if (_results.length > 1)
                 IconButton(
                   key: ValueKey('remove-bingo-result-$index'),
-                  tooltip: 'Retirer cet endroit',
+                  tooltip: 'Retirer ce BINGO',
                   onPressed: _publishing ? null : () => _removeResult(index),
                   icon: const Icon(Icons.delete_outline_rounded),
                   color: theme.error,

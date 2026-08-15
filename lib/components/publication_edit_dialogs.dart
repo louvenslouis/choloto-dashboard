@@ -144,7 +144,7 @@ class _BingoEditDialogState extends State<_BingoEditDialog> {
               AdminDialogHeader(
                 title: 'Modifier le BINGO',
                 subtitle:
-                    'Modifiez les endroits existants ou ajoutez-en jusqu’à six.',
+                    'Modifiez les BINGO existants ou ajoutez-en jusqu’à six.',
                 icon: Icons.edit_rounded,
                 onClose: _saving ? () {} : () => Navigator.pop(context),
               ),
@@ -167,8 +167,8 @@ class _BingoEditDialogState extends State<_BingoEditDialog> {
                 ),
                 label: Text(
                   canAdd
-                      ? 'Ajouter un autre endroit'
-                      : 'Limite de six endroits atteinte',
+                      ? 'Ajouter un autre BINGO'
+                      : 'Limite de six BINGO atteinte',
                 ),
               ),
               if (_errorMessage != null) ...[
