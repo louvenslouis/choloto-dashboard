@@ -442,29 +442,69 @@ class _PublicationHistoryCard extends StatelessWidget {
                             }
 
                             final count = snapshot.data!;
-                            return Row(
-                              children: [
-                                Icon(
-                                  count > 0
-                                      ? Icons.favorite_rounded
-                                      : Icons.favorite_border_rounded,
-                                  size: 16.0,
-                                  color: count > 0
-                                      ? theme.error
-                                      : theme.secondaryText,
-                                ),
-                                const SizedBox(width: 6.0),
-                                Flexible(
-                                  child: Text(
-                                    '$count réaction${count > 1 ? 's' : ''}',
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.labelMedium.copyWith(
-                                      color: theme.secondaryText,
-                                      fontWeight: FontWeight.w700,
+                            final reactionLabel =
+                                '$count réaction${count > 1 ? 's' : ''}';
+                            return Align(
+                              alignment: Alignment.centerLeft,
+                              child: Tooltip(
+                                message: count > 0
+                                    ? 'Voir les utilisateurs ayant réagi'
+                                    : 'Aucune réaction',
+                                child: Semantics(
+                                  button: count > 0,
+                                  label: reactionLabel,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(10.0),
+                                    onTap: count == 0
+                                        ? null
+                                        : () => _showBingoReactionsDialog(
+                                              context,
+                                              publication,
+                                            ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 5.0,
+                                        vertical: 5.0,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            count > 0
+                                                ? Icons.favorite_rounded
+                                                : Icons.favorite_border_rounded,
+                                            size: 16.0,
+                                            color: count > 0
+                                                ? theme.error
+                                                : theme.secondaryText,
+                                          ),
+                                          const SizedBox(width: 6.0),
+                                          Flexible(
+                                            child: Text(
+                                              reactionLabel,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: theme.labelMedium.copyWith(
+                                                color: count > 0
+                                                    ? theme.primaryText
+                                                    : theme.secondaryText,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                          if (count > 0) ...[
+                                            const SizedBox(width: 3.0),
+                                            Icon(
+                                              Icons.chevron_right_rounded,
+                                              size: 17.0,
+                                              color: theme.primary,
+                                            ),
+                                          ],
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ],
+                              ),
                             );
                           },
                         ),
@@ -490,6 +530,375 @@ class _PublicationHistoryCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+Future<void> _showBingoReactionsDialog(
+  BuildContext context,
+  BingoRecord publication,
+) async {
+  logFirebaseEvent('PUBLICATIONS_HISTORY_REACTIONS_ON_TAP');
+  await showDialog<void>(
+    context: context,
+    builder: (_) => _BingoReactionsDialog(publication: publication),
+  );
+}
+
+class _BingoReactionsDialog extends StatefulWidget {
+  const _BingoReactionsDialog({required this.publication});
+
+  final BingoRecord publication;
+
+  @override
+  State<_BingoReactionsDialog> createState() => _BingoReactionsDialogState();
+}
+
+class _BingoReactionsDialogState extends State<_BingoReactionsDialog> {
+  late Future<List<_BingoReactionEntry>> _reactionsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _reactionsFuture = _loadReactions();
+  }
+
+  Future<List<_BingoReactionEntry>> _loadReactions() async {
+    final reactionRecords = await queryBingostatsRecordOnce(
+      parent: widget.publication.reference,
+    );
+
+    final reactionsByUser = <String, BingostatsRecord>{};
+    for (final reaction in reactionRecords) {
+      final userId = reaction.user.trim();
+      final key = userId.isEmpty ? '@${reaction.reference.id}' : userId;
+      reactionsByUser[key] = reaction;
+    }
+
+    final userIds = reactionsByUser.values
+        .map((reaction) => reaction.user.trim())
+        .where((userId) => userId.isNotEmpty)
+        .toSet();
+    final userSnapshots = await Future.wait(
+      userIds.map((userId) => UserRecord.collection.doc(userId).get()),
+    );
+    final usersById = <String, UserRecord>{};
+    for (final snapshot in userSnapshots) {
+      if (snapshot.exists && snapshot.data() != null) {
+        usersById[snapshot.id] = UserRecord.fromSnapshot(snapshot);
+      }
+    }
+
+    final entries = reactionsByUser.values
+        .map(
+          (reaction) => _BingoReactionEntry(
+            reaction: reaction,
+            user: usersById[reaction.user.trim()],
+          ),
+        )
+        .toList();
+    entries.sort((first, second) {
+      if (first.reaction.gain != second.reaction.gain) {
+        return first.reaction.gain ? -1 : 1;
+      }
+      return first.displayName.toLowerCase().compareTo(
+            second.displayName.toLowerCase(),
+          );
+    });
+    return entries;
+  }
+
+  void _retry() {
+    setState(() => _reactionsFuture = _loadReactions());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AdminDialogFrame(
+      maxWidth: 620.0,
+      child: Padding(
+        padding: const EdgeInsets.all(22.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AdminDialogHeader(
+              title: 'Réactions au BINGO',
+              subtitle: 'Utilisateurs ayant réagi à cette publication',
+              icon: Icons.favorite_rounded,
+              onClose: () => Navigator.pop(context),
+            ),
+            const SizedBox(height: 18.0),
+            FutureBuilder<List<_BingoReactionEntry>>(
+              future: _reactionsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const SizedBox(
+                    height: 180.0,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return _ReactionDialogMessage(
+                    icon: Icons.cloud_off_rounded,
+                    title: 'Réactions indisponibles',
+                    message:
+                        'Impossible de charger les utilisateurs pour le moment.',
+                    actionLabel: 'Réessayer',
+                    onAction: _retry,
+                  );
+                }
+
+                final reactions = snapshot.data ?? const [];
+                if (reactions.isEmpty) {
+                  return const _ReactionDialogMessage(
+                    icon: Icons.favorite_border_rounded,
+                    title: 'Aucune réaction',
+                    message: 'Aucun utilisateur n’a encore réagi à ce BINGO.',
+                  );
+                }
+
+                final gains =
+                    reactions.where((entry) => entry.reaction.gain).length;
+                final misses = reactions.length - gains;
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _ReactionSummary(
+                      total: reactions.length,
+                      gains: gains,
+                      misses: misses,
+                    ),
+                    const SizedBox(height: 14.0),
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: reactions.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 9.0),
+                      itemBuilder: (context, index) =>
+                          _ReactionUserTile(entry: reactions[index]),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BingoReactionEntry {
+  const _BingoReactionEntry({
+    required this.reaction,
+    required this.user,
+  });
+
+  final BingostatsRecord reaction;
+  final UserRecord? user;
+
+  String get displayName {
+    final name = user?.displayName.trim() ?? '';
+    if (name.isNotEmpty) return name;
+    final email = user?.email.trim() ?? '';
+    if (email.isNotEmpty) return email.split('@').first;
+    return 'Utilisateur indisponible';
+  }
+
+  String get subtitle {
+    final email = user?.email.trim() ?? '';
+    if (email.isNotEmpty) return email;
+    final userId = reaction.user.trim();
+    return userId.isEmpty ? 'Profil non disponible' : 'Identifiant : $userId';
+  }
+}
+
+class _ReactionSummary extends StatelessWidget {
+  const _ReactionSummary({
+    required this.total,
+    required this.gains,
+    required this.misses,
+  });
+
+  final int total;
+  final int gains;
+  final int misses;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    return AdminSurface(
+      padding: const EdgeInsets.all(13.0),
+      color: theme.primaryBackground,
+      radius: 15.0,
+      child: Wrap(
+        spacing: 8.0,
+        runSpacing: 8.0,
+        children: [
+          AdminStatusPill(
+            label: '$total réaction${total > 1 ? 's' : ''}',
+            color: theme.primary,
+            compact: true,
+          ),
+          AdminStatusPill(
+            label: '$gains gagnant${gains > 1 ? 's' : ''}',
+            color: theme.success,
+            compact: true,
+            leading: const Icon(Icons.emoji_events_rounded, size: 12.0),
+          ),
+          AdminStatusPill(
+            label: '$misses non-gagnant${misses > 1 ? 's' : ''}',
+            color: theme.secondaryText,
+            compact: true,
+            leading: const Icon(Icons.close_rounded, size: 12.0),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReactionUserTile extends StatelessWidget {
+  const _ReactionUserTile({required this.entry});
+
+  final _BingoReactionEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    final won = entry.reaction.gain;
+    final reactionColor = won ? theme.success : theme.secondaryText;
+    final initial = entry.displayName.characters.first.toUpperCase();
+    final photoUrl = entry.user?.photoUrl.trim() ?? '';
+
+    return AdminSurface(
+      padding: const EdgeInsets.all(12.0),
+      radius: 15.0,
+      child: Row(
+        children: [
+          Container(
+            width: 44.0,
+            height: 44.0,
+            clipBehavior: Clip.antiAlias,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: theme.primary.withValues(alpha: 0.10),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: theme.primary.withValues(alpha: 0.18),
+              ),
+            ),
+            child: photoUrl.isEmpty
+                ? Text(
+                    initial,
+                    style: theme.titleSmall.copyWith(
+                      color: theme.primaryText,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  )
+                : Image.network(
+                    photoUrl,
+                    width: 44.0,
+                    height: 44.0,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Center(
+                      child: Text(
+                        initial,
+                        style: theme.titleSmall.copyWith(
+                          color: theme.primaryText,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+          const SizedBox(width: 12.0),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.bodyMedium.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2.0),
+                Text(
+                  entry.subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.bodySmall.copyWith(color: theme.secondaryText),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10.0),
+          AdminStatusPill(
+            label: won ? 'A gagné' : 'N’a pas gagné',
+            color: reactionColor,
+            compact: true,
+            leading: Icon(
+              won ? Icons.emoji_events_rounded : Icons.close_rounded,
+              size: 12.0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReactionDialogMessage extends StatelessWidget {
+  const _ReactionDialogMessage({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    return AdminSurface(
+      padding: const EdgeInsets.all(20.0),
+      color: theme.primaryBackground,
+      child: Column(
+        children: [
+          Icon(icon, size: 34.0, color: theme.secondaryText),
+          const SizedBox(height: 10.0),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: theme.titleSmall.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 5.0),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: theme.bodySmall.copyWith(color: theme.secondaryText),
+          ),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 14.0),
+            OutlinedButton.icon(
+              onPressed: onAction,
+              icon: const Icon(Icons.refresh_rounded, size: 18.0),
+              label: Text(actionLabel!),
+            ),
+          ],
+        ],
       ),
     );
   }
