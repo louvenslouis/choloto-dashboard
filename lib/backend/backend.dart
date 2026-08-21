@@ -11,6 +11,7 @@ import 'schema/resultats_record.dart';
 import 'schema/prediction_record.dart';
 import 'schema/bingo_record.dart';
 import 'schema/bingostats_record.dart';
+import 'schema/payment_transaction_record.dart';
 
 export 'dart:async' show StreamSubscription;
 export 'package:cloud_firestore/cloud_firestore.dart' hide Order;
@@ -25,6 +26,7 @@ export 'schema/resultats_record.dart';
 export 'schema/prediction_record.dart';
 export 'schema/bingo_record.dart';
 export 'schema/bingostats_record.dart';
+export 'schema/payment_transaction_record.dart';
 
 /// Functions to query CroixRecords (as a Stream and as a Future).
 Future<int> queryCroixRecordCount({
@@ -95,6 +97,43 @@ Future<List<UserRecord>> queryUserRecordOnce({
     queryCollectionOnce(
       UserRecord.collection,
       UserRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+/// Functions to query PaymentTransactionRecords (as a Stream and as a Future).
+Future<int> queryPaymentTransactionRecordCount({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+}) =>
+    queryCollectionCount(
+      PaymentTransactionRecord.collection,
+      queryBuilder: queryBuilder,
+      limit: limit,
+    );
+
+Stream<List<PaymentTransactionRecord>> queryPaymentTransactionRecord({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollection(
+      PaymentTransactionRecord.collection,
+      PaymentTransactionRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+Future<List<PaymentTransactionRecord>> queryPaymentTransactionRecordOnce({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollectionOnce(
+      PaymentTransactionRecord.collection,
+      PaymentTransactionRecord.fromSnapshot,
       queryBuilder: queryBuilder,
       limit: limit,
       singleRecord: singleRecord,

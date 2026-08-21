@@ -125,7 +125,7 @@ service cloud.firestore {
     function validBingo(data) {
       return data.keys().hasOnly(['date', 'dataStack', 'expiration']) &&
           optionalTimestamp(data, 'date') &&
-          optionalList(data, 'dataStack', 6) &&
+          optionalList(data, 'dataStack', 32) &&
           optionalTimestamp(data, 'expiration');
     }
 
@@ -157,6 +157,80 @@ service cloud.firestore {
           optionalString(data, 'link', 2048);
     }
 
+    function validWebPushToken(data, userId) {
+      return data.keys().hasOnly([
+            'token', 'userId', 'locale', 'createdAt', 'updatedAt'
+          ]) &&
+          data.token is string &&
+          data.token.size() > 0 &&
+          data.token.size() <= 2048 &&
+          data.userId == userId &&
+          data.locale is string &&
+          data.locale in ['fr', 'en', 'cr'] &&
+          data.createdAt is timestamp &&
+          data.updatedAt is timestamp;
+    }
+
+    function validPaymentTransaction(data, documentId) {
+      return data.keys().hasOnly([
+            'user_ref',
+            'user_uid',
+            'user_email',
+            'user_display_name',
+            'user_code',
+            'receipt_code',
+            'previous_end_sub',
+            'new_end_sub',
+            'payment_method',
+            'amount',
+            'currency',
+            'member_time_before',
+            'member_time_after',
+            'created_at',
+            'created_by',
+            'created_by_email'
+          ]) &&
+          data.keys().hasAll([
+            'user_ref',
+            'user_uid',
+            'receipt_code',
+            'new_end_sub',
+            'member_time_before',
+            'member_time_after',
+            'created_at',
+            'created_by'
+          ]) &&
+          data.user_ref is path &&
+          data.user_uid is string && data.user_uid.size() > 0 &&
+          data.user_uid.size() <= 128 &&
+          data.user_ref ==
+            /databases/$(database)/documents/user/$(data.user_uid) &&
+          optionalString(data, 'user_email', 320) &&
+          optionalString(data, 'user_display_name', 256) &&
+          optionalString(data, 'user_code', 128) &&
+          data.receipt_code is string &&
+          data.receipt_code == 'CH-' + documentId &&
+          optionalTimestamp(data, 'previous_end_sub') &&
+          data.new_end_sub is timestamp &&
+          (!('payment_method' in data) ||
+            data.payment_method in ['moncash', 'cash', 'stripe']) &&
+          (
+            (!('amount' in data) && !('currency' in data)) ||
+            (
+              data.amount is number && data.amount > 0 &&
+              data.amount <= 999999999.99 &&
+              data.currency in ['USD', 'GDS']
+            )
+          ) &&
+          data.member_time_before is int && data.member_time_before >= 0 &&
+          data.member_time_after is int &&
+          data.member_time_after == data.member_time_before + 1 &&
+          data.created_at is timestamp &&
+          data.created_by is string && data.created_by.size() > 0 &&
+          data.created_by.size() <= 128 &&
+          optionalString(data, 'created_by_email', 320);
+    }
+
     match /croix/{document} {
       allow read: if true;
       allow create: if isAdmin() && createsOwn('created_by') &&
@@ -166,16 +240,32 @@ service cloud.firestore {
       allow delete: if isAdmin() && owns('created_by');
     }
 
-    match /user/{document} {
-      // Keep the released-client ownership contract unchanged, while guarding
-      // the uid access so unauthenticated requests fail cleanly.
-      allow create: if signedIn() && request.auth.uid == request.resource.data.uid;
+    match /user/{userId} {
+      // User ownership is derived from the document path, not resource.data.
+      // This is important for first sign-in: released clients read /user/{uid}
+      // before creating it, so there is no resource.data to inspect yet.
+      // Some older clients omitted the uid field; accept that legacy shape while
+      // still rejecting a uid that conflicts with the authenticated path owner.
+      allow create: if signedIn() &&
+          request.auth.uid == userId &&
+          (!('uid' in request.resource.data) ||
+            request.resource.data.uid == userId);
       allow read: if signedIn() &&
-          (request.auth.uid == resource.data.uid || isAdmin());
+          (request.auth.uid == userId || isAdmin());
       allow update: if signedIn() &&
-          (request.auth.uid == resource.data.uid || isAdmin()) &&
-          request.resource.data.uid == resource.data.uid;
-      allow delete: if signedIn() && request.auth.uid == resource.data.uid;
+          (request.auth.uid == userId || isAdmin()) &&
+          (!('uid' in request.resource.data) ||
+            request.resource.data.uid == userId);
+      allow delete: if signedIn() && request.auth.uid == userId;
+    }
+
+    match /user/{userId}/webPushTokens/{tokenId} {
+      allow read: if signedIn() &&
+          (request.auth.uid == userId || isAdmin());
+      allow create, update: if signedIn() &&
+          request.auth.uid == userId &&
+          validWebPushToken(request.resource.data, userId);
+      allow delete: if signedIn() && request.auth.uid == userId;
     }
 
     match /prediction/{document} {
@@ -246,6 +336,15 @@ service cloud.firestore {
     match /postText/{document} {
       allow read: if true;
       allow create: if isAdmin() && validPostText(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    match /payment_transactions/{document} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() &&
+          request.resource.data.created_by == request.auth.uid &&
+          request.resource.data.created_at == request.time &&
+          validPaymentTransaction(request.resource.data, document);
       allow update, delete: if false;
     }
   }

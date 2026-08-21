@@ -688,12 +688,14 @@ class AdminSectionHeader extends StatelessWidget {
     required this.icon,
     this.eyebrow = 'ESPACE DE GESTION',
     this.dense = false,
+    this.trailing,
   });
 
   final String title;
   final IconData icon;
   final String eyebrow;
   final bool dense;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -749,6 +751,10 @@ class AdminSectionHeader extends StatelessWidget {
                 ],
               ),
             ),
+            if (trailing != null) ...[
+              SizedBox(width: compact ? 8 : 12),
+              trailing!,
+            ],
           ],
         ),
       ),

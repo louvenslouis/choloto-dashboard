@@ -9,6 +9,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'user_excel_exporter.dart';
+import 'user_document_creator.dart';
 import 'users_model.dart';
 
 export 'users_model.dart';
@@ -148,6 +149,37 @@ class _UsersWidgetState extends State<UsersWidget> {
     );
   }
 
+  Future<void> _showAddUserDialog() async {
+    logFirebaseEvent('USERS_ADD_MANUAL_ON_TAP');
+    final result = await showDialog<UserDocumentCreationResult>(
+      barrierDismissible: false,
+      context: context,
+      builder: (_) => AdminDialogFrame(
+        maxWidth: 480,
+        scrollable: false,
+        child: _AddUserDialog(
+          onSubmit: (email) => UserDocumentCreator.ensureByEmail(email),
+        ),
+      ),
+    );
+
+    if (result == null || !mounted) return;
+
+    setState(() => _usersFuture = queryUserRecordOnce());
+    logFirebaseEvent('USERS_ADD_MANUAL_SUCCESS');
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            result.created
+                ? 'Utilisateur ajouté à la liste.'
+                : 'Document utilisateur déjà présent et synchronisé.',
+          ),
+        ),
+      );
+  }
+
   Future<void> _showPayment(UserRecord user) async {
     logFirebaseEvent('USERS_CARD_PAYMENT_ON_TAP');
     final saved = await showDialog<bool>(
@@ -273,9 +305,22 @@ class _UsersWidgetState extends State<UsersWidget> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           AnimatedCrossFade(
-                            firstChild: const AdminSectionHeader(
+                            firstChild: AdminSectionHeader(
                               title: 'Utilisateurs',
                               icon: Icons.people_alt_rounded,
+                              trailing: IconButton(
+                                tooltip: 'Ajouter un utilisateur',
+                                onPressed: _showAddUserDialog,
+                                icon: const Icon(Icons.add_rounded, size: 23),
+                                style: IconButton.styleFrom(
+                                  minimumSize: const Size(44, 44),
+                                  backgroundColor: theme.primary,
+                                  foregroundColor: theme.info,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                              ),
                             ),
                             secondChild: const SizedBox(width: double.infinity),
                             crossFadeState: _isHeaderCollapsed
@@ -400,6 +445,197 @@ class _UsersWidgetState extends State<UsersWidget> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AddUserDialog extends StatefulWidget {
+  const _AddUserDialog({required this.onSubmit});
+
+  final Future<UserDocumentCreationResult> Function(String email) onSubmit;
+
+  @override
+  State<_AddUserDialog> createState() => _AddUserDialogState();
+}
+
+class _AddUserDialogState extends State<_AddUserDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _emailController;
+  bool _saving = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_saving || !_formKey.currentState!.validate()) return;
+    setState(() {
+      _saving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await widget.onSubmit(_emailController.text.trim());
+      if (mounted) Navigator.pop(context, result);
+    } on UserDocumentCreationException catch (error) {
+      if (mounted) setState(() => _errorMessage = error.message);
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _errorMessage =
+              'Impossible de créer le document utilisateur. Réessayez.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  String? _validateEmail(String? value) {
+    final email = value?.trim() ?? '';
+    if (email.isEmpty) return 'Saisissez l’adresse e-mail du client.';
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+      return 'Saisissez une adresse e-mail valide.';
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.all(22),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AdminDialogHeader(
+              title: 'Ajouter un utilisateur',
+              subtitle: 'Créer le document Firebase manquant',
+              icon: Icons.person_add_alt_1_rounded,
+              onClose: _saving ? () {} : () => Navigator.pop(context),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'L’adresse doit déjà être associée à un compte Firebase Auth. Son UID sera utilisé pour créer le document user.',
+              style: theme.bodyMedium.copyWith(
+                color: theme.secondaryText,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 18),
+            TextFormField(
+              controller: _emailController,
+              autofocus: true,
+              enabled: !_saving,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.done,
+              autocorrect: false,
+              validator: _validateEmail,
+              onFieldSubmitted: (_) => _submit(),
+              decoration: InputDecoration(
+                labelText: 'E-mail du client',
+                hintText: 'client@exemple.com',
+                prefixIcon: const Icon(Icons.mail_outline_rounded),
+                filled: true,
+                fillColor: theme.primaryBackground,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: theme.alternate),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: theme.alternate),
+                ),
+              ),
+            ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.error.withValues(alpha: .08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: theme.error.withValues(alpha: .2)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.error_outline_rounded,
+                      color: theme.error,
+                      size: 19,
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style: theme.bodySmall.copyWith(color: theme.error),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 22),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final stacked = constraints.maxWidth < 330;
+                final cancel = OutlinedButton.icon(
+                  onPressed: _saving ? null : () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  label: const Text('Annuler'),
+                );
+                final add = FilledButton.icon(
+                  onPressed: _saving ? null : _submit,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 17,
+                          height: 17,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.add_rounded, size: 19),
+                  label: Text(_saving ? 'Ajout…' : 'Ajouter'),
+                );
+
+                if (stacked) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      add,
+                      const SizedBox(height: 10),
+                      cancel,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: cancel),
+                    const SizedBox(width: 12),
+                    Expanded(child: add),
+                  ],
+                );
+              },
+            ),
+          ],
         ),
       ),
     );

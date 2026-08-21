@@ -3,6 +3,88 @@ const admin = require("firebase-admin");
 const axios = require("axios");
 admin.initializeApp();
 
+exports.ensureUserDocumentByEmail = functions
+  .region("us-central1")
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Authentication is required.",
+      );
+    }
+
+    const token = context.auth.token || {};
+    const isAdmin = token.admin === true ||
+      token.email === "sanonmaeva064@gmail.com";
+    if (!isAdmin) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Only administrators can create user documents.",
+      );
+    }
+
+    const email = String(data && data.email || "").trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "A valid email address is required.",
+      );
+    }
+
+    let authUser;
+    try {
+      authUser = await admin.auth().getUserByEmail(email);
+    } catch (error) {
+      if (error && error.code === "auth/user-not-found") {
+        throw new functions.https.HttpsError(
+          "not-found",
+          "No Firebase Auth account matches this email.",
+        );
+      }
+      functions.logger.error("Unable to find Firebase Auth user", error);
+      throw new functions.https.HttpsError(
+        "internal",
+        "Unable to find the Firebase Auth user.",
+      );
+    }
+
+    const reference = admin.firestore().collection("user").doc(authUser.uid);
+    const snapshot = await reference.get();
+    const dataToMerge = {
+      email: authUser.email || email,
+      uid: authUser.uid,
+      updated_time: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    if (authUser.displayName) dataToMerge.display_name = authUser.displayName;
+    if (authUser.photoURL) dataToMerge.photo_url = authUser.photoURL;
+    if (authUser.phoneNumber) dataToMerge.phone_number = authUser.phoneNumber;
+
+    if (snapshot.exists) {
+      if (!snapshot.data().created_time) {
+        dataToMerge.created_time = admin.firestore.FieldValue.serverTimestamp();
+      }
+      await reference.set(dataToMerge, {merge: true});
+      return {
+        created: false,
+        repaired: true,
+        email: authUser.email || email,
+        uid: authUser.uid,
+      };
+    }
+
+    await reference.set({
+      ...dataToMerge,
+      created_time: admin.firestore.FieldValue.serverTimestamp(),
+      member_time: 0,
+    });
+    return {
+      created: true,
+      repaired: false,
+      email: authUser.email || email,
+      uid: authUser.uid,
+    };
+  });
+
 const NY_OPEN_DATA_URL = "https://data.ny.gov/resource/hsys-3def.json";
 const NY_LOTTERY_API_URL =
   "https://nylottery.ny.gov/drupal-api/api/v2/winning_numbers";

@@ -234,10 +234,33 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Abonnement VIP'), findsOneWidget);
-    expect(find.text('Méthode de paiement'), findsOneWidget);
-    expect(find.text('Enregistrer'), findsOneWidget);
+    expect(find.text('Méthode de paiement (optionnelle)'), findsOneWidget);
+    expect(find.text('Montant (optionnel)'), findsOneWidget);
+    expect(find.text('GDS'), findsOneWidget);
+    expect(find.text('USD'), findsOneWidget);
     expect(
-      find.text('Le compteur de mois actifs sera augmenté de 1.'),
+      tester
+          .widget<SegmentedButton<String>>(
+            find.byType(SegmentedButton<String>),
+          )
+          .selected,
+      {'GDS'},
+    );
+
+    await tester.tap(find.text('USD'));
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<SegmentedButton<String>>(
+            find.byType(SegmentedButton<String>),
+          )
+          .selected,
+      {'USD'},
+    );
+    expect(find.text('Enregistrer et générer le reçu'), findsOneWidget);
+    expect(
+      find.text('La transaction sera archivée et son reçu PDF téléchargé.'),
       findsOneWidget,
     );
     expect(find.byType(SingleChildScrollView), findsNothing);

@@ -1,10 +1,13 @@
+import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
 import '/components/admin_ui.dart';
 import '/flutter_flow/flutter_flow_calendar.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/transactions/payment_receipt_exporter.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'paiement_model.dart';
 export 'paiement_model.dart';
 
@@ -22,7 +25,9 @@ class PaiementWidget extends StatefulWidget {
 
 class _PaiementWidgetState extends State<PaiementWidget> {
   late PaiementModel _model;
+  late final TextEditingController _amountController;
   bool _saving = false;
+  String _currency = 'GDS';
 
   @override
   void setState(VoidCallback callback) {
@@ -34,32 +39,131 @@ class _PaiementWidgetState extends State<PaiementWidget> {
   void initState() {
     super.initState();
     _model = createModel(context, () => PaiementModel());
+    _amountController = TextEditingController();
   }
 
   @override
   void dispose() {
+    _amountController.dispose();
     _model.maybeDispose();
     super.dispose();
   }
 
   Future<void> _saveMembership() async {
     if (_saving || widget.refUser == null) return;
+
+    final selectedEndSub = _model.calendarSelectedDay?.end;
+    final selectedMethod = deserializeEnum<PaimentMethod>(_model.dropDownValue);
+    final amountInput = _amountController.text.trim();
+    final amount = amountInput.isEmpty ? null : _parseAmount(amountInput);
+    if (selectedEndSub == null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Sélectionnez une date d’échéance.'),
+          ),
+        );
+      return;
+    }
+    if (amountInput.isNotEmpty && amount == null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Saisissez un montant valide supérieur à zéro.'),
+          ),
+        );
+      return;
+    }
+    if (currentUserUid.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Votre session a expiré. Reconnectez-vous puis réessayez.',
+            ),
+          ),
+        );
+      return;
+    }
+
     setState(() => _saving = true);
 
+    var membershipSaved = false;
     try {
-      await widget.refUser!.update({
-        ...createUserRecordData(
-          endSub: _model.calendarSelectedDay?.end,
-          method: deserializeEnum<PaimentMethod>(_model.dropDownValue),
-        ),
-        ...mapToFirestore({
-          'member_time': FieldValue.increment(1),
-          'updated_time': FieldValue.serverTimestamp(),
-        }),
+      final firestore = FirebaseFirestore.instance;
+      final transactionReference = PaymentTransactionRecord.collection.doc();
+      final receiptCode = PaymentReceiptData.receiptNumberFor(
+        transactionReference.id,
+      );
+
+      await firestore.runTransaction((transaction) async {
+        final userSnapshot = await transaction.get(widget.refUser!);
+        if (!userSnapshot.exists) {
+          throw StateError('The user document no longer exists.');
+        }
+
+        final userData = userSnapshot.data() as Map<String, dynamic>? ?? {};
+        final previousEndSub = _readFirestoreDate(userData['end_sub']);
+        final memberTimeBefore =
+            (userData['member_time'] as num?)?.toInt() ?? 0;
+
+        transaction.update(widget.refUser!, {
+          ...createUserRecordData(
+            endSub: selectedEndSub,
+            method: selectedMethod,
+          ),
+          ...mapToFirestore({
+            'member_time': memberTimeBefore + 1,
+            'updated_time': FieldValue.serverTimestamp(),
+          }),
+        });
+
+        transaction.set(transactionReference, {
+          ...createPaymentTransactionRecordData(
+            userRef: widget.refUser,
+            userUid: widget.refUser!.id,
+            userEmail: userData['email'] as String?,
+            userDisplayName: userData['display_name'] as String?,
+            userCode: userData['code_personnel'] as String?,
+            receiptCode: receiptCode,
+            previousEndSub: previousEndSub,
+            newEndSub: selectedEndSub,
+            paymentMethod: selectedMethod,
+            amount: amount,
+            currency: amount == null ? null : _currency,
+            memberTimeBefore: memberTimeBefore,
+            memberTimeAfter: memberTimeBefore + 1,
+            createdBy: currentUserUid,
+            createdByEmail: currentUserEmail.isEmpty ? null : currentUserEmail,
+          ),
+          'created_at': FieldValue.serverTimestamp(),
+        });
       });
+      membershipSaved = true;
+
+      final savedTransaction =
+          await PaymentTransactionRecord.getDocumentOnce(transactionReference);
+      await PaymentReceiptExporter.export(savedTransaction);
       if (mounted) Navigator.pop(context, true);
     } catch (_) {
       if (!mounted) return;
+      if (membershipSaved) {
+        final messenger = ScaffoldMessenger.of(context);
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Abonnement enregistré, mais le reçu PDF n’a pas pu être généré.',
+              ),
+            ),
+          );
+        Navigator.pop(context, true);
+        return;
+      }
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
@@ -72,6 +176,18 @@ class _PaiementWidgetState extends State<PaiementWidget> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  DateTime? _readFirestoreDate(Object? value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    return null;
+  }
+
+  double? _parseAmount(String value) {
+    final parsed = double.tryParse(value.trim().replaceAll(',', '.'));
+    if (parsed == null || !parsed.isFinite || parsed <= 0) return null;
+    return double.parse(parsed.toStringAsFixed(2));
   }
 
   @override
@@ -126,9 +242,13 @@ class _PaiementWidgetState extends State<PaiementWidget> {
               else ...[
                 _buildPaymentMethod(theme),
                 SizedBox(height: gap),
-                calendar,
+                _buildAmountAndCurrency(theme),
                 SizedBox(height: gap),
-                _buildDeadlineSummary(theme, selectedDate, compactHeight),
+                calendar,
+                if (!compactHeight) ...[
+                  SizedBox(height: gap),
+                  _buildDeadlineSummary(theme, selectedDate, compactHeight),
+                ],
                 SizedBox(height: gap),
                 _buildSaveButton(theme, compactHeight),
                 SizedBox(height: compactHeight ? 5 : 8),
@@ -153,6 +273,8 @@ class _PaiementWidgetState extends State<PaiementWidget> {
       children: [
         _buildPaymentMethod(theme),
         const SizedBox(height: 14),
+        _buildAmountAndCurrency(theme),
+        const SizedBox(height: 14),
         _buildDeadlineSummary(theme, selectedDate, compact),
         const SizedBox(height: 16),
         _buildSaveButton(theme, compact),
@@ -167,7 +289,7 @@ class _PaiementWidgetState extends State<PaiementWidget> {
       initialValue: _model.dropDownValue,
       isExpanded: true,
       decoration: InputDecoration(
-        labelText: 'Méthode de paiement',
+        labelText: 'Méthode de paiement (optionnelle)',
         prefixIcon: const Icon(Icons.account_balance_wallet_outlined),
         isDense: true,
         contentPadding:
@@ -187,6 +309,61 @@ class _PaiementWidgetState extends State<PaiementWidget> {
       onChanged: _saving
           ? null
           : (value) => setState(() => _model.dropDownValue = value),
+    );
+  }
+
+  Widget _buildAmountAndCurrency(FlutterFlowTheme theme) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _amountController,
+            enabled: !_saving,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textInputAction: TextInputAction.done,
+            inputFormatters: [
+              TextInputFormatter.withFunction((oldValue, newValue) {
+                final validAmount = RegExp(
+                  r'^\d{0,9}([.,]\d{0,2})?$',
+                ).hasMatch(newValue.text);
+                return validAmount ? newValue : oldValue;
+              }),
+            ],
+            decoration: InputDecoration(
+              labelText: 'Montant (optionnel)',
+              hintText: '0.00',
+              prefixIcon: const Icon(Icons.payments_outlined),
+              isDense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+              filled: true,
+              fillColor: theme.primaryBackground,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Semantics(
+          label: 'Devise du paiement',
+          child: SegmentedButton<String>(
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment(value: 'GDS', label: Text('GDS')),
+              ButtonSegment(value: 'USD', label: Text('USD')),
+            ],
+            selected: {_currency},
+            onSelectionChanged: _saving
+                ? null
+                : (selection) {
+                    setState(() => _currency = selection.first);
+                  },
+            style: const ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -321,7 +498,9 @@ class _PaiementWidgetState extends State<PaiementWidget> {
               ),
             )
           : const Icon(Icons.check_rounded),
-      label: Text(_saving ? 'Enregistrement…' : 'Enregistrer'),
+      label: Text(
+        _saving ? 'Enregistrement…' : 'Enregistrer et générer le reçu',
+      ),
       style: FilledButton.styleFrom(
         backgroundColor: theme.secondary,
         foregroundColor: const Color(0xFF10243A),
@@ -332,7 +511,7 @@ class _PaiementWidgetState extends State<PaiementWidget> {
 
   Widget _buildCounterNote(FlutterFlowTheme theme) {
     return Text(
-      'Le compteur de mois actifs sera augmenté de 1.',
+      'La transaction sera archivée et son reçu PDF téléchargé.',
       textAlign: TextAlign.center,
       style: theme.bodySmall.copyWith(color: theme.secondaryText),
     );
