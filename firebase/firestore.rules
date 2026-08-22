@@ -179,6 +179,7 @@ service cloud.firestore {
             'user_display_name',
             'user_code',
             'receipt_code',
+            'transaction_type',
             'previous_end_sub',
             'new_end_sub',
             'payment_method',
@@ -210,6 +211,10 @@ service cloud.firestore {
           optionalString(data, 'user_code', 128) &&
           data.receipt_code is string &&
           data.receipt_code == 'CH-' + documentId &&
+          (!('transaction_type' in data) ||
+            data.transaction_type in [
+              'subscription', 'renewal', 'adjustment'
+            ]) &&
           optionalTimestamp(data, 'previous_end_sub') &&
           data.new_end_sub is timestamp &&
           (!('payment_method' in data) ||
@@ -224,7 +229,20 @@ service cloud.firestore {
           ) &&
           data.member_time_before is int && data.member_time_before >= 0 &&
           data.member_time_after is int &&
-          data.member_time_after == data.member_time_before + 1 &&
+          (
+            (
+              !('transaction_type' in data) &&
+              data.member_time_after == data.member_time_before + 1
+            ) ||
+            (
+              data.transaction_type == 'adjustment' &&
+              data.member_time_after == data.member_time_before
+            ) ||
+            (
+              data.transaction_type in ['subscription', 'renewal'] &&
+              data.member_time_after == data.member_time_before + 1
+            )
+          ) &&
           data.created_at is timestamp &&
           data.created_by is string && data.created_by.size() > 0 &&
           data.created_by.size() <= 128 &&

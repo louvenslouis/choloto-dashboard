@@ -40,6 +40,10 @@ class PaymentTransactionRecord extends FirestoreRecord {
   String get receiptCode => _receiptCode ?? '';
   bool hasReceiptCode() => _receiptCode != null;
 
+  String? _transactionType;
+  String get transactionType => _transactionType ?? 'subscription';
+  bool hasTransactionType() => _transactionType != null;
+
   DateTime? _previousEndSub;
   DateTime? get previousEndSub => _previousEndSub;
   bool hasPreviousEndSub() => _previousEndSub != null;
@@ -87,6 +91,7 @@ class PaymentTransactionRecord extends FirestoreRecord {
     _userDisplayName = snapshotData['user_display_name'] as String?;
     _userCode = snapshotData['user_code'] as String?;
     _receiptCode = snapshotData['receipt_code'] as String?;
+    _transactionType = snapshotData['transaction_type'] as String?;
     _previousEndSub = snapshotData['previous_end_sub'] as DateTime?;
     _newEndSub = snapshotData['new_end_sub'] as DateTime?;
     _paymentMethod = snapshotData['payment_method'] is PaimentMethod
@@ -146,6 +151,7 @@ Map<String, dynamic> createPaymentTransactionRecordData({
   String? userDisplayName,
   String? userCode,
   String? receiptCode,
+  String? transactionType,
   DateTime? previousEndSub,
   DateTime? newEndSub,
   PaimentMethod? paymentMethod,
@@ -165,6 +171,7 @@ Map<String, dynamic> createPaymentTransactionRecordData({
       'user_display_name': userDisplayName,
       'user_code': userCode,
       'receipt_code': receiptCode,
+      'transaction_type': transactionType,
       'previous_end_sub': previousEndSub,
       'new_end_sub': newEndSub,
       'payment_method': paymentMethod,
@@ -191,6 +198,7 @@ class PaymentTransactionRecordDocumentEquality
       e1?.userDisplayName == e2?.userDisplayName &&
       e1?.userCode == e2?.userCode &&
       e1?.receiptCode == e2?.receiptCode &&
+      e1?.transactionType == e2?.transactionType &&
       e1?.previousEndSub == e2?.previousEndSub &&
       e1?.newEndSub == e2?.newEndSub &&
       e1?.paymentMethod == e2?.paymentMethod &&
@@ -210,6 +218,7 @@ class PaymentTransactionRecordDocumentEquality
         e?.userDisplayName,
         e?.userCode,
         e?.receiptCode,
+        e?.transactionType,
         e?.previousEndSub,
         e?.newEndSub,
         e?.paymentMethod,

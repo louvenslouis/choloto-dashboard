@@ -188,7 +188,12 @@ class _UsersWidgetState extends State<UsersWidget> {
       builder: (_) => AdminDialogFrame(
         maxWidth: 760,
         scrollable: false,
-        child: PaiementWidget(refUser: user.reference),
+        child: PaiementWidget(
+          refUser: user.reference,
+          currentEndSub: user.endSub,
+          currentPaymentMethod: user.method,
+          currentMemberTime: user.memberTime,
+        ),
       ),
     );
 

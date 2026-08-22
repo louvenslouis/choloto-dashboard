@@ -17,6 +17,7 @@ class PaymentReceiptData {
     required this.personalCode,
     required this.issuedAt,
     required this.expiresAt,
+    this.transactionType = 'subscription',
     required this.paymentMethod,
     required this.amount,
     required this.currency,
@@ -36,6 +37,7 @@ class PaymentReceiptData {
       personalCode: record.userCode.trim(),
       issuedAt: record.createdAt ?? DateTime.now(),
       expiresAt: record.newEndSub,
+      transactionType: record.transactionType,
       paymentMethod: record.paymentMethod,
       amount: record.hasAmount() ? record.amount : null,
       currency: record.hasCurrency() ? record.currency : null,
@@ -49,6 +51,7 @@ class PaymentReceiptData {
   final String personalCode;
   final DateTime issuedAt;
   final DateTime? expiresAt;
+  final String transactionType;
   final PaimentMethod? paymentMethod;
   final double? amount;
   final String? currency;
@@ -137,7 +140,7 @@ class PaymentReceiptExporter {
                 children: [
                   _header(data, logo),
                   pw.SizedBox(height: 35),
-                  _purchaseTable(amountLabel),
+                  _purchaseTable(data, amountLabel),
                   pw.SizedBox(height: 16),
                   _totalBanner(amountLabel),
                   pw.SizedBox(height: 28),
@@ -322,7 +325,10 @@ class PaymentReceiptExporter {
     );
   }
 
-  static pw.Widget _purchaseTable(String amountLabel) {
+  static pw.Widget _purchaseTable(
+    PaymentReceiptData data,
+    String amountLabel,
+  ) {
     return pw.Column(
       children: [
         pw.Container(
@@ -355,7 +361,7 @@ class PaymentReceiptExporter {
               pw.Expanded(
                 flex: 5,
                 child: pw.Text(
-                  'Abonnement VIP CHOLOTO',
+                  _transactionDescription(data.transactionType),
                   style: pw.TextStyle(
                     fontSize: 10,
                     fontWeight: pw.FontWeight.bold,
@@ -408,6 +414,8 @@ class PaymentReceiptExporter {
       child: pw.Column(
         children: [
           _detailRow('Référence en ligne', data.receiptNumber),
+          _detailRow(
+              'Type d’opération', _transactionTypeLabel(data.transactionType)),
           _detailRow("Date d'entrée", _formatDate(data.issuedAt)),
           _detailRow(
             "Date d'expiration",
@@ -431,9 +439,10 @@ class PaymentReceiptExporter {
     PaymentReceiptData data,
     String amountLabel,
   ) {
+    final operation = _transactionTypeLabel(data.transactionType).toLowerCase();
     final paymentSentence = data.hasAmount
-        ? 'Le paiement de $amountLabel pour votre nouvel abonnement a été enregistré.'
-        : 'Votre nouvel abonnement a été enregistré avec succès.';
+        ? 'Le paiement de $amountLabel pour cette $operation a été enregistré.'
+        : _transactionConfirmation(data.transactionType);
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -618,6 +627,32 @@ class PaymentReceiptExporter {
     if (!data.hasAmount) return 'Non renseigné';
     final formatted = NumberFormat('#,##0.00', 'en_US').format(data.amount);
     return data.currency == 'GDS' ? '$formatted Gourdes' : '$formatted USD';
+  }
+
+  static String _transactionDescription(String type) {
+    return switch (type) {
+      'renewal' => 'Prolongation abonnement VIP CHOLOTO',
+      'adjustment' => 'Modification abonnement VIP CHOLOTO',
+      _ => 'Activation abonnement VIP CHOLOTO',
+    };
+  }
+
+  static String _transactionTypeLabel(String type) {
+    return switch (type) {
+      'renewal' => 'Prolongation',
+      'adjustment' => 'Modification',
+      _ => 'Activation',
+    };
+  }
+
+  static String _transactionConfirmation(String type) {
+    return switch (type) {
+      'renewal' =>
+        'La prolongation de votre abonnement a été enregistrée avec succès.',
+      'adjustment' =>
+        'La modification de votre abonnement a été enregistrée avec succès.',
+      _ => 'L’activation de votre abonnement a été enregistrée avec succès.',
+    };
   }
 
   static String _paymentLabel(PaimentMethod? method) {

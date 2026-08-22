@@ -15,17 +15,28 @@ class PaiementWidget extends StatefulWidget {
   const PaiementWidget({
     super.key,
     required this.refUser,
+    this.currentEndSub,
+    this.currentPaymentMethod,
+    this.currentMemberTime = 0,
   });
 
   final DocumentReference? refUser;
+  final DateTime? currentEndSub;
+  final PaimentMethod? currentPaymentMethod;
+  final int currentMemberTime;
 
   @override
   State<PaiementWidget> createState() => _PaiementWidgetState();
 }
 
+enum _MembershipAction { subscription, renewal, adjustment }
+
 class _PaiementWidgetState extends State<PaiementWidget> {
   late PaiementModel _model;
   late final TextEditingController _amountController;
+  late final bool _hasActiveMembership;
+  late _MembershipAction _action;
+  late bool _showEditor;
   bool _saving = false;
   String _currency = 'GDS';
 
@@ -40,6 +51,16 @@ class _PaiementWidgetState extends State<PaiementWidget> {
     super.initState();
     _model = createModel(context, () => PaiementModel());
     _amountController = TextEditingController();
+    _hasActiveMembership = widget.currentEndSub != null &&
+        !widget.currentEndSub!.isBefore(DateTime.now());
+    _action = _hasActiveMembership
+        ? _MembershipAction.renewal
+        : _MembershipAction.subscription;
+    _showEditor = !_hasActiveMembership;
+    if (_hasActiveMembership) {
+      _setSelectedDate(widget.currentEndSub!);
+      _model.dropDownValue = widget.currentPaymentMethod?.name;
+    }
   }
 
   @override
@@ -47,6 +68,57 @@ class _PaiementWidgetState extends State<PaiementWidget> {
     _amountController.dispose();
     _model.maybeDispose();
     super.dispose();
+  }
+
+  void _setSelectedDate(DateTime date) {
+    _model.calendarSelectedDay = DateTimeRange(
+      start: date.startOfDay,
+      end: date.endOfDay,
+    );
+  }
+
+  void _openRenewal() {
+    final currentDeadline = widget.currentEndSub ?? DateTime.now();
+    _setSelectedDate(_addOneMonth(currentDeadline));
+    _model.dropDownValue = widget.currentPaymentMethod?.name;
+    _amountController.clear();
+    setState(() {
+      _action = _MembershipAction.renewal;
+      _showEditor = true;
+    });
+  }
+
+  void _openAdjustment() {
+    _setSelectedDate(widget.currentEndSub ?? DateTime.now());
+    _model.dropDownValue = widget.currentPaymentMethod?.name;
+    _amountController.clear();
+    setState(() {
+      _action = _MembershipAction.adjustment;
+      _showEditor = true;
+    });
+  }
+
+  void _showCurrentPlan() {
+    setState(() => _showEditor = false);
+  }
+
+  DateTime _addOneMonth(DateTime value) {
+    final firstOfNextMonth = value.month == 12
+        ? DateTime(value.year + 1, 1)
+        : DateTime(value.year, value.month + 1);
+    final firstOfFollowingMonth = firstOfNextMonth.month == 12
+        ? DateTime(firstOfNextMonth.year + 1, 1)
+        : DateTime(firstOfNextMonth.year, firstOfNextMonth.month + 1);
+    final lastDayOfNextMonth =
+        firstOfFollowingMonth.subtract(const Duration(days: 1)).day;
+
+    return DateTime(
+      firstOfNextMonth.year,
+      firstOfNextMonth.month,
+      value.day.clamp(1, lastDayOfNextMonth).toInt(),
+      value.hour,
+      value.minute,
+    );
   }
 
   Future<void> _saveMembership() async {
@@ -110,16 +182,24 @@ class _PaiementWidgetState extends State<PaiementWidget> {
         final memberTimeBefore =
             (userData['member_time'] as num?)?.toInt() ?? 0;
 
-        transaction.update(widget.refUser!, {
+        final memberTimeAfter = _action == _MembershipAction.adjustment
+            ? memberTimeBefore
+            : memberTimeBefore + 1;
+        final userUpdate = <String, dynamic>{
           ...createUserRecordData(
             endSub: selectedEndSub,
             method: selectedMethod,
           ),
           ...mapToFirestore({
-            'member_time': memberTimeBefore + 1,
+            'member_time': memberTimeAfter,
             'updated_time': FieldValue.serverTimestamp(),
           }),
-        });
+        };
+        if (selectedMethod == null) {
+          userUpdate['method'] = FieldValue.delete();
+        }
+
+        transaction.update(widget.refUser!, userUpdate);
 
         transaction.set(transactionReference, {
           ...createPaymentTransactionRecordData(
@@ -129,13 +209,14 @@ class _PaiementWidgetState extends State<PaiementWidget> {
             userDisplayName: userData['display_name'] as String?,
             userCode: userData['code_personnel'] as String?,
             receiptCode: receiptCode,
+            transactionType: _action.name,
             previousEndSub: previousEndSub,
             newEndSub: selectedEndSub,
             paymentMethod: selectedMethod,
             amount: amount,
             currency: amount == null ? null : _currency,
             memberTimeBefore: memberTimeBefore,
-            memberTimeAfter: memberTimeBefore + 1,
+            memberTimeAfter: memberTimeAfter,
             createdBy: currentUserUid,
             createdByEmail: currentUserEmail.isEmpty ? null : currentUserEmail,
           ),
@@ -217,19 +298,14 @@ class _PaiementWidgetState extends State<PaiementWidget> {
             selectedDate: selectedDate,
             compact: compactHeight,
           );
-
-          return Column(
+          final editorBody = Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              AdminDialogHeader(
-                title: 'Abonnement VIP',
-                subtitle: 'Enregistrer un paiement et prolonger l’accès',
-                icon: Icons.workspace_premium_rounded,
-                iconColor: theme.secondary,
-                onClose: () => Navigator.pop(context),
-              ),
-              SizedBox(height: compactHeight ? 12 : 18),
+              if (_hasActiveMembership) ...[
+                _buildEditorContext(theme),
+                SizedBox(height: gap),
+              ],
               if (splitLayout)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -256,7 +332,311 @@ class _PaiementWidgetState extends State<PaiementWidget> {
               ],
             ],
           );
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AdminDialogHeader(
+                title: _dialogTitle,
+                subtitle: _dialogSubtitle,
+                icon: Icons.workspace_premium_rounded,
+                iconColor: theme.secondary,
+                onClose: () => Navigator.pop(context),
+              ),
+              SizedBox(height: compactHeight ? 12 : 18),
+              if (_hasActiveMembership && !_showEditor)
+                _buildCurrentPlan(theme, compact: compactWidth)
+              else if (_hasActiveMembership && compactHeight)
+                Flexible(
+                  child: SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    child: editorBody,
+                  ),
+                )
+              else
+                editorBody,
+            ],
+          );
         },
+      ),
+    );
+  }
+
+  String get _dialogTitle {
+    if (!_hasActiveMembership) return 'Abonnement VIP';
+    if (!_showEditor) return 'Plan VIP actuel';
+    return _action == _MembershipAction.adjustment
+        ? 'Modifier le plan VIP'
+        : 'Prolonger le plan VIP';
+  }
+
+  String get _dialogSubtitle {
+    if (!_hasActiveMembership) {
+      return 'Enregistrer un paiement et activer l’accès';
+    }
+    if (!_showEditor) {
+      return 'Consulter, prolonger ou modifier l’abonnement en cours';
+    }
+    return _action == _MembershipAction.adjustment
+        ? 'Corriger les informations sans ajouter un nouveau mois'
+        : 'Enregistrer le renouvellement et la nouvelle échéance';
+  }
+
+  Widget _buildCurrentPlan(
+    FlutterFlowTheme theme, {
+    required bool compact,
+  }) {
+    final deadline = DateFormat(
+      'd MMMM yyyy',
+      'fr',
+    ).format(widget.currentEndSub!);
+    final method = widget.currentPaymentMethod == null
+        ? 'Non renseignée'
+        : _paymentLabel(widget.currentPaymentMethod!);
+
+    final renewButton = FilledButton.icon(
+      onPressed: _openRenewal,
+      icon: const Icon(Icons.autorenew_rounded),
+      label: Text(compact ? 'Prolonger' : 'Prolonger l’abonnement'),
+      style: FilledButton.styleFrom(
+        minimumSize: const Size.fromHeight(50),
+        backgroundColor: theme.primary,
+        foregroundColor: theme.info,
+      ),
+    );
+    final editButton = OutlinedButton.icon(
+      onPressed: _openAdjustment,
+      icon: const Icon(Icons.edit_calendar_outlined),
+      label: Text(compact ? 'Modifier' : 'Modifier le plan actuel'),
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(50),
+        foregroundColor: theme.primaryText,
+        side: BorderSide(color: theme.alternate),
+      ),
+    );
+
+    return AdminSurface(
+      padding: EdgeInsets.all(compact ? 12 : 20),
+      color: theme.primaryBackground,
+      borderColor: theme.secondary.withValues(alpha: .25),
+      radius: 20,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              AdminIconTile(
+                icon: Icons.workspace_premium_rounded,
+                color: theme.secondary,
+                size: compact ? 42 : 48,
+                iconSize: compact ? 21 : 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Abonnement VIP CHOLOTO',
+                      style: theme.titleMedium.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    AdminStatusPill(
+                      label: 'PLAN ACTIF',
+                      color: theme.success,
+                      compact: true,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: compact ? 10 : 20),
+          AdminSurface(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            color: theme.secondaryBackground,
+            radius: 16,
+            child: compact
+                ? Column(
+                    children: [
+                      _buildCompactPlanMetric(
+                        theme,
+                        icon: Icons.event_available_rounded,
+                        label: 'Échéance actuelle',
+                        value: deadline,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildCompactPlanMetric(
+                        theme,
+                        icon: Icons.account_balance_wallet_outlined,
+                        label: 'Méthode actuelle',
+                        value: method,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildCompactPlanMetric(
+                        theme,
+                        icon: Icons.history_rounded,
+                        label: 'Ancienneté VIP',
+                        value: '${widget.currentMemberTime} mois actifs',
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(
+                        child: _buildPlanMetric(
+                          theme,
+                          icon: Icons.event_available_rounded,
+                          label: 'Échéance actuelle',
+                          value: deadline,
+                        ),
+                      ),
+                      Expanded(
+                        child: _buildPlanMetric(
+                          theme,
+                          icon: Icons.account_balance_wallet_outlined,
+                          label: 'Méthode actuelle',
+                          value: method,
+                        ),
+                      ),
+                      Expanded(
+                        child: _buildPlanMetric(
+                          theme,
+                          icon: Icons.history_rounded,
+                          label: 'Ancienneté VIP',
+                          value: '${widget.currentMemberTime} mois actifs',
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+          SizedBox(height: compact ? 12 : 20),
+          Row(
+            children: [
+              Expanded(child: renewButton),
+              const SizedBox(width: 10),
+              Expanded(child: editButton),
+            ],
+          ),
+          if (!compact) ...[
+            const SizedBox(height: 10),
+            Text(
+              'La prolongation ajoute un nouveau mois. Une modification corrige le plan actuel sans augmenter l’ancienneté.',
+              textAlign: TextAlign.center,
+              style: theme.bodySmall.copyWith(color: theme.secondaryText),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlanMetric(
+    FlutterFlowTheme theme, {
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 19, color: theme.primary),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: theme.labelSmall.copyWith(
+                  color: theme.secondaryText,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.bodyMedium.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompactPlanMetric(
+    FlutterFlowTheme theme, {
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: theme.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.labelSmall.copyWith(
+              color: theme.secondaryText,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: theme.bodySmall.copyWith(fontWeight: FontWeight.w800),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEditorContext(FlutterFlowTheme theme) {
+    final isAdjustment = _action == _MembershipAction.adjustment;
+    return AdminSurface(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      color: theme.accent1,
+      borderColor: theme.secondary.withValues(alpha: .22),
+      radius: 14,
+      child: Row(
+        children: [
+          Icon(
+            isAdjustment
+                ? Icons.edit_calendar_outlined
+                : Icons.autorenew_rounded,
+            size: 20,
+            color: theme.primary,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              isAdjustment
+                  ? 'Modification du plan actif'
+                  : 'Renouvellement du plan actif',
+              style: theme.bodySmall.copyWith(fontWeight: FontWeight.w800),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: _saving ? null : _showCurrentPlan,
+            icon: const Icon(Icons.arrow_back_rounded, size: 17),
+            label: const Text('Plan actuel'),
+          ),
+        ],
       ),
     );
   }
@@ -286,7 +666,8 @@ class _PaiementWidgetState extends State<PaiementWidget> {
 
   Widget _buildPaymentMethod(FlutterFlowTheme theme) {
     return DropdownButtonFormField<String>(
-      initialValue: _model.dropDownValue,
+      key: ValueKey('payment-method-${_action.name}-${_model.dropDownValue}'),
+      initialValue: _model.dropDownValue ?? '',
       isExpanded: true,
       decoration: InputDecoration(
         labelText: 'Méthode de paiement (optionnelle)',
@@ -298,14 +679,18 @@ class _PaiementWidgetState extends State<PaiementWidget> {
         fillColor: theme.primaryBackground,
       ),
       icon: const Icon(Icons.keyboard_arrow_down_rounded),
-      items: PaimentMethod.values
-          .map(
-            (method) => DropdownMenuItem(
-              value: method.name,
-              child: Text(_paymentLabel(method)),
-            ),
-          )
-          .toList(),
+      items: [
+        const DropdownMenuItem(
+          value: '',
+          child: Text('Aucune méthode'),
+        ),
+        ...PaimentMethod.values.map(
+          (method) => DropdownMenuItem(
+            value: method.name,
+            child: Text(_paymentLabel(method)),
+          ),
+        ),
+      ],
       onChanged: _saving
           ? null
           : (value) => setState(() => _model.dropDownValue = value),
@@ -407,7 +792,11 @@ class _PaiementWidgetState extends State<PaiementWidget> {
           ),
           const SizedBox(height: 3),
           FlutterFlowCalendar(
+            key: ValueKey(
+              'membership-calendar-${_action.name}',
+            ),
             color: theme.secondary,
+            initialDate: _model.calendarSelectedDay?.start,
             iconColor: theme.secondaryText,
             weekFormat: weekView,
             weekStartsMonday: true,
@@ -462,7 +851,9 @@ class _PaiementWidgetState extends State<PaiementWidget> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Nouvelle échéance',
+                  _action == _MembershipAction.adjustment
+                      ? 'Échéance modifiée'
+                      : 'Nouvelle échéance',
                   style: theme.labelSmall.copyWith(
                     color: theme.secondaryText,
                     fontWeight: FontWeight.w700,
@@ -499,7 +890,7 @@ class _PaiementWidgetState extends State<PaiementWidget> {
             )
           : const Icon(Icons.check_rounded),
       label: Text(
-        _saving ? 'Enregistrement…' : 'Enregistrer et générer le reçu',
+        _saving ? 'Enregistrement…' : _saveButtonLabel,
       ),
       style: FilledButton.styleFrom(
         backgroundColor: theme.secondary,
@@ -515,6 +906,17 @@ class _PaiementWidgetState extends State<PaiementWidget> {
       textAlign: TextAlign.center,
       style: theme.bodySmall.copyWith(color: theme.secondaryText),
     );
+  }
+
+  String get _saveButtonLabel {
+    switch (_action) {
+      case _MembershipAction.subscription:
+        return 'Enregistrer et générer le reçu';
+      case _MembershipAction.renewal:
+        return 'Prolonger et générer le reçu';
+      case _MembershipAction.adjustment:
+        return 'Modifier et générer le reçu';
+    }
   }
 
   String _paymentLabel(PaimentMethod method) {

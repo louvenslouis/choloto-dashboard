@@ -13,6 +13,7 @@ void main() {
       userDisplayName: 'Client Test',
       userCode: '7126-08 RP',
       receiptCode: 'CH-firestoreDoc123',
+      transactionType: 'renewal',
       previousEndSub: previousEndSub,
       newEndSub: newEndSub,
       paymentMethod: PaimentMethod.moncash,
@@ -29,6 +30,7 @@ void main() {
     expect(data['user_display_name'], 'Client Test');
     expect(data['user_code'], '7126-08 RP');
     expect(data['receipt_code'], 'CH-firestoreDoc123');
+    expect(data['transaction_type'], 'renewal');
     expect(data['previous_end_sub'], previousEndSub);
     expect(data['new_end_sub'], newEndSub);
     expect(data['payment_method'], 'moncash');
@@ -45,6 +47,7 @@ void main() {
     final data = createPaymentTransactionRecordData(
       userUid: 'user-123',
       receiptCode: 'CH-firestoreDoc456',
+      transactionType: 'subscription',
       newEndSub: DateTime.utc(2026, 9, 20),
       memberTimeBefore: 0,
       memberTimeAfter: 1,
@@ -58,5 +61,21 @@ void main() {
     expect(data.containsKey('payment_method'), isFalse);
     expect(data.containsKey('amount'), isFalse);
     expect(data.containsKey('currency'), isFalse);
+  });
+
+  test('plan adjustments preserve the membership counter', () {
+    final data = createPaymentTransactionRecordData(
+      userUid: 'user-123',
+      receiptCode: 'CH-firestoreDoc789',
+      transactionType: 'adjustment',
+      newEndSub: DateTime.utc(2026, 10, 20),
+      memberTimeBefore: 4,
+      memberTimeAfter: 4,
+      createdBy: 'admin-456',
+    );
+
+    expect(data['transaction_type'], 'adjustment');
+    expect(data['member_time_before'], 4);
+    expect(data['member_time_after'], 4);
   });
 }

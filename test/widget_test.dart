@@ -267,6 +267,67 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('an active membership opens with its current plan summary',
+      (tester) async {
+    tester.view.physicalSize = const Size(340, 720);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('fr'),
+        supportedLocales: const [Locale('fr')],
+        localizationsDelegates: const [
+          FFLocalizationsDelegate(),
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: Scaffold(
+          body: AdminDialogFrame(
+            maxWidth: 760,
+            scrollable: false,
+            child: PaiementWidget(
+              refUser: null,
+              currentEndSub: DateTime.now().add(const Duration(days: 30)),
+              currentPaymentMethod: PaimentMethod.moncash,
+              currentMemberTime: 4,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Plan VIP actuel'), findsOneWidget);
+    expect(find.text('PLAN ACTIF'), findsOneWidget);
+    expect(find.text('MonCash'), findsOneWidget);
+    expect(find.text('4 mois actifs'), findsOneWidget);
+    expect(find.text('Prolonger'), findsOneWidget);
+    expect(find.text('Modifier'), findsOneWidget);
+    expect(find.text('Montant (optionnel)'), findsNothing);
+    expect(find.byType(SingleChildScrollView), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('Modifier'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Modifier le plan VIP'), findsOneWidget);
+    expect(find.text('Modification du plan actif'), findsOneWidget);
+    expect(find.text('Montant (optionnel)'), findsOneWidget);
+    expect(find.text('Modifier et générer le reçu'), findsOneWidget);
+    expect(
+      tester
+          .widget<DropdownButtonFormField<String>>(
+            find.byType(DropdownButtonFormField<String>),
+          )
+          .initialValue,
+      PaimentMethod.moncash.name,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('confirmation dialogs use clear mobile actions', (tester) async {
     tester.view.physicalSize = const Size(340, 720);
     tester.view.devicePixelRatio = 1;
