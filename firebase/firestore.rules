@@ -135,6 +135,98 @@ service cloud.firestore {
           optionalBool(data, 'gain');
     }
 
+    function validBingoComment(data) {
+      return data.keys().hasOnly([
+            'user', 'text', 'createdAt', 'updatedAt',
+            'adminLiked', 'adminLikedAt', 'adminLikedBy',
+            'adminReply', 'adminReplyAt', 'adminReplyBy'
+          ]) &&
+          data.keys().hasAll(['user', 'text', 'createdAt', 'updatedAt']) &&
+          data.user is string && data.user.size() <= 128 &&
+          data.text is string && data.text.size() > 0 &&
+          data.text.size() <= 500 &&
+          data.createdAt is timestamp &&
+          data.updatedAt is timestamp &&
+          (
+            (!('adminLiked' in data) &&
+              !('adminLikedAt' in data) &&
+              !('adminLikedBy' in data)) ||
+            (data.adminLiked == true &&
+              data.adminLikedAt is timestamp &&
+              data.adminLikedBy is string &&
+              data.adminLikedBy.size() > 0 &&
+              data.adminLikedBy.size() <= 128)
+          ) &&
+          (
+            (!('adminReply' in data) &&
+              !('adminReplyAt' in data) &&
+              !('adminReplyBy' in data)) ||
+            (data.adminReply is string &&
+              data.adminReply.size() > 0 &&
+              data.adminReply.size() <= 500 &&
+              data.adminReplyAt is timestamp &&
+              data.adminReplyBy is string &&
+              data.adminReplyBy.size() > 0 &&
+              data.adminReplyBy.size() <= 128)
+          );
+    }
+
+    function validHiddenBingoComment(data) {
+      return data.keys().hasOnly([
+            'user', 'text', 'createdAt', 'updatedAt',
+            'adminLiked', 'adminLikedAt', 'adminLikedBy',
+            'adminReply', 'adminReplyAt', 'adminReplyBy',
+            'hiddenAt', 'hiddenBy'
+          ]) &&
+          data.keys().hasAll([
+            'user', 'text', 'createdAt', 'updatedAt', 'hiddenAt', 'hiddenBy'
+          ]) &&
+          data.user is string && data.user.size() <= 128 &&
+          data.text is string && data.text.size() > 0 &&
+          data.text.size() <= 500 &&
+          data.createdAt is timestamp &&
+          data.updatedAt is timestamp &&
+          data.hiddenAt is timestamp &&
+          data.hiddenBy is string &&
+          data.hiddenBy.size() > 0 &&
+          data.hiddenBy.size() <= 128 &&
+          (
+            (!('adminLiked' in data) &&
+              !('adminLikedAt' in data) &&
+              !('adminLikedBy' in data)) ||
+            (data.adminLiked == true &&
+              data.adminLikedAt is timestamp &&
+              data.adminLikedBy is string &&
+              data.adminLikedBy.size() > 0 &&
+              data.adminLikedBy.size() <= 128)
+          ) &&
+          (
+            (!('adminReply' in data) &&
+              !('adminReplyAt' in data) &&
+              !('adminReplyBy' in data)) ||
+            (data.adminReply is string &&
+              data.adminReply.size() > 0 &&
+              data.adminReply.size() <= 500 &&
+              data.adminReplyAt is timestamp &&
+              data.adminReplyBy is string &&
+              data.adminReplyBy.size() > 0 &&
+              data.adminReplyBy.size() <= 128)
+          );
+    }
+
+    function validBingoCommentDocumentId(document, userId) {
+      return document == userId ||
+          document.matches(
+            '^comment_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+          );
+    }
+
+    function validBingoCommentLike(data) {
+      return data.keys().hasOnly(['createdAt']) &&
+          data.keys().hasAll(['createdAt']) &&
+          data.createdAt is timestamp;
+    }
+
     function validYoutubeLink(data) {
       return data.keys().hasOnly(['date', 'caption', 'link', 'id', 'expiration']) &&
           optionalTimestamp(data, 'date') &&
@@ -189,13 +281,17 @@ service cloud.firestore {
             'member_time_after',
             'created_at',
             'created_by',
-            'created_by_email'
+            'created_by_email',
+            'related_transaction_ref',
+            'payment_cancelled',
+            'cancellation_reason',
+            'refunded_amount',
+            'refund_currency'
           ]) &&
           data.keys().hasAll([
             'user_ref',
             'user_uid',
             'receipt_code',
-            'new_end_sub',
             'member_time_before',
             'member_time_after',
             'created_at',
@@ -213,12 +309,53 @@ service cloud.firestore {
           data.receipt_code == 'CH-' + documentId &&
           (!('transaction_type' in data) ||
             data.transaction_type in [
-              'subscription', 'renewal', 'adjustment'
+              'subscription', 'renewal', 'adjustment', 'cancellation'
             ]) &&
           optionalTimestamp(data, 'previous_end_sub') &&
-          data.new_end_sub is timestamp &&
+          (
+            (
+              'transaction_type' in data &&
+              data.transaction_type == 'cancellation' &&
+              !('new_end_sub' in data) &&
+              data.payment_cancelled is bool &&
+              data.cancellation_reason is string &&
+              data.cancellation_reason.size() > 0 &&
+              data.cancellation_reason.size() <= 500 &&
+              (
+                (
+                  !('refunded_amount' in data) &&
+                  !('refund_currency' in data)
+                ) ||
+                (
+                  data.refunded_amount is number &&
+                  data.refunded_amount >= 0 &&
+                  data.refunded_amount <= 999999999.99 &&
+                  data.refund_currency in ['USD', 'GDS']
+                )
+              ) &&
+              !('amount' in data) &&
+              !('currency' in data) &&
+              (
+                !('related_transaction_ref' in data) ||
+                data.related_transaction_ref is path
+              )
+            ) ||
+            (
+              (!('transaction_type' in data) ||
+                data.transaction_type != 'cancellation') &&
+              data.new_end_sub is timestamp &&
+              !('related_transaction_ref' in data) &&
+              !('payment_cancelled' in data) &&
+              !('cancellation_reason' in data) &&
+              !('refunded_amount' in data) &&
+              !('refund_currency' in data)
+            )
+          ) &&
           (!('payment_method' in data) ||
-            data.payment_method in ['moncash', 'cash', 'stripe']) &&
+            data.payment_method in [
+              'moncash', 'cash', 'stripe', 'natcash', 'zelle', 'cashapp',
+              'virement'
+            ]) &&
           (
             (!('amount' in data) && !('currency' in data)) ||
             (
@@ -235,7 +372,7 @@ service cloud.firestore {
               data.member_time_after == data.member_time_before + 1
             ) ||
             (
-              data.transaction_type == 'adjustment' &&
+              data.transaction_type in ['adjustment', 'cancellation'] &&
               data.member_time_after == data.member_time_before
             ) ||
             (
@@ -335,6 +472,60 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.user == request.auth.uid;
     }
 
+    match /bingo/{parent}/comments/{document} {
+      allow read: if true;
+      allow create: if signedIn() &&
+          validBingoCommentDocumentId(document, request.auth.uid) &&
+          validBingoComment(request.resource.data) &&
+          request.resource.data.keys().hasOnly([
+            'user', 'text', 'createdAt', 'updatedAt'
+          ]) &&
+          request.resource.data.user == request.auth.uid;
+      allow create: if isAdmin() && validBingoComment(request.resource.data);
+      allow update: if signedIn() &&
+          validBingoComment(request.resource.data) &&
+          resource.data.user == request.auth.uid &&
+          request.resource.data.user == resource.data.user &&
+          request.resource.data.createdAt == resource.data.createdAt &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'text', 'updatedAt'
+          ]);
+      allow update: if isAdmin() &&
+          validBingoComment(request.resource.data) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'adminLiked', 'adminLikedAt', 'adminLikedBy',
+            'adminReply', 'adminReplyAt', 'adminReplyBy'
+          ]);
+      allow delete: if signedIn() &&
+          (resource.data.user == request.auth.uid || isAdmin());
+    }
+
+    match /bingo/{parent}/hiddenComments/{document} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() &&
+          validHiddenBingoComment(request.resource.data) &&
+          request.resource.data.hiddenBy == request.auth.uid;
+      allow update: if isAdmin() &&
+          validHiddenBingoComment(request.resource.data) &&
+          request.resource.data.user == resource.data.user &&
+          request.resource.data.createdAt == resource.data.createdAt &&
+          request.resource.data.hiddenAt == resource.data.hiddenAt &&
+          request.resource.data.hiddenBy == resource.data.hiddenBy &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'adminLiked', 'adminLikedAt', 'adminLikedBy',
+            'adminReply', 'adminReplyAt', 'adminReplyBy'
+          ]);
+      allow delete: if isAdmin();
+    }
+
+    match /bingo/{parent}/comments/{comment}/likes/{userId} {
+      allow read: if true;
+      allow create: if signedIn() && userId == request.auth.uid &&
+          validBingoCommentLike(request.resource.data);
+      allow update: if false;
+      allow delete: if signedIn() && userId == request.auth.uid;
+    }
+
     match /{path=**}/bingostats/{document} {
       allow read: if true;
     }
@@ -357,8 +548,102 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Additive payment-proof flow. Published user/payment contracts stay intact.
+    function validPaymentRequest(data) {
+      return data.keys().hasOnly([
+          'user_uid', 'plan', 'status', 'amount', 'currency', 'payment_method',
+          'payment_reference', 'note', 'created_at'
+        ]) && data.keys().hasAll([
+          'user_uid', 'plan', 'status', 'note', 'created_at'
+        ]) && data.user_uid == request.auth.uid && data.plan == 'vip' &&
+        data.status == 'pending' &&
+        (!data.keys().hasAny(['amount', 'currency', 'payment_method', 'payment_reference']) ||
+          (validConfirmedPayment(data) && data.payment_reference is string &&
+            data.payment_reference.size() > 0 && data.payment_reference.size() <= 128)) &&
+        data.note is string && data.note.size() <= 500 &&
+        data.created_at == request.time;
+    }
+
+    function validConfirmedPayment(data) {
+      return data.amount is number && data.amount > 0 && data.amount <= 999999999.99 &&
+        data.currency in ['GDS', 'USD'] &&
+        data.payment_method in ['moncash', 'natcash', 'zelle', 'cashapp', 'virement', 'cash', 'stripe'];
+    }
+
+    function validPaymentApproval(id, data) {
+      let receiptPath = /databases/$(database)/documents/payment_transactions/$('proof_' + id);
+      let profilePath = /databases/$(database)/documents/user/$(resource.data.user_uid);
+      let receipt = getAfter(receiptPath).data;
+      let before = get(profilePath).data;
+      let after = getAfter(profilePath).data;
+      return data.status == 'approved' && validConfirmedPayment(data) &&
+        data.transaction_id == 'proof_' + id &&
+        data.new_end_sub is timestamp && data.new_end_sub > request.time &&
+        (!('end_sub' in before) || !(before.end_sub is timestamp) ||
+          data.new_end_sub > before.end_sub) &&
+        !exists(receiptPath) &&
+        receipt.user_uid == resource.data.user_uid &&
+        receipt.amount == data.amount &&
+        receipt.currency == data.currency &&
+        receipt.payment_method == data.payment_method &&
+        receipt.transaction_type in ['subscription', 'renewal'] &&
+        receipt.new_end_sub == data.new_end_sub &&
+        receipt.created_at == request.time && receipt.created_by == request.auth.uid &&
+        receipt.member_time_before == ('member_time' in before ? before.member_time : 0) &&
+        receipt.member_time_after == receipt.member_time_before + 1 &&
+        after.member_time == receipt.member_time_after &&
+        after.end_sub == data.new_end_sub && after.method == data.payment_method &&
+        after.updated_time == request.time;
+    }
+
+    match /payment_requests/{id} {
+      // Transactions read an absent request before creating it. No private data
+      // is exposed by permitting the missing-document result to signed-in users.
+      allow get: if signedIn() &&
+        (!exists(/databases/$(database)/documents/payment_requests/$(id)) ||
+          resource.data.user_uid == request.auth.uid || isAdmin());
+      allow list: if signedIn() &&
+        (resource.data.user_uid == request.auth.uid || isAdmin());
+      allow create: if signedIn() && validPaymentRequest(request.resource.data) &&
+        exists(/databases/$(database)/documents/user/$(request.auth.uid)) &&
+        getAfter(/databases/$(database)/documents/payment_requests/$(id)/evidence/image).data.mime_type == 'image/jpeg';
+      allow update: if isAdmin() && resource.data.status == 'pending' &&
+        request.resource.data.reviewed_by == request.auth.uid &&
+        request.resource.data.reviewed_at == request.time &&
+        (
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status', 'reviewed_by', 'reviewed_at', 'transaction_id', 'new_end_sub',
+              'amount', 'currency', 'payment_method'
+            ]) && validPaymentApproval(id, request.resource.data)) ||
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status', 'reviewed_by', 'reviewed_at', 'rejection_reason'
+            ]) && request.resource.data.status == 'rejected' &&
+            request.resource.data.rejection_reason is string &&
+            request.resource.data.rejection_reason.size() > 0 &&
+            request.resource.data.rejection_reason.size() <= 500)
+        );
+      allow delete: if false;
+
+      match /evidence/{imageId} {
+        allow get: if signedIn() && (isAdmin() ||
+          get(/databases/$(database)/documents/payment_requests/$(id)).data.user_uid == request.auth.uid);
+        allow create: if signedIn() && imageId == 'image' &&
+          !exists(/databases/$(database)/documents/payment_requests/$(id)) &&
+          getAfter(/databases/$(database)/documents/payment_requests/$(id)).data.user_uid == request.auth.uid &&
+          request.resource.data.keys().hasOnly(['base64', 'mime_type', 'byte_length']) &&
+          request.resource.data.mime_type == 'image/jpeg' &&
+          request.resource.data.byte_length is int && request.resource.data.byte_length > 0 &&
+          request.resource.data.byte_length <= 600000 &&
+          request.resource.data.base64 is string &&
+          request.resource.data.base64.size() > 0 && request.resource.data.base64.size() <= 800000 &&
+          request.resource.data.base64.matches('^[A-Za-z0-9+/]+={0,2}$');
+        allow list, update, delete: if false;
+      }
+    }
+
     match /payment_transactions/{document} {
-      allow read: if isAdmin();
+      allow read: if signedIn() &&
+          (isAdmin() || resource.data.user_uid == request.auth.uid);
       allow create: if isAdmin() &&
           request.resource.data.created_by == request.auth.uid &&
           request.resource.data.created_at == request.time &&

@@ -64,6 +64,10 @@ class UserExcelExportRow {
       PaimentMethod.moncash => 'MonCash',
       PaimentMethod.cash => 'Espèces',
       PaimentMethod.stripe => 'Carte / Stripe',
+      PaimentMethod.natcash => 'Natcash',
+      PaimentMethod.zelle => 'Zelle',
+      PaimentMethod.cashapp => 'CashApp',
+      PaimentMethod.virement => 'Virement',
       null => '',
     };
   }

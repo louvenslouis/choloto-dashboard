@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '/backend/backend.dart';
 import '/components/admin_ui.dart';
 import '/components/paiement_widget.dart';
@@ -8,6 +10,7 @@ import '/pages/sidenav/sidenav_widget.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'user_auth_provider_service.dart';
 import 'user_excel_exporter.dart';
 import 'user_document_creator.dart';
 import 'users_model.dart';
@@ -16,7 +19,29 @@ export 'users_model.dart';
 
 enum _UsersViewMode { cards, list }
 
-enum UserSortMode { alphabetical, lastModified }
+enum UserSortMode { alphabetical, lastModified, nearestExpiration }
+
+int compareUserExpirationDates(
+  DateTime? first,
+  DateTime? second,
+  DateTime referenceDate,
+) {
+  int expirationGroup(DateTime? date) {
+    if (date == null) return 1;
+    return date.isBefore(referenceDate) ? 2 : 0;
+  }
+
+  final groupComparison =
+      expirationGroup(first).compareTo(expirationGroup(second));
+  if (groupComparison != 0) return groupComparison;
+  if (first == null || second == null) return 0;
+
+  if (!first.isBefore(referenceDate)) {
+    return first.compareTo(second);
+  }
+
+  return second.compareTo(first);
+}
 
 class UsersWidget extends StatefulWidget {
   const UsersWidget({super.key});
@@ -37,6 +62,9 @@ class _UsersWidgetState extends State<UsersWidget> {
   _UsersViewMode _viewMode = _UsersViewMode.cards;
   UserSortMode _sortMode = UserSortMode.alphabetical;
   bool _isExporting = false;
+  Map<String, List<String>> _authProvidersByUid = const {};
+  bool _authProvidersLoading = true;
+  bool _authProvidersUnavailable = false;
 
   @override
   void initState() {
@@ -44,7 +72,7 @@ class _UsersWidgetState extends State<UsersWidget> {
     _model = createModel(context, () => UsersModel());
     _model.textController ??= TextEditingController();
     _model.textFieldFocusNode ??= FocusNode();
-    _usersFuture = queryUserRecordOnce();
+    _reloadUsers(notifyListeners: false);
 
     logFirebaseEvent('screen_view', parameters: {'screen_name': 'users'});
   }
@@ -86,14 +114,29 @@ class _UsersWidgetState extends State<UsersWidget> {
       ].any((value) => value.toLowerCase().contains(query));
     }).toList();
 
-    filteredUsers.sort(_compareUsers);
+    filteredUsers.sort((first, second) => _compareUsers(first, second, now));
     return filteredUsers;
   }
 
-  int _compareUsers(UserRecord first, UserRecord second) {
+  int _compareUsers(
+    UserRecord first,
+    UserRecord second,
+    DateTime referenceDate,
+  ) {
     final alphabeticalComparison = _compareUsersAlphabetically(first, second);
     if (_sortMode == UserSortMode.alphabetical) {
       return alphabeticalComparison;
+    }
+
+    if (_sortMode == UserSortMode.nearestExpiration) {
+      final expirationComparison = compareUserExpirationDates(
+        first.endSub,
+        second.endSub,
+        referenceDate,
+      );
+      return expirationComparison == 0
+          ? alphabeticalComparison
+          : expirationComparison;
     }
 
     final firstModified = first.updatedTime ?? first.createdTime;
@@ -137,6 +180,58 @@ class _UsersWidgetState extends State<UsersWidget> {
         .replaceAll(RegExp('[ýÿ]'), 'y');
   }
 
+  String _userIdentifier(UserRecord user) {
+    final uid = user.uid.trim();
+    return uid.isEmpty ? user.reference.id : uid;
+  }
+
+  List<String>? _authProvidersFor(UserRecord user) {
+    if (_authProvidersLoading) return null;
+    return _authProvidersByUid[_userIdentifier(user)] ?? const [];
+  }
+
+  void _reloadUsers({bool notifyListeners = true}) {
+    final usersFuture = queryUserRecordOnce();
+
+    void updateState() {
+      _usersFuture = usersFuture;
+      _authProvidersLoading = true;
+      _authProvidersUnavailable = false;
+    }
+
+    if (notifyListeners) {
+      setState(updateState);
+    } else {
+      updateState();
+    }
+
+    unawaited(_loadAuthProviders(usersFuture));
+  }
+
+  Future<void> _loadAuthProviders(
+    Future<List<UserRecord>> usersFuture,
+  ) async {
+    try {
+      final users = await usersFuture;
+      final providers = await UserAuthProviderService.loadForUserIds(
+        users.map(_userIdentifier),
+      );
+      if (!mounted || !identical(usersFuture, _usersFuture)) return;
+      setState(() {
+        _authProvidersByUid = providers;
+        _authProvidersLoading = false;
+        _authProvidersUnavailable = false;
+      });
+    } catch (_) {
+      if (!mounted || !identical(usersFuture, _usersFuture)) return;
+      setState(() {
+        _authProvidersByUid = const {};
+        _authProvidersLoading = false;
+        _authProvidersUnavailable = true;
+      });
+    }
+  }
+
   Future<void> _showUser(UserRecord user) async {
     logFirebaseEvent('USERS_CARD_PROFILE_ON_TAP');
     await showDialog<void>(
@@ -165,7 +260,7 @@ class _UsersWidgetState extends State<UsersWidget> {
 
     if (result == null || !mounted) return;
 
-    setState(() => _usersFuture = queryUserRecordOnce());
+    _reloadUsers();
     logFirebaseEvent('USERS_ADD_MANUAL_SUCCESS');
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -198,7 +293,7 @@ class _UsersWidgetState extends State<UsersWidget> {
     );
 
     if (saved == true && mounted) {
-      setState(() => _usersFuture = queryUserRecordOnce());
+      _reloadUsers();
     }
   }
 
@@ -283,9 +378,7 @@ class _UsersWidgetState extends State<UsersWidget> {
                   builder: (context, snapshot) {
                     if (snapshot.hasError) {
                       return _UsersErrorState(
-                        onRetry: () => setState(
-                          () => _usersFuture = queryUserRecordOnce(),
-                        ),
+                        onRetry: _reloadUsers,
                       );
                     }
                     if (!snapshot.hasData) {
@@ -412,7 +505,7 @@ class _UsersWidgetState extends State<UsersWidget> {
                                                       SliverGridDelegateWithMaxCrossAxisExtent(
                                                     maxCrossAxisExtent:
                                                         cardWidth,
-                                                    mainAxisExtent: 356,
+                                                    mainAxisExtent: 388,
                                                     crossAxisSpacing: 16,
                                                     mainAxisSpacing: 16,
                                                   ),
@@ -422,6 +515,12 @@ class _UsersWidgetState extends State<UsersWidget> {
                                                     final user = users[index];
                                                     return _UserCard(
                                                       user: user,
+                                                      authProviderIds:
+                                                          _authProvidersFor(
+                                                        user,
+                                                      ),
+                                                      authProvidersUnavailable:
+                                                          _authProvidersUnavailable,
                                                       onViewProfile: () =>
                                                           _showUser(user),
                                                       onAddPayment: () =>
@@ -436,6 +535,10 @@ class _UsersWidgetState extends State<UsersWidget> {
                                                 'users-list-view',
                                               ),
                                               users: users,
+                                              authProvidersFor:
+                                                  _authProvidersFor,
+                                              authProvidersUnavailable:
+                                                  _authProvidersUnavailable,
                                               onViewProfile: _showUser,
                                               onAddPayment: _showPayment,
                                             ),
@@ -918,10 +1021,12 @@ class UserSortControl extends StatelessWidget {
     final label = switch (value) {
       UserSortMode.alphabetical => 'Alphabétique',
       UserSortMode.lastModified => 'Modifiés récemment',
+      UserSortMode.nearestExpiration => 'Expiration proche',
     };
     final icon = switch (value) {
       UserSortMode.alphabetical => Icons.sort_by_alpha_rounded,
       UserSortMode.lastModified => Icons.history_rounded,
+      UserSortMode.nearestExpiration => Icons.schedule_rounded,
     };
 
     return Semantics(
@@ -946,6 +1051,12 @@ class UserSortControl extends StatelessWidget {
               mode: UserSortMode.lastModified,
               icon: Icons.history_rounded,
               label: 'Dernière modification',
+            ),
+            _sortMenuItem(
+              context,
+              mode: UserSortMode.nearestExpiration,
+              icon: Icons.schedule_rounded,
+              label: 'Expiration proche',
             ),
           ],
           child: Container(
@@ -1164,11 +1275,15 @@ class _UsersList extends StatelessWidget {
   const _UsersList({
     super.key,
     required this.users,
+    required this.authProvidersFor,
+    required this.authProvidersUnavailable,
     required this.onViewProfile,
     required this.onAddPayment,
   });
 
   final List<UserRecord> users;
+  final List<String>? Function(UserRecord) authProvidersFor;
+  final bool authProvidersUnavailable;
   final Future<void> Function(UserRecord) onViewProfile;
   final Future<void> Function(UserRecord) onAddPayment;
 
@@ -1195,6 +1310,8 @@ class _UsersList extends StatelessWidget {
                   final user = users[index];
                   return _UserListItem(
                     user: user,
+                    authProviderIds: authProvidersFor(user),
+                    authProvidersUnavailable: authProvidersUnavailable,
                     wide: wide,
                     onViewProfile: () => onViewProfile(user),
                     onAddPayment: () => onAddPayment(user),
@@ -1254,12 +1371,16 @@ class _UserListHeader extends StatelessWidget {
 class _UserListItem extends StatefulWidget {
   const _UserListItem({
     required this.user,
+    required this.authProviderIds,
+    required this.authProvidersUnavailable,
     required this.wide,
     required this.onViewProfile,
     required this.onAddPayment,
   });
 
   final UserRecord user;
+  final List<String>? authProviderIds;
+  final bool authProvidersUnavailable;
   final bool wide;
   final VoidCallback onViewProfile;
   final VoidCallback onAddPayment;
@@ -1321,6 +1442,12 @@ class _UserListItemState extends State<_UserListItem> {
               shape: BoxShape.circle,
             ),
           ),
+        ),
+        const SizedBox(height: 7),
+        UserAuthProviderBadges(
+          providerIds: widget.authProviderIds,
+          unavailable: widget.authProvidersUnavailable,
+          compact: true,
         ),
       ],
     );
@@ -1599,14 +1726,177 @@ class _CompactListMetric extends StatelessWidget {
   }
 }
 
+class UserAuthProviderBadges extends StatelessWidget {
+  const UserAuthProviderBadges({
+    super.key,
+    required this.providerIds,
+    this.unavailable = false,
+    this.compact = false,
+  });
+
+  final List<String>? providerIds;
+  final bool unavailable;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+
+    if (unavailable) {
+      return _AuthProviderBadge(
+        icon: Icons.cloud_off_outlined,
+        label: 'Connexion indisponible',
+        color: theme.secondaryText,
+        compact: compact,
+      );
+    }
+    if (providerIds == null) {
+      return _AuthProviderBadge(
+        icon: Icons.sync_rounded,
+        label: 'Chargement…',
+        color: theme.secondaryText,
+        compact: compact,
+      );
+    }
+
+    final normalizedProviders = providerIds!
+        .map((provider) => provider.trim())
+        .where((provider) => provider.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort((first, second) =>
+          _providerPriority(first).compareTo(_providerPriority(second)));
+    if (normalizedProviders.isEmpty) {
+      return _AuthProviderBadge(
+        icon: Icons.help_outline_rounded,
+        label: 'Connexion inconnue',
+        color: theme.secondaryText,
+        compact: compact,
+      );
+    }
+
+    final labels = normalizedProviders.map(_providerLabel).join(', ');
+    return Semantics(
+      label: 'Méthodes de connexion : $labels',
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const ClampingScrollPhysics(),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var index = 0;
+                index < normalizedProviders.length;
+                index++) ...[
+              if (index > 0) const SizedBox(width: 6),
+              _AuthProviderBadge(
+                icon: _providerIcon(normalizedProviders[index]),
+                label: _providerLabel(normalizedProviders[index]),
+                color: _providerColor(normalizedProviders[index], theme),
+                compact: compact,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  int _providerPriority(String provider) => switch (provider) {
+        'google.com' => 0,
+        'password' => 1,
+        'apple.com' => 2,
+        'phone' => 3,
+        _ => 4,
+      };
+
+  String _providerLabel(String provider) => switch (provider) {
+        'google.com' => 'Google',
+        'password' => 'E-mail',
+        'apple.com' => 'Apple',
+        'phone' => 'Téléphone',
+        'facebook.com' => 'Facebook',
+        'microsoft.com' => 'Microsoft',
+        'github.com' => 'GitHub',
+        'twitter.com' => 'X / Twitter',
+        'yahoo.com' => 'Yahoo',
+        _ => provider,
+      };
+
+  IconData _providerIcon(String provider) => switch (provider) {
+        'google.com' => Icons.public_rounded,
+        'password' => Icons.mail_outline_rounded,
+        'apple.com' => Icons.phone_iphone_rounded,
+        'phone' => Icons.phone_android_rounded,
+        _ => Icons.account_circle_outlined,
+      };
+
+  Color _providerColor(String provider, FlutterFlowTheme theme) =>
+      switch (provider) {
+        'google.com' => theme.primary,
+        'password' => theme.tertiary,
+        'apple.com' => theme.primaryText,
+        'phone' => theme.success,
+        _ => theme.secondaryText,
+      };
+}
+
+class _AuthProviderBadge extends StatelessWidget {
+  const _AuthProviderBadge({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.compact,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 7 : 9,
+        vertical: compact ? 4 : 5,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: .22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: compact ? 13 : 15, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.labelSmall.copyWith(
+              color: color,
+              fontSize: compact ? 10 : 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _UserCard extends StatefulWidget {
   const _UserCard({
     required this.user,
+    required this.authProviderIds,
+    required this.authProvidersUnavailable,
     required this.onViewProfile,
     required this.onAddPayment,
   });
 
   final UserRecord user;
+  final List<String>? authProviderIds;
+  final bool authProvidersUnavailable;
   final VoidCallback onViewProfile;
   final VoidCallback onAddPayment;
 
@@ -1695,6 +1985,12 @@ class _UserCardState extends State<_UserCard> {
                                   shape: BoxShape.circle,
                                 ),
                               ),
+                            ),
+                            const SizedBox(height: 7),
+                            UserAuthProviderBadges(
+                              providerIds: widget.authProviderIds,
+                              unavailable: widget.authProvidersUnavailable,
+                              compact: true,
                             ),
                           ],
                         ),

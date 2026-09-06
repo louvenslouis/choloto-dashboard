@@ -148,6 +148,8 @@ class PaymentReceiptExporter {
                   pw.SizedBox(height: 22),
                   _confirmationMessage(data, amountLabel),
                   pw.Spacer(),
+                  _receiptTerms(),
+                  pw.SizedBox(height: 14),
                   _footer(data, logo),
                 ],
               ),
@@ -477,6 +479,83 @@ class PaymentReceiptExporter {
     );
   }
 
+  static pw.Widget _receiptTerms() {
+    return pw.Container(
+      padding: const pw.EdgeInsets.fromLTRB(12, 9, 12, 8),
+      decoration: pw.BoxDecoration(
+        color: _softPurple,
+        borderRadius: pw.BorderRadius.circular(8),
+        border: pw.Border.all(color: _line, width: 0.7),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            'CONDITIONS IMPORTANTES',
+            style: pw.TextStyle(
+              color: _purple,
+              fontSize: 8,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.SizedBox(height: 5),
+          _termLine(
+            '1.',
+            'Toute demande de remboursement doit être effectuée dans les '
+                '24 heures suivant le paiement. Passé ce délai, aucun '
+                'remboursement ne sera accordé.',
+          ),
+          _termLine(
+            '2.',
+            'Le client reconnaît que CHOLOTO fournit des prédictions et '
+                'qu’aucun résultat ni gain n’est garanti.',
+          ),
+          _termLine(
+            '3.',
+            'Le client déclare être âgé de 18 ans ou plus.',
+            last: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _termLine(
+    String number,
+    String text, {
+    bool last = false,
+  }) {
+    return pw.Padding(
+      padding: pw.EdgeInsets.only(bottom: last ? 0 : 3),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.SizedBox(
+            width: 15,
+            child: pw.Text(
+              number,
+              style: pw.TextStyle(
+                color: _purple,
+                fontSize: 7.2,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+          ),
+          pw.Expanded(
+            child: pw.Text(
+              text,
+              style: pw.TextStyle(
+                color: _ink,
+                fontSize: 7.2,
+                lineSpacing: 1.2,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   static pw.Widget _footer(PaymentReceiptData data, pw.ImageProvider logo) {
     return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.end,
@@ -660,6 +739,10 @@ class PaymentReceiptExporter {
       PaimentMethod.moncash => 'MonCash',
       PaimentMethod.cash => 'Espèces',
       PaimentMethod.stripe => 'Carte / Stripe',
+      PaimentMethod.natcash => 'Natcash',
+      PaimentMethod.zelle => 'Zelle',
+      PaimentMethod.cashapp => 'CashApp',
+      PaimentMethod.virement => 'Virement',
       null => 'Non renseigné',
     };
   }

@@ -148,6 +148,11 @@ class OfficialLotteryResultsService {
   static Uri get _newYorkStaticSnapshotUrl =>
       Uri.base.resolve('data/official-new-york-results.json');
 
+  static final Uri _newYorkScheduledSnapshotUrl = Uri.https(
+    'louvenslouis.github.io',
+    '/choloto-dashboard/data/official-new-york-results.json',
+  );
+
   static Uri _floridaApiUrl(String gameId) => Uri.https(
         'apim-website-prod-eastus.azure-api.net',
         '/drawgamesapp/getLatestDrawGames',
@@ -249,9 +254,18 @@ class OfficialLotteryResultsService {
   Future<List<dynamic>> _fetchNewYorkRows() async {
     Object? snapshotError;
     try {
-      return await _requestFreshNewYorkSnapshot();
+      return await _requestFreshNewYorkSnapshot(_newYorkStaticSnapshotUrl);
     } catch (error) {
       snapshotError = error;
+    }
+
+    Object? scheduledSnapshotError;
+    try {
+      return await _requestFreshNewYorkSnapshot(
+        _newYorkScheduledSnapshotUrl,
+      );
+    } catch (error) {
+      scheduledSnapshotError = error;
     }
 
     Object? relayError;
@@ -272,15 +286,17 @@ class OfficialLotteryResultsService {
     } catch (directError) {
       throw HttpException(
         'copie web indisponible (${_readableError(snapshotError)}), '
+        'miroir planifié indisponible '
+        '(${_readableError(scheduledSnapshotError)}), '
         'relais indisponible (${_readableError(relayError)}), '
         'puis source directe indisponible (${_readableError(directError)})',
       );
     }
   }
 
-  Future<List<dynamic>> _requestFreshNewYorkSnapshot() async {
+  Future<List<dynamic>> _requestFreshNewYorkSnapshot(Uri url) async {
     final rows = await _requestJsonList(
-      _newYorkStaticSnapshotUrl,
+      url,
       headers: const {'Accept': 'application/json'},
     );
 

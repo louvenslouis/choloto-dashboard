@@ -6,6 +6,7 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/pages/sidenav/sidenav_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'bingo_comments_service.dart';
 
 class PublicationsHistoryWidget extends StatefulWidget {
   const PublicationsHistoryWidget({super.key});
@@ -525,6 +526,121 @@ class _PublicationHistoryCard extends StatelessWidget {
                       ],
                     ],
                   ),
+                  const SizedBox(height: 7.0),
+                  FutureBuilder<int>(
+                    future: BingoCommentsService.count(publication.reference),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Tooltip(
+                          message:
+                              'Impossible de charger les commentaires pour le moment.',
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.cloud_off_rounded,
+                                size: 16.0,
+                                color: theme.error,
+                              ),
+                              const SizedBox(width: 6.0),
+                              Text(
+                                'Commentaires indisponibles',
+                                style: theme.labelSmall.copyWith(
+                                  color: theme.error,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      if (!snapshot.hasData) {
+                        return Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 14.0,
+                              height: 14.0,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.0,
+                                color: theme.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 7.0),
+                            Text(
+                              'Commentaires',
+                              style: theme.labelSmall.copyWith(
+                                color: theme.secondaryText,
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+
+                      final count = snapshot.data!;
+                      final label =
+                          '$count commentaire${count == 1 ? '' : 's'}';
+                      return Align(
+                        alignment: Alignment.centerLeft,
+                        child: Tooltip(
+                          message: count == 0
+                              ? 'Aucun commentaire'
+                              : 'Consulter les commentaires de ce BINGO',
+                          child: Semantics(
+                            button: count > 0,
+                            label: label,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(10.0),
+                              onTap: count == 0
+                                  ? null
+                                  : () => _showBingoCommentsDialog(
+                                        context,
+                                        publication,
+                                      ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5.0,
+                                  vertical: 5.0,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      count > 0
+                                          ? Icons.chat_bubble_rounded
+                                          : Icons.chat_bubble_outline_rounded,
+                                      size: 16.0,
+                                      color: count > 0
+                                          ? theme.primary
+                                          : theme.secondaryText,
+                                    ),
+                                    const SizedBox(width: 6.0),
+                                    Text(
+                                      label,
+                                      style: theme.labelMedium.copyWith(
+                                        color: count > 0
+                                            ? theme.primaryText
+                                            : theme.secondaryText,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    if (count > 0) ...[
+                                      const SizedBox(width: 3.0),
+                                      Icon(
+                                        Icons.chevron_right_rounded,
+                                        size: 17.0,
+                                        color: theme.primary,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
@@ -544,6 +660,581 @@ Future<void> _showBingoReactionsDialog(
     context: context,
     builder: (_) => _BingoReactionsDialog(publication: publication),
   );
+}
+
+Future<void> _showBingoCommentsDialog(
+  BuildContext context,
+  BingoRecord publication,
+) async {
+  logFirebaseEvent('PUBLICATIONS_HISTORY_COMMENTS_ON_TAP');
+  await showDialog<void>(
+    context: context,
+    builder: (_) => _BingoCommentsDialog(publication: publication),
+  );
+}
+
+class _BingoCommentsDialog extends StatefulWidget {
+  const _BingoCommentsDialog({required this.publication});
+
+  final BingoRecord publication;
+
+  @override
+  State<_BingoCommentsDialog> createState() => _BingoCommentsDialogState();
+}
+
+class _BingoCommentsDialogState extends State<_BingoCommentsDialog> {
+  late Future<List<BingoCommentEntry>> _commentsFuture;
+  final Set<String> _pendingCommentIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _commentsFuture = BingoCommentsService.load(widget.publication.reference);
+  }
+
+  void _retry() {
+    setState(() {
+      _commentsFuture = BingoCommentsService.load(widget.publication.reference);
+    });
+  }
+
+  Future<void> _toggleLike(BingoCommentEntry comment) async {
+    if (_pendingCommentIds.contains(comment.id)) return;
+    setState(() => _pendingCommentIds.add(comment.id));
+    try {
+      await BingoCommentsService.setAdminLike(
+        bingoReference: widget.publication.reference,
+        commentId: comment.id,
+        liked: !comment.adminLiked,
+        hidden: comment.hidden,
+      );
+      if (mounted) _retry();
+    } catch (_) {
+      _showInteractionError(
+        'Impossible de modifier le like pour le moment.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _pendingCommentIds.remove(comment.id));
+      }
+    }
+  }
+
+  Future<void> _reply(BingoCommentEntry comment) async {
+    final reply = await showDialog<String>(
+      context: context,
+      builder: (_) => _BingoReplyDialog(comment: comment),
+    );
+    if (reply == null || !mounted) return;
+
+    setState(() => _pendingCommentIds.add(comment.id));
+    try {
+      await BingoCommentsService.setAdminReply(
+        bingoReference: widget.publication.reference,
+        commentId: comment.id,
+        reply: reply,
+        hidden: comment.hidden,
+      );
+      if (mounted) _retry();
+    } catch (_) {
+      _showInteractionError(
+        'Impossible d’enregistrer la réponse pour le moment.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _pendingCommentIds.remove(comment.id));
+      }
+    }
+  }
+
+  Future<void> _toggleVisibility(BingoCommentEntry comment) async {
+    if (_pendingCommentIds.contains(comment.id)) return;
+
+    if (!comment.hidden) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Masquer ce commentaire ?'),
+          content: const Text(
+            'Il ne sera plus visible par les utilisateurs. Vous pourrez le '
+            'réafficher à tout moment depuis cette liste.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Annuler'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              icon: const Icon(Icons.visibility_off_rounded),
+              label: const Text('Masquer'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+
+    setState(() => _pendingCommentIds.add(comment.id));
+    try {
+      await BingoCommentsService.setHidden(
+        bingoReference: widget.publication.reference,
+        commentId: comment.id,
+        hidden: !comment.hidden,
+      );
+      if (mounted) _retry();
+    } catch (_) {
+      _showInteractionError(
+        comment.hidden
+            ? 'Impossible de réafficher le commentaire pour le moment.'
+            : 'Impossible de masquer le commentaire pour le moment.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _pendingCommentIds.remove(comment.id));
+      }
+    }
+  }
+
+  void _showInteractionError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final locale = FFLocalizations.of(context).languageCode;
+    final publicationDate = widget.publication.date;
+
+    return AdminDialogFrame(
+      maxWidth: 700.0,
+      child: Padding(
+        padding: const EdgeInsets.all(22.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AdminDialogHeader(
+              title: 'Commentaires du BINGO',
+              subtitle: publicationDate == null
+                  ? 'Commentaires envoyés depuis le Story'
+                  : 'Publication du ${dateTimeFormat('d MMM y • HH:mm', publicationDate, locale: locale)}',
+              icon: Icons.chat_bubble_rounded,
+              onClose: () => Navigator.pop(context),
+            ),
+            const SizedBox(height: 18.0),
+            FutureBuilder<List<BingoCommentEntry>>(
+              future: _commentsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const SizedBox(
+                    height: 180.0,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return _ReactionDialogMessage(
+                    icon: Icons.cloud_off_rounded,
+                    title: 'Commentaires indisponibles',
+                    message:
+                        'Impossible de charger les commentaires pour le moment.',
+                    actionLabel: 'Réessayer',
+                    onAction: _retry,
+                  );
+                }
+
+                final comments = snapshot.data ?? const [];
+                if (comments.isEmpty) {
+                  return const _ReactionDialogMessage(
+                    icon: Icons.chat_bubble_outline_rounded,
+                    title: 'Aucun commentaire',
+                    message: 'Aucun utilisateur n’a encore commenté ce BINGO.',
+                  );
+                }
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: AdminStatusPill(
+                        label:
+                            '${comments.length} commentaire${comments.length == 1 ? '' : 's'}',
+                        color: FlutterFlowTheme.of(context).primary,
+                        compact: true,
+                        leading: const Icon(
+                          Icons.forum_rounded,
+                          size: 12.0,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14.0),
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: comments.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10.0),
+                      itemBuilder: (context, index) => _BingoCommentTile(
+                        comment: comments[index],
+                        locale: locale,
+                        busy: _pendingCommentIds.contains(comments[index].id),
+                        onToggleLike: () => _toggleLike(comments[index]),
+                        onReply: () => _reply(comments[index]),
+                        onToggleVisibility: () =>
+                            _toggleVisibility(comments[index]),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BingoCommentTile extends StatelessWidget {
+  const _BingoCommentTile({
+    required this.comment,
+    required this.locale,
+    required this.busy,
+    required this.onToggleLike,
+    required this.onReply,
+    required this.onToggleVisibility,
+  });
+
+  final BingoCommentEntry comment;
+  final String locale;
+  final bool busy;
+  final VoidCallback onToggleLike;
+  final VoidCallback onReply;
+  final VoidCallback onToggleVisibility;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    final initial = comment.displayName.characters.first.toUpperCase();
+    final commentDate = comment.updatedAt ?? comment.createdAt;
+    final authorDetails = comment.email.isNotEmpty
+        ? comment.email
+        : 'Identifiant : ${comment.userId}';
+
+    return AdminSurface(
+      padding: const EdgeInsets.all(14.0),
+      radius: 16.0,
+      color: comment.hidden
+          ? theme.error.withValues(alpha: 0.035)
+          : theme.secondaryBackground,
+      borderColor: comment.hidden
+          ? theme.error.withValues(alpha: 0.24)
+          : theme.alternate,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42.0,
+                height: 42.0,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: theme.primary.withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: theme.primary.withValues(alpha: 0.18),
+                  ),
+                ),
+                child: Text(
+                  initial,
+                  style: theme.titleSmall.copyWith(
+                    color: theme.primaryText,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 11.0),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      comment.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.bodyMedium.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2.0),
+                    Text(
+                      authorDetails,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          theme.bodySmall.copyWith(color: theme.secondaryText),
+                    ),
+                  ],
+                ),
+              ),
+              if (comment.wasEdited) ...[
+                const SizedBox(width: 8.0),
+                AdminStatusPill(
+                  label: 'Modifié',
+                  color: theme.secondaryText,
+                  compact: true,
+                ),
+              ],
+              if (comment.hidden) ...[
+                const SizedBox(width: 8.0),
+                AdminStatusPill(
+                  label: 'Masqué',
+                  color: theme.error,
+                  compact: true,
+                  leading: Icon(
+                    Icons.visibility_off_rounded,
+                    size: 12.0,
+                    color: theme.error,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12.0),
+          Container(
+            padding: const EdgeInsets.all(13.0),
+            decoration: BoxDecoration(
+              color: theme.primaryBackground,
+              borderRadius: BorderRadius.circular(14.0),
+            ),
+            child: SelectableText(
+              comment.text,
+              style: theme.bodyMedium.copyWith(height: 1.45),
+            ),
+          ),
+          if (comment.hasAdminReply) ...[
+            const SizedBox(height: 10.0),
+            Container(
+              padding: const EdgeInsets.all(13.0),
+              decoration: BoxDecoration(
+                color: theme.primary.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(14.0),
+                border: Border.all(
+                  color: theme.primary.withValues(alpha: 0.15),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.verified_rounded,
+                        size: 16.0,
+                        color: theme.primary,
+                      ),
+                      const SizedBox(width: 6.0),
+                      Text(
+                        'Réponse CHOLOTO',
+                        style: theme.labelMedium.copyWith(
+                          color: theme.primary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (comment.adminReplyAt != null)
+                        Text(
+                          dateTimeFormat(
+                            'd MMM • HH:mm',
+                            comment.adminReplyAt,
+                            locale: locale,
+                          ),
+                          style: theme.labelSmall.copyWith(
+                            color: theme.secondaryText,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 7.0),
+                  SelectableText(
+                    comment.adminReply,
+                    style: theme.bodyMedium.copyWith(height: 1.4),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 9.0),
+          Row(
+            children: [
+              Icon(
+                Icons.schedule_rounded,
+                size: 14.0,
+                color: theme.secondaryText,
+              ),
+              const SizedBox(width: 5.0),
+              Expanded(
+                child: Text(
+                  commentDate == null
+                      ? 'Date non disponible'
+                      : 'Envoyé le ${dateTimeFormat('d MMM y • HH:mm', commentDate, locale: locale)}',
+                  style: theme.labelSmall.copyWith(
+                    color: theme.secondaryText,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7.0),
+          Wrap(
+            spacing: 8.0,
+            runSpacing: 6.0,
+            children: [
+              TextButton.icon(
+                onPressed: busy ? null : onToggleLike,
+                icon: busy
+                    ? const SizedBox(
+                        width: 16.0,
+                        height: 16.0,
+                        child: CircularProgressIndicator(strokeWidth: 2.0),
+                      )
+                    : Icon(
+                        comment.adminLiked
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                      ),
+                label: Text(
+                  '${comment.adminLiked ? 'Aimé' : 'J’aime'} · ${comment.likeCount}',
+                ),
+              ),
+              TextButton.icon(
+                onPressed: busy ? null : onReply,
+                icon: const Icon(Icons.reply_rounded),
+                label: Text(
+                  comment.hasAdminReply ? 'Modifier la réponse' : 'Répondre',
+                ),
+              ),
+              TextButton.icon(
+                onPressed: busy ? null : onToggleVisibility,
+                icon: Icon(
+                  comment.hidden
+                      ? Icons.visibility_rounded
+                      : Icons.visibility_off_rounded,
+                ),
+                label: Text(
+                  comment.hidden ? 'Réafficher' : 'Masquer',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BingoReplyDialog extends StatefulWidget {
+  const _BingoReplyDialog({required this.comment});
+
+  final BingoCommentEntry comment;
+
+  @override
+  State<_BingoReplyDialog> createState() => _BingoReplyDialogState();
+}
+
+class _BingoReplyDialogState extends State<_BingoReplyDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.comment.adminReply)
+      ..addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    _controller
+      ..removeListener(_refresh)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _refresh() => setState(() {});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    final reply = _controller.text.trim();
+
+    return AdminDialogFrame(
+      maxWidth: 560.0,
+      child: Padding(
+        padding: const EdgeInsets.all(22.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AdminDialogHeader(
+              title: widget.comment.hasAdminReply
+                  ? 'Modifier la réponse'
+                  : 'Répondre au commentaire',
+              subtitle: 'Réponse officielle visible par le membre',
+              icon: Icons.reply_rounded,
+              onClose: () => Navigator.pop(context),
+            ),
+            const SizedBox(height: 18.0),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              minLines: 3,
+              maxLines: 6,
+              maxLength: bingoAdminReplyMaxLength,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                labelText: 'Réponse CHOLOTO',
+                hintText: 'Écrivez une réponse claire et concise…',
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: 14.0),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8.0,
+              runSpacing: 8.0,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Annuler'),
+                ),
+                if (widget.comment.hasAdminReply)
+                  TextButton.icon(
+                    onPressed: () => Navigator.pop(context, ''),
+                    icon:
+                        Icon(Icons.delete_outline_rounded, color: theme.error),
+                    label: Text(
+                      'Supprimer',
+                      style: TextStyle(color: theme.error),
+                    ),
+                  ),
+                FilledButton.icon(
+                  onPressed: reply.isEmpty
+                      ? null
+                      : () => Navigator.pop(context, reply),
+                  icon: const Icon(Icons.send_rounded),
+                  label: const Text('Enregistrer'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _BingoReactionsDialog extends StatefulWidget {

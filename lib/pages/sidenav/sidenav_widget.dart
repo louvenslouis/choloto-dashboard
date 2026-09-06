@@ -1,3 +1,5 @@
+import '/payments/payment_text.dart';
+import '/payments/payment_reviews_widget.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '/components/admin_ui.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -22,6 +24,11 @@ class _SidenavWidgetState extends State<SidenavWidget> {
   late SidenavModel _model;
   final ScrollController _navigationScrollController = ScrollController();
 
+  static final _overviewItems = <_NavItem>[
+    _NavItem('Tableau de bord', Icons.space_dashboard_rounded,
+        DashboardWidget.routeName, DashboardWidget.routePath),
+  ];
+
   static final _operationItems = <_NavItem>[
     _NavItem('Tirages', Icons.confirmation_number_rounded,
         TiragesWidget.routeName, TiragesWidget.routePath),
@@ -34,6 +41,8 @@ class _SidenavWidgetState extends State<SidenavWidget> {
   ];
 
   static final _communityItems = <_NavItem>[
+    const _NavItem('Preuves de paiement', Icons.receipt_long_outlined,
+        PaymentReviewsWidget.routeName, PaymentReviewsWidget.routePath),
     _NavItem('Utilisateurs', Icons.people_alt_rounded, UsersWidget.routeName,
         UsersWidget.routePath),
   ];
@@ -176,6 +185,17 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            _NavMenuGroup(
+                              title: 'VUE D’ENSEMBLE',
+                              items: _overviewItems,
+                              currentRoute: currentRoute,
+                              collapsed: isCollapsed,
+                              onNavigate: (route) {
+                                if (inModal) Navigator.of(context).pop();
+                                context.goNamed(route);
+                              },
+                            ),
+                            const SizedBox(height: 18),
                             _NavMenuGroup(
                               title: 'OPÉRATIONS',
                               items: _operationItems,
@@ -433,7 +453,9 @@ class _NavMenuGroup extends StatelessWidget {
           (item) => Padding(
             padding: const EdgeInsets.only(bottom: 3),
             child: _NavTile(
-              label: item.label,
+              label: (item.routeName == PaymentReviewsWidget.routeName
+                  ? paymentText(context, 'adminTitle')
+                  : item.label),
               icon: item.icon,
               selected: currentRoute == item.routePath ||
                   currentRoute.startsWith('${item.routePath}/') ||

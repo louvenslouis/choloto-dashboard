@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:provider/provider.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +14,7 @@ import 'backend/firebase/firebase_config.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import 'flutter_flow/flutter_flow_util.dart';
 import 'flutter_flow/internationalization.dart';
+import 'tirages/automatic_lottery_publication_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,8 +28,13 @@ void main() async {
   final appState = FFAppState(); // Initialize FFAppState
   await appState.initializePersistedState();
 
-  runApp(ChangeNotifierProvider(
-    create: (context) => appState,
+  runApp(MultiProvider(
+    providers: [
+      ChangeNotifierProvider.value(value: appState),
+      ChangeNotifierProvider(
+        create: (_) => AutomaticLotteryPublicationController(),
+      ),
+    ],
     child: const MyApp(),
   ));
 }
@@ -58,6 +66,10 @@ class _MyAppState extends State<MyApp> {
 
   late AppStateNotifier _appStateNotifier;
   late GoRouter _router;
+  late final AutomaticLotteryPublicationController
+      _automaticLotteryPublicationController;
+  StreamSubscription<BaseAuthUser>? _userSubscription;
+  StreamSubscription<dynamic>? _jwtTokenSubscription;
   String getRoute([RouteMatch? routeMatch]) {
     final RouteMatch lastMatch =
         routeMatch ?? _router.routerDelegate.currentConfiguration.last;
@@ -79,15 +91,27 @@ class _MyAppState extends State<MyApp> {
 
     _appStateNotifier = AppStateNotifier.instance;
     _router = createRouter(_appStateNotifier);
-    userStream = cHOLOTODashboardFirebaseUserStream()
-      ..listen((user) {
-        _appStateNotifier.update(user);
-      });
-    jwtTokenStream.listen((_) {});
+    _automaticLotteryPublicationController =
+        context.read<AutomaticLotteryPublicationController>();
+    userStream = cHOLOTODashboardFirebaseUserStream();
+    _userSubscription = userStream.listen((user) {
+      _appStateNotifier.update(user);
+      unawaited(
+        _automaticLotteryPublicationController.setAuthenticatedUser(user.uid),
+      );
+    });
+    _jwtTokenSubscription = jwtTokenStream.listen((_) {});
     Future.delayed(
       Duration(milliseconds: 1000),
       () => _appStateNotifier.stopShowingSplashImage(),
     );
+  }
+
+  @override
+  void dispose() {
+    unawaited(_userSubscription?.cancel());
+    unawaited(_jwtTokenSubscription?.cancel());
+    super.dispose();
   }
 
   void setLocale(String language) {

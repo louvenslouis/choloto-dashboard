@@ -43,22 +43,6 @@ class _MobileSidenavWidgetState extends State<MobileSidenavWidget> {
         child: Row(
           children: [
             Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: theme.primaryBackground,
-                borderRadius: BorderRadius.circular(13),
-                border: Border.all(color: theme.alternate),
-              ),
-              child: Icon(
-                Icons.menu_rounded,
-                color: theme.primaryText,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Container(
               width: 36,
               height: 36,
               padding: const EdgeInsets.all(3),

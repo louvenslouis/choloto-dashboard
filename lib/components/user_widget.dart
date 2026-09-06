@@ -204,6 +204,14 @@ class _UserWidgetState extends State<UserWidget> {
         return 'Espèces';
       case 'stripe':
         return 'Carte / Stripe';
+      case 'natcash':
+        return 'Natcash';
+      case 'zelle':
+        return 'Zelle';
+      case 'cashapp':
+        return 'CashApp';
+      case 'virement':
+        return 'Virement';
       default:
         return 'Non renseigné';
     }

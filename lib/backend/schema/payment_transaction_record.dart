@@ -84,6 +84,28 @@ class PaymentTransactionRecord extends FirestoreRecord {
   String get createdByEmail => _createdByEmail ?? '';
   bool hasCreatedByEmail() => _createdByEmail != null;
 
+  DocumentReference? _relatedTransactionRef;
+  DocumentReference? get relatedTransactionRef => _relatedTransactionRef;
+  bool hasRelatedTransactionRef() => _relatedTransactionRef != null;
+
+  bool? _paymentCancelled;
+  bool get paymentCancelled => _paymentCancelled ?? false;
+  bool hasPaymentCancelled() => _paymentCancelled != null;
+
+  String? _cancellationReason;
+  String get cancellationReason => _cancellationReason ?? '';
+  bool hasCancellationReason() => _cancellationReason != null;
+
+  double? _refundedAmount;
+  double get refundedAmount => _refundedAmount ?? 0.0;
+  bool hasRefundedAmount() => _refundedAmount != null;
+
+  String? _refundCurrency;
+  String get refundCurrency => _refundCurrency ?? '';
+  bool hasRefundCurrency() => _refundCurrency != null;
+
+  bool get isCancellation => transactionType == 'cancellation';
+
   void _initializeFields() {
     _userRef = snapshotData['user_ref'] as DocumentReference?;
     _userUid = snapshotData['user_uid'] as String?;
@@ -104,6 +126,12 @@ class PaymentTransactionRecord extends FirestoreRecord {
     _createdAt = snapshotData['created_at'] as DateTime?;
     _createdBy = snapshotData['created_by'] as String?;
     _createdByEmail = snapshotData['created_by_email'] as String?;
+    _relatedTransactionRef =
+        snapshotData['related_transaction_ref'] as DocumentReference?;
+    _paymentCancelled = snapshotData['payment_cancelled'] as bool?;
+    _cancellationReason = snapshotData['cancellation_reason'] as String?;
+    _refundedAmount = castToType<double>(snapshotData['refunded_amount']);
+    _refundCurrency = snapshotData['refund_currency'] as String?;
   }
 
   static CollectionReference get collection =>
@@ -162,6 +190,11 @@ Map<String, dynamic> createPaymentTransactionRecordData({
   DateTime? createdAt,
   String? createdBy,
   String? createdByEmail,
+  DocumentReference? relatedTransactionRef,
+  bool? paymentCancelled,
+  String? cancellationReason,
+  double? refundedAmount,
+  String? refundCurrency,
 }) {
   return mapToFirestore(
     <String, dynamic>{
@@ -182,6 +215,11 @@ Map<String, dynamic> createPaymentTransactionRecordData({
       'created_at': createdAt,
       'created_by': createdBy,
       'created_by_email': createdByEmail,
+      'related_transaction_ref': relatedTransactionRef,
+      'payment_cancelled': paymentCancelled,
+      'cancellation_reason': cancellationReason,
+      'refunded_amount': refundedAmount,
+      'refund_currency': refundCurrency,
     }.withoutNulls,
   );
 }
@@ -208,7 +246,12 @@ class PaymentTransactionRecordDocumentEquality
       e1?.memberTimeAfter == e2?.memberTimeAfter &&
       e1?.createdAt == e2?.createdAt &&
       e1?.createdBy == e2?.createdBy &&
-      e1?.createdByEmail == e2?.createdByEmail;
+      e1?.createdByEmail == e2?.createdByEmail &&
+      e1?.relatedTransactionRef == e2?.relatedTransactionRef &&
+      e1?.paymentCancelled == e2?.paymentCancelled &&
+      e1?.cancellationReason == e2?.cancellationReason &&
+      e1?.refundedAmount == e2?.refundedAmount &&
+      e1?.refundCurrency == e2?.refundCurrency;
 
   @override
   int hash(PaymentTransactionRecord? e) => const ListEquality().hash([
@@ -229,6 +272,11 @@ class PaymentTransactionRecordDocumentEquality
         e?.createdAt,
         e?.createdBy,
         e?.createdByEmail,
+        e?.relatedTransactionRef,
+        e?.paymentCancelled,
+        e?.cancellationReason,
+        e?.refundedAmount,
+        e?.refundCurrency,
       ]);
 
   @override

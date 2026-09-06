@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -70,6 +73,7 @@ Stream<BaseAuthUser> cHOLOTODashboardFirebaseUserStream() =>
             : Stream.value(user))
         .map<BaseAuthUser>(
       (user) {
+        unawaited(FirebaseAnalytics.instance.setUserId(id: user?.uid));
         currentUser = CHOLOTODashboardFirebaseUser(user);
         return currentUser!;
       },

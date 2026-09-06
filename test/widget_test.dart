@@ -29,7 +29,7 @@ void main() {
     expect(find.text('CHOLOTO'), findsOneWidget);
     expect(find.text('ESPACE ADMIN'), findsOneWidget);
     expect(find.text('En ligne'), findsOneWidget);
-    expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.menu_rounded), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -46,7 +46,7 @@ void main() {
 
     expect(find.text('Tirages'), findsOneWidget);
     expect(find.text('En ligne'), findsOneWidget);
-    expect(find.byTooltip('Ouvrir le menu'), findsOneWidget);
+    expect(find.byTooltip('Ouvrir le menu'), findsNothing);
   });
 
   testWidgets('the compact app bar fits a narrow phone', (tester) async {
@@ -117,7 +117,7 @@ void main() {
     expect(find.text('Utilisateurs'), findsOneWidget);
   });
 
-  testWidgets('user sorting switches between alphabetical and recent changes',
+  testWidgets('user sorting offers alphabetical, recent, and expiration modes',
       (tester) async {
     var selectedMode = UserSortMode.alphabetical;
 
@@ -142,13 +142,62 @@ void main() {
 
     expect(find.text('Ordre alphabétique'), findsOneWidget);
     expect(find.text('Dernière modification'), findsOneWidget);
+    expect(find.text('Expiration proche'), findsOneWidget);
 
-    await tester.tap(find.text('Dernière modification'));
+    await tester.tap(find.text('Expiration proche'));
     await tester.pumpAndSettle();
 
-    expect(selectedMode, UserSortMode.lastModified);
-    expect(find.text('Modifiés récemment'), findsOneWidget);
+    expect(selectedMode, UserSortMode.nearestExpiration);
+    expect(find.text('Expiration proche'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  test('expiration sorting keeps expired users at the end', () {
+    final now = DateTime(2026, 8, 23, 12);
+    final expiresSoon = now.add(const Duration(days: 2));
+    final expiresLater = now.add(const Duration(days: 20));
+    final expiredRecently = now.subtract(const Duration(days: 1));
+    final expiredEarlier = now.subtract(const Duration(days: 30));
+    final expirations = <DateTime?>[
+      expiredEarlier,
+      expiresLater,
+      null,
+      expiredRecently,
+      expiresSoon,
+    ]..sort(
+        (first, second) => compareUserExpirationDates(first, second, now),
+      );
+
+    expect(
+      expirations,
+      [expiresSoon, expiresLater, null, expiredRecently, expiredEarlier],
+    );
+  });
+
+  testWidgets('authentication badges show every linked provider',
+      (tester) async {
+    final semantics = tester.ensureSemantics();
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: UserAuthProviderBadges(
+            providerIds: ['password', 'google.com'],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Google'), findsOneWidget);
+    expect(find.text('E-mail'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(
+        RegExp('Méthodes de connexion : Google, E-mail'),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+    semantics.dispose();
   });
 
   testWidgets('prediction cards reorganize inputs on a narrow phone',
@@ -247,6 +296,15 @@ void main() {
       {'GDS'},
     );
 
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    expect(find.text('Natcash'), findsOneWidget);
+    expect(find.text('Zelle'), findsOneWidget);
+    expect(find.text('CashApp'), findsOneWidget);
+    expect(find.text('Virement'), findsOneWidget);
+    await tester.tap(find.text('Aucune méthode').last);
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('USD'));
     await tester.pump();
 
@@ -306,6 +364,10 @@ void main() {
     expect(find.text('4 mois actifs'), findsOneWidget);
     expect(find.text('Prolonger'), findsOneWidget);
     expect(find.text('Modifier'), findsOneWidget);
+    expect(find.text('Facture PDF'), findsOneWidget);
+    expect(find.byIcon(Icons.picture_as_pdf_outlined), findsOneWidget);
+    expect(find.text('Annuler'), findsOneWidget);
+    expect(find.byIcon(Icons.cancel_outlined), findsOneWidget);
     expect(find.text('Montant (optionnel)'), findsNothing);
     expect(find.byType(SingleChildScrollView), findsNothing);
     expect(tester.takeException(), isNull);

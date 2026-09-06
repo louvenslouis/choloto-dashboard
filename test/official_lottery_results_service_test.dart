@@ -13,6 +13,9 @@ void main() {
         if (_isStaticSnapshot(request)) {
           return http.Response('not generated', 404);
         }
+        if (_isScheduledSnapshot(request)) {
+          return http.Response('mirror unavailable', 503);
+        }
         if (request.url.host.contains('cloudfunctions.net')) {
           return http.Response('not deployed', 404);
         }
@@ -53,6 +56,9 @@ void main() {
         if (_isStaticSnapshot(request)) {
           return http.Response('not generated', 404);
         }
+        if (_isScheduledSnapshot(request)) {
+          return http.Response('mirror unavailable', 503);
+        }
         if (request.url.host == 'data.ny.gov') {
           return http.Response('unavailable', 503);
         }
@@ -81,6 +87,9 @@ void main() {
       client: MockClient((request) async {
         if (_isStaticSnapshot(request)) {
           return http.Response('not generated', 404);
+        }
+        if (_isScheduledSnapshot(request)) {
+          return http.Response('mirror unavailable', 503);
         }
         if (request.url.host.contains('cloudfunctions.net')) {
           return _jsonResponse([
@@ -118,6 +127,9 @@ void main() {
         if (_isStaticSnapshot(request)) {
           return http.Response('not generated', 404);
         }
+        if (_isScheduledSnapshot(request)) {
+          return http.Response('mirror unavailable', 503);
+        }
         if (request.url.host.contains('cloudfunctions.net')) {
           return http.Response('not deployed', 404);
         }
@@ -145,6 +157,57 @@ void main() {
       result.proposals[0].sourceName,
       'NY Open Data · Gaming Commission',
     );
+  });
+
+  test('uses the scheduled NY mirror when the same-origin copy is stale',
+      () async {
+    final now = DateTime.now();
+    final staleDate = now.subtract(const Duration(days: 5));
+    final freshDrawDate = '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}T00:00:00.000';
+    final staleDrawDate = '${staleDate.year.toString().padLeft(4, '0')}-'
+        '${staleDate.month.toString().padLeft(2, '0')}-'
+        '${staleDate.day.toString().padLeft(2, '0')}T00:00:00.000';
+    final service = OfficialLotteryResultsService(
+      client: MockClient((request) async {
+        if (_isStaticSnapshot(request)) {
+          return _jsonResponse([
+            {
+              'draw_date': staleDrawDate,
+              'midday_daily': '111',
+              'midday_win_4': '2222',
+            },
+          ]);
+        }
+        if (_isScheduledSnapshot(request)) {
+          return _jsonResponse([
+            {
+              'draw_date': freshDrawDate,
+              'midday_daily': '659',
+              'midday_win_4': '3597',
+              'evening_daily': '842',
+              'evening_win_4': '6239',
+              '_choloto_source_name': 'New York Lottery',
+              '_choloto_source_url':
+                  'https://nylottery.ny.gov/all-winning-numbers/',
+            },
+          ]);
+        }
+        if (request.url.host.contains('cloudfunctions.net') ||
+            request.url.host == 'data.ny.gov') {
+          fail('Remote NY fallbacks should not be called after the mirror');
+        }
+        return _floridaResponse(request.url.queryParameters['id']!);
+      }),
+    );
+
+    final result = await service.fetchLatest();
+
+    expect(result.warnings, isEmpty);
+    expect(result.proposals, hasLength(4));
+    expect(result.proposals[0].numbers, ['659', '35', '97']);
+    expect(result.proposals[1].numbers, ['842', '62', '39']);
   });
 
   test('uses the same-origin NY snapshot before remote fallbacks', () async {
@@ -213,7 +276,11 @@ http.Response _jsonResponse(Object body) => http.Response(
     );
 
 bool _isStaticSnapshot(http.Request request) =>
+    request.url.host != 'louvenslouis.github.io' &&
     request.url.path.endsWith('/data/official-new-york-results.json');
+
+bool _isScheduledSnapshot(http.Request request) =>
+    request.url.host == 'louvenslouis.github.io';
 
 http.Response _floridaResponse(String gameId) {
   final game = switch (gameId) {

@@ -4,6 +4,10 @@ enum PaimentMethod {
   moncash,
   cash,
   stripe,
+  natcash,
+  zelle,
+  cashapp,
+  virement,
 }
 
 enum Periode {

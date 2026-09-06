@@ -168,26 +168,8 @@ class AdminMobileAppBar extends StatelessWidget implements PreferredSizeWidget {
       backgroundColor: theme.secondaryBackground,
       surfaceTintColor: Colors.transparent,
       foregroundColor: theme.primaryText,
-      leadingWidth: 60,
-      leading: Builder(
-        builder: (context) => Padding(
-          padding: const EdgeInsets.only(left: 12, top: 10, bottom: 10),
-          child: IconButton(
-            tooltip: 'Ouvrir le menu',
-            onPressed: () => Scaffold.of(context).openDrawer(),
-            icon: const Icon(Icons.menu_rounded, size: 22),
-            style: IconButton.styleFrom(
-              foregroundColor: theme.primaryText,
-              backgroundColor: theme.primaryBackground,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(13),
-                side: BorderSide(color: theme.alternate),
-              ),
-            ),
-          ),
-        ),
-      ),
-      titleSpacing: 8,
+      automaticallyImplyLeading: false,
+      titleSpacing: 14,
       title: Row(
         children: [
           if (!compact) ...[

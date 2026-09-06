@@ -56,9 +56,10 @@ class FirebaseAuthManager extends AuthManager
   FirebasePhoneAuthManager phoneAuthManager = FirebasePhoneAuthManager();
 
   @override
-  Future signOut() {
+  Future signOut() async {
     logFirebaseEvent("SIGN_OUT");
-    return FirebaseAuth.instance.signOut();
+    await signOutWithGoogle().catchError((_) => null);
+    await FirebaseAuth.instance.signOut();
   }
 
   @override

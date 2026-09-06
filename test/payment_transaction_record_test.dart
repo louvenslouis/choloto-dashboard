@@ -78,4 +78,38 @@ void main() {
     expect(data['member_time_before'], 4);
     expect(data['member_time_after'], 4);
   });
+
+  test('cancellations preserve a complete audit trail', () {
+    final previousEndSub = DateTime.utc(2026, 9, 20);
+    final data = createPaymentTransactionRecordData(
+      userUid: 'user-123',
+      receiptCode: 'CH-firestoreCancel123',
+      transactionType: 'cancellation',
+      previousEndSub: previousEndSub,
+      memberTimeBefore: 4,
+      memberTimeAfter: 4,
+      createdBy: 'admin-456',
+      paymentCancelled: true,
+      cancellationReason: 'Demande du client',
+      refundedAmount: 750,
+      refundCurrency: 'GDS',
+    );
+
+    expect(data['transaction_type'], 'cancellation');
+    expect(data['previous_end_sub'], previousEndSub);
+    expect(data.containsKey('new_end_sub'), isFalse);
+    expect(data['member_time_before'], 4);
+    expect(data['member_time_after'], 4);
+    expect(data['payment_cancelled'], isTrue);
+    expect(data['cancellation_reason'], 'Demande du client');
+    expect(data['refunded_amount'], 750);
+    expect(data['refund_currency'], 'GDS');
+
+    final withoutRefund = createPaymentTransactionRecordData(
+      transactionType: 'cancellation',
+      cancellationReason: 'Annulation sans remboursement',
+    );
+    expect(withoutRefund.containsKey('refunded_amount'), isFalse);
+    expect(withoutRefund.containsKey('refund_currency'), isFalse);
+  });
 }

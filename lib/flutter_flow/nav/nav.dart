@@ -1,3 +1,4 @@
+import '/payments/payment_reviews_widget.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -80,18 +81,32 @@ class AppStateNotifier extends ChangeNotifier {
 }
 
 GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
-      initialLocation: TiragesWidget.routePath,
+      initialLocation: DashboardWidget.routePath,
       debugLogDiagnostics: true,
       refreshListenable: appStateNotifier,
       navigatorKey: appNavigatorKey,
-      errorBuilder: (context, state) =>
-          appStateNotifier.loggedIn ? TiragesWidget() : ConnexionWidget(),
+      errorBuilder: (context, state) => appStateNotifier.loggedIn
+          ? const DashboardWidget()
+          : ConnexionWidget(),
       routes: [
         FFRoute(
           name: '_initialize',
           path: '/',
-          builder: (context, _) =>
-              appStateNotifier.loggedIn ? TiragesWidget() : ConnexionWidget(),
+          builder: (context, _) => appStateNotifier.loggedIn
+              ? const DashboardWidget()
+              : ConnexionWidget(),
+        ),
+        FFRoute(
+          name: PaymentReviewsWidget.routeName,
+          path: PaymentReviewsWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => const PaymentReviewsWidget(),
+        ),
+        FFRoute(
+          name: DashboardWidget.routeName,
+          path: DashboardWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => const DashboardWidget(),
         ),
         FFRoute(
           name: UsersWidget.routeName,
@@ -109,6 +124,12 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           path: CroixWidget.routePath,
           requireAuth: true,
           builder: (context, params) => CroixWidget(),
+        ),
+        FFRoute(
+          name: CroixHistoryWidget.routeName,
+          path: CroixHistoryWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => const CroixHistoryWidget(),
         ),
         FFRoute(
           name: TiragesWidget.routeName,

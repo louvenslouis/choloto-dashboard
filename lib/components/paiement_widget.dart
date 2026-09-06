@@ -38,6 +38,8 @@ class _PaiementWidgetState extends State<PaiementWidget> {
   late _MembershipAction _action;
   late bool _showEditor;
   bool _saving = false;
+  bool _downloadingReceipt = false;
+  bool _cancelling = false;
   String _currency = 'GDS';
 
   @override
@@ -100,6 +102,67 @@ class _PaiementWidgetState extends State<PaiementWidget> {
 
   void _showCurrentPlan() {
     setState(() => _showEditor = false);
+  }
+
+  Future<void> _redownloadLatestReceipt() async {
+    if (_downloadingReceipt || widget.refUser == null) return;
+
+    setState(() => _downloadingReceipt = true);
+    try {
+      final transactions = await queryPaymentTransactionRecordOnce(
+        queryBuilder: (query) =>
+            query.where('user_ref', isEqualTo: widget.refUser),
+      );
+      if (!mounted) return;
+
+      final receiptTransactions = transactions
+          .where((transaction) => !transaction.isCancellation)
+          .toList();
+      if (receiptTransactions.isEmpty) {
+        _showMessage(
+          'Aucune facture n’est encore enregistrée pour ce membre.',
+        );
+        return;
+      }
+
+      final sortedTransactions = [...receiptTransactions]
+        ..sort(_compareTransactionsByMostRecent);
+      await PaymentReceiptExporter.export(sortedTransactions.first);
+      if (!mounted) return;
+
+      _showMessage('La facture PDF a été téléchargée.');
+    } catch (_) {
+      if (!mounted) return;
+      _showMessage(
+        'La facture n’a pas pu être téléchargée. Vérifiez la connexion et réessayez.',
+      );
+    } finally {
+      if (mounted) setState(() => _downloadingReceipt = false);
+    }
+  }
+
+  int _compareTransactionsByMostRecent(
+    PaymentTransactionRecord first,
+    PaymentTransactionRecord second,
+  ) {
+    final firstDate = first.createdAt;
+    final secondDate = second.createdAt;
+    if (firstDate != null && secondDate != null) {
+      final dateOrder = secondDate.compareTo(firstDate);
+      if (dateOrder != 0) return dateOrder;
+    } else if (firstDate != null) {
+      return -1;
+    } else if (secondDate != null) {
+      return 1;
+    }
+
+    return second.reference.id.compareTo(first.reference.id);
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   DateTime _addOneMonth(DateTime value) {
@@ -271,6 +334,127 @@ class _PaiementWidgetState extends State<PaiementWidget> {
     return double.parse(parsed.toStringAsFixed(2));
   }
 
+  Future<void> _cancelMembership() async {
+    if (_cancelling || widget.refUser == null) return;
+
+    setState(() => _cancelling = true);
+    try {
+      final transactions = await queryPaymentTransactionRecordOnce(
+        queryBuilder: (query) =>
+            query.where('user_ref', isEqualTo: widget.refUser),
+      );
+      if (!mounted) return;
+
+      final cancelledPaymentPaths = transactions
+          .where(
+            (transaction) =>
+                transaction.isCancellation &&
+                transaction.paymentCancelled &&
+                transaction.relatedTransactionRef != null,
+          )
+          .map((transaction) => transaction.relatedTransactionRef!.path)
+          .toSet();
+      final recordedPayments = transactions
+          .where(
+            (transaction) =>
+                !transaction.isCancellation &&
+                !cancelledPaymentPaths.contains(transaction.reference.path),
+          )
+          .toList()
+        ..sort(_compareTransactionsByMostRecent);
+      final latestPayment =
+          recordedPayments.isEmpty ? null : recordedPayments.first;
+      final recordedCurrency = latestPayment?.currency.trim().toUpperCase();
+      final refundCurrency = recordedCurrency == 'USD' ? 'USD' : 'GDS';
+
+      final cancellationInput = await showDialog<_MembershipCancellationInput>(
+        context: context,
+        builder: (_) => _MembershipCancellationDialog(
+          hasPayment: latestPayment != null,
+          refundCurrency: refundCurrency,
+        ),
+      );
+      if (!mounted || cancellationInput == null) return;
+
+      if (currentUserUid.isEmpty) {
+        _showMessage(
+          'Votre session a expiré. Reconnectez-vous puis réessayez.',
+        );
+        return;
+      }
+
+      final firestore = FirebaseFirestore.instance;
+      final cancellationReference = PaymentTransactionRecord.collection.doc();
+      final cancellationCode = PaymentReceiptData.receiptNumberFor(
+        cancellationReference.id,
+      );
+
+      await firestore.runTransaction((transaction) async {
+        final userSnapshot = await transaction.get(widget.refUser!);
+        if (!userSnapshot.exists) {
+          throw StateError('The user document no longer exists.');
+        }
+
+        final userData = userSnapshot.data() as Map<String, dynamic>? ?? {};
+        final previousEndSub = _readFirestoreDate(userData['end_sub']);
+        final memberTime = (userData['member_time'] as num?)?.toInt() ?? 0;
+
+        transaction.update(widget.refUser!, {
+          'end_sub': FieldValue.delete(),
+          'method': FieldValue.delete(),
+          'updated_time': FieldValue.serverTimestamp(),
+        });
+        transaction.set(cancellationReference, {
+          ...createPaymentTransactionRecordData(
+            userRef: widget.refUser,
+            userUid: widget.refUser!.id,
+            userEmail: userData['email'] as String?,
+            userDisplayName: userData['display_name'] as String?,
+            userCode: userData['code_personnel'] as String?,
+            receiptCode: cancellationCode,
+            transactionType: 'cancellation',
+            previousEndSub: previousEndSub,
+            paymentMethod: widget.currentPaymentMethod,
+            memberTimeBefore: memberTime,
+            memberTimeAfter: memberTime,
+            createdBy: currentUserUid,
+            createdByEmail: currentUserEmail.isEmpty ? null : currentUserEmail,
+            relatedTransactionRef: latestPayment?.reference,
+            paymentCancelled: latestPayment != null,
+            cancellationReason: cancellationInput.reason,
+            refundedAmount: cancellationInput.refundedAmount,
+            refundCurrency: cancellationInput.refundedAmount == null
+                ? null
+                : cancellationInput.refundCurrency,
+          ),
+          'created_at': FieldValue.serverTimestamp(),
+        });
+      });
+
+      if (!mounted) return;
+      final returnedAmountLabel = cancellationInput.refundedAmount == null
+          ? null
+          : '${NumberFormat('#,##0.00', 'fr').format(cancellationInput.refundedAmount)} '
+              '${cancellationInput.refundCurrency}';
+      final cancellationMessage = latestPayment == null
+          ? 'Abonnement annulé.'
+          : 'Dernier paiement et abonnement annulés.';
+      _showMessage(
+        returnedAmountLabel == null
+            ? cancellationMessage
+            : '$cancellationMessage Montant retourné : $returnedAmountLabel.',
+      );
+      Navigator.pop(context, true);
+    } catch (_) {
+      if (!mounted) return;
+      _showMessage(
+        'L’annulation a échoué. Vérifiez la connexion et réessayez.',
+      );
+    } finally {
+      if (mounted) setState(() => _cancelling = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
@@ -416,6 +600,55 @@ class _PaiementWidgetState extends State<PaiementWidget> {
         side: BorderSide(color: theme.alternate),
       ),
     );
+    final receiptButton = TextButton.icon(
+      onPressed: _downloadingReceipt || widget.refUser == null
+          ? null
+          : _redownloadLatestReceipt,
+      icon: _downloadingReceipt
+          ? SizedBox.square(
+              dimension: 17,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: theme.primary,
+              ),
+            )
+          : const Icon(Icons.picture_as_pdf_outlined),
+      label: Text(
+        _downloadingReceipt
+            ? 'Préparation de la facture…'
+            : compact
+                ? 'Facture PDF'
+                : 'Retélécharger la facture PDF',
+      ),
+      style: TextButton.styleFrom(
+        minimumSize: Size.fromHeight(compact ? 40 : 44),
+        foregroundColor: theme.primary,
+      ),
+    );
+    final cancellationButton = TextButton.icon(
+      onPressed:
+          _cancelling || widget.refUser == null ? null : _cancelMembership,
+      icon: _cancelling
+          ? SizedBox.square(
+              dimension: 17,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: theme.error,
+              ),
+            )
+          : const Icon(Icons.cancel_outlined),
+      label: Text(
+        _cancelling
+            ? 'Annulation…'
+            : compact
+                ? 'Annuler'
+                : 'Annuler paiement / abonnement',
+      ),
+      style: TextButton.styleFrom(
+        minimumSize: Size.fromHeight(compact ? 40 : 44),
+        foregroundColor: theme.error,
+      ),
+    );
 
     return AdminSurface(
       padding: EdgeInsets.all(compact ? 12 : 20),
@@ -521,6 +754,14 @@ class _PaiementWidgetState extends State<PaiementWidget> {
               Expanded(child: renewButton),
               const SizedBox(width: 10),
               Expanded(child: editButton),
+            ],
+          ),
+          SizedBox(height: compact ? 4 : 8),
+          Row(
+            children: [
+              Expanded(child: receiptButton),
+              const SizedBox(width: 8),
+              Expanded(child: cancellationButton),
             ],
           ),
           if (!compact) ...[
@@ -927,6 +1168,217 @@ class _PaiementWidgetState extends State<PaiementWidget> {
         return 'Espèces';
       case PaimentMethod.stripe:
         return 'Carte / Stripe';
+      case PaimentMethod.natcash:
+        return 'Natcash';
+      case PaimentMethod.zelle:
+        return 'Zelle';
+      case PaimentMethod.cashapp:
+        return 'CashApp';
+      case PaimentMethod.virement:
+        return 'Virement';
     }
   }
+}
+
+class _MembershipCancellationDialog extends StatefulWidget {
+  const _MembershipCancellationDialog({
+    required this.hasPayment,
+    required this.refundCurrency,
+  });
+
+  final bool hasPayment;
+  final String refundCurrency;
+
+  @override
+  State<_MembershipCancellationDialog> createState() =>
+      _MembershipCancellationDialogState();
+}
+
+class _MembershipCancellationDialogState
+    extends State<_MembershipCancellationDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _reasonController = TextEditingController();
+  final _refundedAmountController = TextEditingController();
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    _refundedAmountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    final title = widget.hasPayment
+        ? 'Annuler le paiement et l’abonnement ?'
+        : 'Annuler l’abonnement ?';
+
+    return AdminDialogFrame(
+      maxWidth: 500,
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AdminDialogHeader(
+                title: title,
+                icon: Icons.cancel_outlined,
+                iconColor: theme.error,
+                onClose: () => Navigator.pop(context),
+              ),
+              const SizedBox(height: 18),
+              AdminSurface(
+                padding: const EdgeInsets.all(14),
+                color: theme.error.withValues(alpha: .08),
+                borderColor: theme.error.withValues(alpha: .22),
+                radius: 14,
+                child: Text(
+                  _explanation(),
+                  style: theme.bodyMedium.copyWith(
+                    color: theme.primaryText,
+                    height: 1.45,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _refundedAmountController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                textInputAction: TextInputAction.next,
+                inputFormatters: [
+                  TextInputFormatter.withFunction((oldValue, newValue) {
+                    final validAmount = RegExp(
+                      r'^\d{0,9}([.,]\d{0,2})?$',
+                    ).hasMatch(newValue.text);
+                    return validAmount ? newValue : oldValue;
+                  }),
+                ],
+                decoration: InputDecoration(
+                  labelText: 'Montant retourné (optionnel)',
+                  hintText: '0.00',
+                  prefixIcon: const Icon(Icons.currency_exchange_rounded),
+                  suffixText: widget.refundCurrency,
+                  helperText: 'Laissez vide si aucun montant n’a été remis',
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) return null;
+                  final amount = _parseRefundedAmount(value);
+                  if (amount == null) {
+                    return 'Saisissez un montant valide, égal ou supérieur à zéro.';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _reasonController,
+                maxLength: 500,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Motif de l’annulation',
+                  hintText: 'Ex. : demande du client',
+                  prefixIcon: Icon(Icons.notes_rounded),
+                  alignLabelWithHint: true,
+                ),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Indiquez le motif de l’annulation.'
+                    : null,
+              ),
+              const SizedBox(height: 20),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final stack = constraints.maxWidth < 340;
+                  final cancel = OutlinedButton.icon(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                    label: const Text('Retour'),
+                  );
+                  final confirm = FilledButton.icon(
+                    onPressed: () {
+                      if (!(_formKey.currentState?.validate() ?? false)) {
+                        return;
+                      }
+                      Navigator.pop(
+                        context,
+                        _MembershipCancellationInput(
+                          reason: _reasonController.text.trim(),
+                          refundedAmount: _parseRefundedAmount(
+                            _refundedAmountController.text,
+                          ),
+                          refundCurrency: widget.refundCurrency,
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.cancel_outlined, size: 18),
+                    label: Text(
+                      widget.hasPayment
+                          ? 'Annuler les deux'
+                          : 'Annuler l’abonnement',
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: theme.error,
+                      foregroundColor: Colors.white,
+                    ),
+                  );
+
+                  if (stack) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        confirm,
+                        const SizedBox(height: 10),
+                        cancel,
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(child: cancel),
+                      const SizedBox(width: 12),
+                      Expanded(child: confirm),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _explanation() {
+    if (!widget.hasPayment) {
+      return 'Aucun paiement associé n’a été trouvé. L’accès VIP sera retiré immédiatement.';
+    }
+    return 'Seul le dernier paiement sera marqué comme annulé et retiré des '
+        'totaux. Les paiements précédents resteront comptabilisés. L’accès VIP '
+        'sera retiré immédiatement et aucun remboursement monétaire '
+        'automatique ne sera déclenché.';
+  }
+
+  double? _parseRefundedAmount(String value) {
+    final parsed = double.tryParse(value.trim().replaceAll(',', '.'));
+    if (parsed == null || !parsed.isFinite || parsed < 0) return null;
+    if (parsed > 999999999.99) return null;
+    return double.parse(parsed.toStringAsFixed(2));
+  }
+}
+
+class _MembershipCancellationInput {
+  const _MembershipCancellationInput({
+    required this.reason,
+    required this.refundedAmount,
+    required this.refundCurrency,
+  });
+
+  final String reason;
+  final double? refundedAmount;
+  final String refundCurrency;
 }
