@@ -74,6 +74,6 @@ Les tests exécutent le service Dart réel avec un adaptateur de transaction en 
 
 ## Mise en production
 
-Aucun déploiement n’a été effectué. Cette fonctionnalité nécessite les nouvelles règles Firestore, l’exemption d’index Base64, puis la publication des nouvelles versions de l’application et du dashboard. Elle n’ajoute aucune Cloud Function et n’utilise pas Firebase Storage.
+Les seules règles Firestore de cette fonctionnalité ont été déployées sur `choloto-6aa5b` le 6 septembre 2026 à 02:42 UTC, en préservant exactement les autres règles de production. Ruleset publié et relu : `35db70e8-6f8a-4911-b40e-d10595c106c8`. Le rapport détaillé se trouve dans `docs/payment-proof-rules-deployment.md` du dépôt de l’application. L’exemption d’index Base64 et les nouvelles versions de l’application et du dashboard n’ont pas été publiées dans cette intervention. La fonctionnalité n’ajoute aucune Cloud Function et n’utilise pas Firebase Storage.
 
 Avant une publication explicitement autorisée, vérifier la version des règles en production et préserver ses autres contrats. Les nouvelles règles doivent précéder les nouveaux clients. Les anciens clients continuent leurs parcours habituels.

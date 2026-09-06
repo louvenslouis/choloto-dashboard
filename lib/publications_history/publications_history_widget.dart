@@ -210,7 +210,7 @@ class _PublicationsHistoryWidgetState extends State<PublicationsHistoryWidget> {
   }
 }
 
-class _PublicationHistoryCard extends StatelessWidget {
+class _PublicationHistoryCard extends StatefulWidget {
   const _PublicationHistoryCard({
     required this.publication,
     required this.onEdit,
@@ -220,6 +220,69 @@ class _PublicationHistoryCard extends StatelessWidget {
   final BingoRecord publication;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+
+  @override
+  State<_PublicationHistoryCard> createState() =>
+      _PublicationHistoryCardState();
+}
+
+class _PublicationHistoryCardState extends State<_PublicationHistoryCard> {
+  late Future<BingoActivitySnapshot> _activityFuture;
+
+  BingoRecord get publication => widget.publication;
+  VoidCallback get onEdit => widget.onEdit;
+  VoidCallback get onDelete => widget.onDelete;
+
+  @override
+  void initState() {
+    super.initState();
+    _activityFuture = BingoActivityService.load(publication.reference);
+  }
+
+  @override
+  void didUpdateWidget(covariant _PublicationHistoryCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.publication.reference.path != publication.reference.path) {
+      _activityFuture = BingoActivityService.load(publication.reference);
+    }
+  }
+
+  void _refreshActivity() {
+    if (!mounted) return;
+    setState(() {
+      _activityFuture = BingoActivityService.load(publication.reference);
+    });
+  }
+
+  Future<void> _openComments(BingoActivitySnapshot activity) async {
+    await BingoActivityService.markCommentsSeen(
+      publication.reference,
+      activity.commentIds,
+    );
+    if (!mounted) return;
+    _refreshActivity();
+    await _showBingoCommentsDialog(
+      context,
+      publication,
+      newCommentIds: activity.newCommentIds,
+    );
+    _refreshActivity();
+  }
+
+  Future<void> _openReactions(BingoActivitySnapshot activity) async {
+    await BingoActivityService.markReactionsSeen(
+      publication.reference,
+      activity.reactionIds,
+    );
+    if (!mounted) return;
+    _refreshActivity();
+    await _showBingoReactionsDialog(
+      context,
+      publication,
+      newReactionIds: activity.newReactionIds,
+    );
+    _refreshActivity();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -412,235 +475,107 @@ class _PublicationHistoryCard extends StatelessWidget {
                   const SizedBox(height: 15.0),
                   Divider(height: 1.0, color: theme.alternate),
                   const SizedBox(height: 13.0),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FutureBuilder<int>(
-                          future: queryBingostatsRecordCount(
-                            parent: publication.reference,
-                          ),
-                          builder: (context, snapshot) {
-                            if (!snapshot.hasData) {
-                              return Row(
-                                children: [
-                                  SizedBox(
-                                    width: 14.0,
-                                    height: 14.0,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.0,
-                                      color: theme.primary,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 7.0),
-                                  Text(
-                                    'Réactions',
-                                    style: theme.labelSmall.copyWith(
-                                      color: theme.secondaryText,
-                                    ),
-                                  ),
-                                ],
-                              );
-                            }
-
-                            final count = snapshot.data!;
-                            final reactionLabel =
-                                '$count réaction${count > 1 ? 's' : ''}';
-                            return Align(
-                              alignment: Alignment.centerLeft,
-                              child: Tooltip(
-                                message: count > 0
-                                    ? 'Voir les utilisateurs ayant réagi'
-                                    : 'Aucune réaction',
-                                child: Semantics(
-                                  button: count > 0,
-                                  label: reactionLabel,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(10.0),
-                                    onTap: count == 0
-                                        ? null
-                                        : () => _showBingoReactionsDialog(
-                                              context,
-                                              publication,
-                                            ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 5.0,
-                                        vertical: 5.0,
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            count > 0
-                                                ? Icons.favorite_rounded
-                                                : Icons.favorite_border_rounded,
-                                            size: 16.0,
-                                            color: count > 0
-                                                ? theme.error
-                                                : theme.secondaryText,
-                                          ),
-                                          const SizedBox(width: 6.0),
-                                          Flexible(
-                                            child: Text(
-                                              reactionLabel,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: theme.labelMedium.copyWith(
-                                                color: count > 0
-                                                    ? theme.primaryText
-                                                    : theme.secondaryText,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                          ),
-                                          if (count > 0) ...[
-                                            const SizedBox(width: 3.0),
-                                            Icon(
-                                              Icons.chevron_right_rounded,
-                                              size: 17.0,
-                                              color: theme.primary,
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      if (expiration != null) ...[
-                        const SizedBox(width: 8.0),
-                        Flexible(
-                          child: Text(
-                            '${isActive ? 'Expire' : 'Expirée'} le ${dateTimeFormat('d/M • HH:mm', expiration, locale: locale)}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.end,
-                            style: theme.labelSmall.copyWith(
-                              color: theme.secondaryText,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 7.0),
-                  FutureBuilder<int>(
-                    future: BingoCommentsService.count(publication.reference),
+                  FutureBuilder<BingoActivitySnapshot>(
+                    future: _activityFuture,
                     builder: (context, snapshot) {
                       if (snapshot.hasError) {
-                        return Tooltip(
-                          message:
-                              'Impossible de charger les commentaires pour le moment.',
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.cloud_off_rounded,
-                                size: 16.0,
-                                color: theme.error,
-                              ),
-                              const SizedBox(width: 6.0),
-                              Text(
-                                'Commentaires indisponibles',
-                                style: theme.labelSmall.copyWith(
-                                  color: theme.error,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
+                        return _BingoActivityLoadError(
+                            onRetry: _refreshActivity);
                       }
                       if (!snapshot.hasData) {
-                        return Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox(
-                              width: 14.0,
-                              height: 14.0,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.0,
-                                color: theme.primary,
-                              ),
-                            ),
-                            const SizedBox(width: 7.0),
-                            Text(
-                              'Commentaires',
-                              style: theme.labelSmall.copyWith(
-                                color: theme.secondaryText,
-                              ),
-                            ),
-                          ],
+                        return const SizedBox(
+                          height: 74.0,
+                          child: Center(
+                            child: CircularProgressIndicator(strokeWidth: 2.0),
+                          ),
                         );
                       }
 
-                      final count = snapshot.data!;
-                      final label =
-                          '$count commentaire${count == 1 ? '' : 's'}';
-                      return Align(
-                        alignment: Alignment.centerLeft,
-                        child: Tooltip(
-                          message: count == 0
-                              ? 'Aucun commentaire'
-                              : 'Consulter les commentaires de ce BINGO',
-                          child: Semantics(
-                            button: count > 0,
-                            label: label,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(10.0),
-                              onTap: count == 0
-                                  ? null
-                                  : () => _showBingoCommentsDialog(
-                                        context,
-                                        publication,
-                                      ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 5.0,
-                                  vertical: 5.0,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      count > 0
-                                          ? Icons.chat_bubble_rounded
-                                          : Icons.chat_bubble_outline_rounded,
-                                      size: 16.0,
-                                      color: count > 0
-                                          ? theme.primary
-                                          : theme.secondaryText,
-                                    ),
-                                    const SizedBox(width: 6.0),
-                                    Text(
-                                      label,
-                                      style: theme.labelMedium.copyWith(
-                                        color: count > 0
-                                            ? theme.primaryText
-                                            : theme.secondaryText,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    if (count > 0) ...[
-                                      const SizedBox(width: 3.0),
-                                      Icon(
-                                        Icons.chevron_right_rounded,
-                                        size: 17.0,
-                                        color: theme.primary,
-                                      ),
-                                    ],
-                                  ],
+                      final activity = snapshot.data!;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (activity.hasNewActivity) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 11.0,
+                                vertical: 9.0,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.warning.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12.0),
+                                border: Border.all(
+                                  color: theme.warning.withValues(alpha: 0.38),
                                 ),
                               ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.notifications_active_rounded,
+                                    size: 18.0,
+                                    color: theme.warning,
+                                  ),
+                                  const SizedBox(width: 8.0),
+                                  Expanded(
+                                    child: Text(
+                                      '${activity.newActivityCount} nouvelle${activity.newActivityCount == 1 ? '' : 's'} interaction${activity.newActivityCount == 1 ? '' : 's'}',
+                                      style: theme.labelMedium.copyWith(
+                                        color: theme.primaryText,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                  AdminStatusPill(
+                                    label: 'NOUVEAU',
+                                    color: theme.warning,
+                                    compact: true,
+                                  ),
+                                ],
+                              ),
                             ),
+                            const SizedBox(height: 9.0),
+                          ],
+                          _BingoActivityButton(
+                            label:
+                                '${activity.reactionCount} réaction${activity.reactionCount > 1 ? 's' : ''}',
+                            newCount: activity.newReactionCount,
+                            icon: activity.reactionCount > 0
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            color: theme.error,
+                            onTap: activity.reactionCount == 0
+                                ? null
+                                : () => _openReactions(activity),
                           ),
-                        ),
+                          const SizedBox(height: 8.0),
+                          _BingoActivityButton(
+                            label:
+                                '${activity.commentCount} commentaire${activity.commentCount == 1 ? '' : 's'}',
+                            newCount: activity.newCommentCount,
+                            icon: activity.commentCount > 0
+                                ? Icons.chat_bubble_rounded
+                                : Icons.chat_bubble_outline_rounded,
+                            color: theme.primary,
+                            onTap: activity.commentCount == 0
+                                ? null
+                                : () => _openComments(activity),
+                          ),
+                        ],
                       );
                     },
                   ),
+                  if (expiration != null) ...[
+                    const SizedBox(height: 10.0),
+                    Text(
+                      '${isActive ? 'Expire' : 'Expirée'} le ${dateTimeFormat('d/M • HH:mm', expiration, locale: locale)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: theme.labelSmall.copyWith(
+                        color: theme.secondaryText,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -651,32 +586,151 @@ class _PublicationHistoryCard extends StatelessWidget {
   }
 }
 
+class _BingoActivityButton extends StatelessWidget {
+  const _BingoActivityButton({
+    required this.label,
+    required this.newCount,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final int newCount;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    final isNew = newCount > 0;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(13.0),
+        onTap: onTap,
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 11.0, vertical: 10.0),
+          decoration: BoxDecoration(
+            color:
+                isNew ? color.withValues(alpha: 0.10) : theme.primaryBackground,
+            borderRadius: BorderRadius.circular(13.0),
+            border: Border.all(
+              color: isNew ? color.withValues(alpha: 0.42) : theme.alternate,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 34.0,
+                height: 34.0,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: isNew ? 0.18 : 0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 17.0, color: color),
+              ),
+              const SizedBox(width: 10.0),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: theme.labelMedium.copyWith(
+                        color: onTap == null
+                            ? theme.secondaryText
+                            : theme.primaryText,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (isNew)
+                      Text(
+                        '$newCount non ${newCount == 1 ? 'lu' : 'lus'}',
+                        style: theme.labelSmall.copyWith(
+                          color: color,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (isNew)
+                AdminStatusPill(
+                  label: '+$newCount',
+                  color: color,
+                  compact: true,
+                )
+              else if (onTap != null)
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 19.0,
+                  color: theme.secondaryText,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BingoActivityLoadError extends StatelessWidget {
+  const _BingoActivityLoadError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    return OutlinedButton.icon(
+      onPressed: onRetry,
+      icon: Icon(Icons.refresh_rounded, color: theme.error),
+      label: const Text('Recharger les interactions'),
+    );
+  }
+}
+
 Future<void> _showBingoReactionsDialog(
   BuildContext context,
-  BingoRecord publication,
-) async {
+  BingoRecord publication, {
+  Set<String> newReactionIds = const {},
+}) async {
   logFirebaseEvent('PUBLICATIONS_HISTORY_REACTIONS_ON_TAP');
   await showDialog<void>(
     context: context,
-    builder: (_) => _BingoReactionsDialog(publication: publication),
+    builder: (_) => _BingoReactionsDialog(
+      publication: publication,
+      newReactionIds: newReactionIds,
+    ),
   );
 }
 
 Future<void> _showBingoCommentsDialog(
   BuildContext context,
-  BingoRecord publication,
-) async {
+  BingoRecord publication, {
+  Set<String> newCommentIds = const {},
+}) async {
   logFirebaseEvent('PUBLICATIONS_HISTORY_COMMENTS_ON_TAP');
   await showDialog<void>(
     context: context,
-    builder: (_) => _BingoCommentsDialog(publication: publication),
+    builder: (_) => _BingoCommentsDialog(
+      publication: publication,
+      newCommentIds: newCommentIds,
+    ),
   );
 }
 
 class _BingoCommentsDialog extends StatefulWidget {
-  const _BingoCommentsDialog({required this.publication});
+  const _BingoCommentsDialog({
+    required this.publication,
+    required this.newCommentIds,
+  });
 
   final BingoRecord publication;
+  final Set<String> newCommentIds;
 
   @override
   State<_BingoCommentsDialog> createState() => _BingoCommentsDialogState();
@@ -845,7 +899,15 @@ class _BingoCommentsDialogState extends State<_BingoCommentsDialog> {
                   );
                 }
 
-                final comments = snapshot.data ?? const [];
+                final loadedComments = snapshot.data ?? const [];
+                final comments = [
+                  ...loadedComments.where(
+                    (comment) => widget.newCommentIds.contains(comment.id),
+                  ),
+                  ...loadedComments.where(
+                    (comment) => !widget.newCommentIds.contains(comment.id),
+                  ),
+                ];
                 if (comments.isEmpty) {
                   return const _ReactionDialogMessage(
                     icon: Icons.chat_bubble_outline_rounded,
@@ -879,6 +941,8 @@ class _BingoCommentsDialogState extends State<_BingoCommentsDialog> {
                       separatorBuilder: (_, __) => const SizedBox(height: 10.0),
                       itemBuilder: (context, index) => _BingoCommentTile(
                         comment: comments[index],
+                        isNew:
+                            widget.newCommentIds.contains(comments[index].id),
                         locale: locale,
                         busy: _pendingCommentIds.contains(comments[index].id),
                         onToggleLike: () => _toggleLike(comments[index]),
@@ -901,6 +965,7 @@ class _BingoCommentsDialogState extends State<_BingoCommentsDialog> {
 class _BingoCommentTile extends StatelessWidget {
   const _BingoCommentTile({
     required this.comment,
+    required this.isNew,
     required this.locale,
     required this.busy,
     required this.onToggleLike,
@@ -909,6 +974,7 @@ class _BingoCommentTile extends StatelessWidget {
   });
 
   final BingoCommentEntry comment;
+  final bool isNew;
   final String locale;
   final bool busy;
   final VoidCallback onToggleLike;
@@ -929,10 +995,14 @@ class _BingoCommentTile extends StatelessWidget {
       radius: 16.0,
       color: comment.hidden
           ? theme.error.withValues(alpha: 0.035)
-          : theme.secondaryBackground,
+          : isNew
+              ? theme.primary.withValues(alpha: 0.055)
+              : theme.secondaryBackground,
       borderColor: comment.hidden
           ? theme.error.withValues(alpha: 0.24)
-          : theme.alternate,
+          : isNew
+              ? theme.primary.withValues(alpha: 0.42)
+              : theme.alternate,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -987,6 +1057,19 @@ class _BingoCommentTile extends StatelessWidget {
                   label: 'Modifié',
                   color: theme.secondaryText,
                   compact: true,
+                ),
+              ],
+              if (isNew) ...[
+                const SizedBox(width: 8.0),
+                AdminStatusPill(
+                  label: 'NOUVEAU',
+                  color: theme.primary,
+                  compact: true,
+                  leading: Icon(
+                    Icons.fiber_new_rounded,
+                    size: 13.0,
+                    color: theme.primary,
+                  ),
                 ),
               ],
               if (comment.hidden) ...[
@@ -1238,9 +1321,13 @@ class _BingoReplyDialogState extends State<_BingoReplyDialog> {
 }
 
 class _BingoReactionsDialog extends StatefulWidget {
-  const _BingoReactionsDialog({required this.publication});
+  const _BingoReactionsDialog({
+    required this.publication,
+    required this.newReactionIds,
+  });
 
   final BingoRecord publication;
+  final Set<String> newReactionIds;
 
   @override
   State<_BingoReactionsDialog> createState() => _BingoReactionsDialogState();
@@ -1290,6 +1377,11 @@ class _BingoReactionsDialogState extends State<_BingoReactionsDialog> {
         )
         .toList();
     entries.sort((first, second) {
+      final firstIsNew =
+          widget.newReactionIds.contains(first.reaction.reference.id);
+      final secondIsNew =
+          widget.newReactionIds.contains(second.reaction.reference.id);
+      if (firstIsNew != secondIsNew) return firstIsNew ? -1 : 1;
       if (first.reaction.gain != second.reaction.gain) {
         return first.reaction.gain ? -1 : 1;
       }
@@ -1368,8 +1460,11 @@ class _BingoReactionsDialogState extends State<_BingoReactionsDialog> {
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: reactions.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 9.0),
-                      itemBuilder: (context, index) =>
-                          _ReactionUserTile(entry: reactions[index]),
+                      itemBuilder: (context, index) => _ReactionUserTile(
+                        entry: reactions[index],
+                        isNew: widget.newReactionIds
+                            .contains(reactions[index].reaction.reference.id),
+                      ),
                     ),
                   ],
                 );
@@ -1453,9 +1548,10 @@ class _ReactionSummary extends StatelessWidget {
 }
 
 class _ReactionUserTile extends StatelessWidget {
-  const _ReactionUserTile({required this.entry});
+  const _ReactionUserTile({required this.entry, required this.isNew});
 
   final _BingoReactionEntry entry;
+  final bool isNew;
 
   @override
   Widget build(BuildContext context) {
@@ -1468,6 +1564,11 @@ class _ReactionUserTile extends StatelessWidget {
     return AdminSurface(
       padding: const EdgeInsets.all(12.0),
       radius: 15.0,
+      color: isNew
+          ? theme.error.withValues(alpha: 0.045)
+          : theme.secondaryBackground,
+      borderColor:
+          isNew ? theme.error.withValues(alpha: 0.38) : theme.alternate,
       child: Row(
         children: [
           Container(
@@ -1530,6 +1631,14 @@ class _ReactionUserTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10.0),
+          if (isNew) ...[
+            AdminStatusPill(
+              label: 'NOUVEAU',
+              color: theme.error,
+              compact: true,
+            ),
+            const SizedBox(width: 8.0),
+          ],
           AdminStatusPill(
             label: won ? 'A gagné' : 'N’a pas gagné',
             color: reactionColor,

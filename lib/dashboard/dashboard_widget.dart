@@ -5,6 +5,7 @@ import '/components/admin_ui.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/pages/sidenav/sidenav_widget.dart';
+import '/publications_history/bingo_comments_service.dart';
 import '/index.dart';
 import 'package:flutter/material.dart';
 import 'analytics_overview_service.dart';
@@ -26,6 +27,7 @@ class _DashboardWidgetState extends State<DashboardWidget> {
   final scaffoldKey = GlobalKey<ScaffoldState>();
   late Future<_DashboardData> _dashboardFuture;
   late Future<AnalyticsOverview> _analyticsFuture;
+  late Future<BingoActivityOverview> _bingoActivityFuture;
 
   @override
   void initState() {
@@ -40,6 +42,7 @@ class _DashboardWidgetState extends State<DashboardWidget> {
     _analyticsFuture = AnalyticsOverviewService.load(
       forceRefresh: forceAnalytics,
     );
+    _bingoActivityFuture = BingoActivityService.loadOverview();
   }
 
   Future<_DashboardData> _queryDashboardData() async {
@@ -174,6 +177,19 @@ class _DashboardWidgetState extends State<DashboardWidget> {
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
                           const PendingPaymentRequestsTile(),
+                          const SizedBox(height: 20),
+                          FutureBuilder<BingoActivityOverview>(
+                            future: _bingoActivityFuture,
+                            builder: (context, snapshot) =>
+                                _BingoActivityOverviewCard(
+                              overview: snapshot.data,
+                              loading: snapshot.connectionState ==
+                                  ConnectionState.waiting,
+                              hasError: snapshot.hasError,
+                              onRetry: _refresh,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
                           FutureBuilder<_DashboardData>(
                             future: _dashboardFuture,
                             builder: (context, snapshot) {
@@ -327,6 +343,209 @@ class _Header extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _BingoActivityOverviewCard extends StatelessWidget {
+  const _BingoActivityOverviewCard({
+    required this.overview,
+    required this.loading,
+    required this.hasError,
+    required this.onRetry,
+  });
+
+  final BingoActivityOverview? overview;
+  final bool loading;
+  final bool hasError;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    final data = overview;
+    final hasNewActivity = data?.hasNewActivity ?? false;
+    final accent = hasNewActivity ? theme.warning : theme.success;
+
+    return Material(
+      color: theme.secondaryBackground,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: hasError
+            ? onRetry
+            : () => context.goNamed(PublicationsHistoryWidget.routeName),
+        child: Ink(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                accent.withValues(alpha: hasNewActivity ? .15 : .07),
+                theme.secondaryBackground,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: accent.withValues(alpha: hasNewActivity ? .48 : .22),
+              width: hasNewActivity ? 1.5 : 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: accent.withValues(alpha: hasNewActivity ? .10 : .035),
+                blurRadius: 22,
+                offset: const Offset(0, 7),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: .16),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  hasNewActivity
+                      ? Icons.notifications_active_rounded
+                      : Icons.mark_chat_read_rounded,
+                  color: accent,
+                  size: 27,
+                ),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Activité récente des BINGO',
+                            style: theme.titleMedium.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        if (!loading && !hasError)
+                          AdminStatusPill(
+                            label: hasNewActivity
+                                ? '${data!.newActivityCount} NOUVEAU${data.newActivityCount > 1 ? 'X' : ''}'
+                                : 'À JOUR',
+                            color: accent,
+                            compact: true,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    if (loading)
+                      Text(
+                        'Recherche des nouveaux commentaires et réactions…',
+                        style: theme.bodySmall.copyWith(
+                          color: theme.secondaryText,
+                        ),
+                      )
+                    else if (hasError)
+                      Text(
+                        'Impossible de charger l’activité. Appuyez pour réessayer.',
+                        style: theme.bodySmall.copyWith(color: theme.error),
+                      )
+                    else
+                      Wrap(
+                        spacing: 14,
+                        runSpacing: 5,
+                        children: [
+                          _BingoActivityMetric(
+                            icon: Icons.chat_bubble_rounded,
+                            label:
+                                '${data!.newCommentCount} nouveau${data.newCommentCount == 1 ? '' : 'x'} commentaire${data.newCommentCount == 1 ? '' : 's'}',
+                            color: theme.primary,
+                            emphasized: data.newCommentCount > 0,
+                          ),
+                          _BingoActivityMetric(
+                            icon: Icons.favorite_rounded,
+                            label:
+                                '${data.newReactionCount} nouvelle${data.newReactionCount == 1 ? '' : 's'} réaction${data.newReactionCount == 1 ? '' : 's'}',
+                            color: theme.error,
+                            emphasized: data.newReactionCount > 0,
+                          ),
+                        ],
+                      ),
+                    if (!loading && !hasError && hasNewActivity) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Sur ${data!.bingoWithNewActivityCount} publication${data.bingoWithNewActivityCount == 1 ? '' : 's'} • Ouvrir l’historique pour les consulter',
+                        style: theme.labelSmall.copyWith(
+                          color: theme.secondaryText,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              if (loading)
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: theme.primary,
+                  ),
+                )
+              else
+                Icon(
+                  hasError
+                      ? Icons.refresh_rounded
+                      : Icons.chevron_right_rounded,
+                  color: hasError ? theme.error : theme.secondaryText,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BingoActivityMetric extends StatelessWidget {
+  const _BingoActivityMetric({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.emphasized,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool emphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 15,
+          color: emphasized ? color : theme.secondaryText,
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: theme.bodySmall.copyWith(
+            color: emphasized ? theme.primaryText : theme.secondaryText,
+            fontWeight: emphasized ? FontWeight.w800 : FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }

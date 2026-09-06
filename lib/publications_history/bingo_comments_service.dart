@@ -1,7 +1,161 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const bingoAdminReplyMaxLength = 500;
+
+class BingoActivitySnapshot {
+  BingoActivitySnapshot({
+    required Iterable<String> commentIds,
+    required Iterable<String> reactionIds,
+    Iterable<String> seenCommentIds = const [],
+    Iterable<String> seenReactionIds = const [],
+  })  : commentIds = Set.unmodifiable(commentIds),
+        reactionIds = Set.unmodifiable(reactionIds),
+        newCommentIds = Set.unmodifiable(
+          commentIds.toSet().difference(seenCommentIds.toSet()),
+        ),
+        newReactionIds = Set.unmodifiable(
+          reactionIds.toSet().difference(seenReactionIds.toSet()),
+        );
+
+  final Set<String> commentIds;
+  final Set<String> reactionIds;
+  final Set<String> newCommentIds;
+  final Set<String> newReactionIds;
+
+  int get commentCount => commentIds.length;
+  int get reactionCount => reactionIds.length;
+  int get newCommentCount => newCommentIds.length;
+  int get newReactionCount => newReactionIds.length;
+  int get newActivityCount => newCommentCount + newReactionCount;
+  bool get hasNewActivity => newActivityCount > 0;
+}
+
+class BingoActivityOverview {
+  const BingoActivityOverview({
+    required this.commentCount,
+    required this.reactionCount,
+    required this.newCommentCount,
+    required this.newReactionCount,
+    required this.bingoWithNewActivityCount,
+  });
+
+  final int commentCount;
+  final int reactionCount;
+  final int newCommentCount;
+  final int newReactionCount;
+  final int bingoWithNewActivityCount;
+
+  int get newActivityCount => newCommentCount + newReactionCount;
+  bool get hasNewActivity => newActivityCount > 0;
+}
+
+class BingoActivityService {
+  const BingoActivityService._();
+
+  static const _preferencePrefix = 'choloto_admin_bingo_activity_v1';
+  static const _dashboardPublicationLimit = 20;
+
+  static Future<BingoActivitySnapshot> load(
+    DocumentReference bingoReference,
+  ) async {
+    final preferences = await SharedPreferences.getInstance();
+    return _loadWithPreferences(bingoReference, preferences);
+  }
+
+  static Future<BingoActivitySnapshot> _loadWithPreferences(
+    DocumentReference bingoReference,
+    SharedPreferences preferences,
+  ) async {
+    final snapshots = await Future.wait([
+      bingoReference.collection('comments').get(),
+      bingoReference.collection('hiddenComments').get(),
+      bingoReference.collection('bingostats').get(),
+    ]);
+
+    final commentIds = {
+      ...snapshots[0].docs.map((document) => document.id),
+      ...snapshots[1].docs.map((document) => document.id),
+    };
+    final reactionIds =
+        snapshots[2].docs.map((document) => document.id).toSet();
+
+    return BingoActivitySnapshot(
+      commentIds: commentIds,
+      reactionIds: reactionIds,
+      seenCommentIds:
+          preferences.getStringList(_key(bingoReference, 'comments')) ??
+              const [],
+      seenReactionIds:
+          preferences.getStringList(_key(bingoReference, 'reactions')) ??
+              const [],
+    );
+  }
+
+  static Future<BingoActivityOverview> loadOverview() async {
+    final bingoSnapshot = await FirebaseFirestore.instance
+        .collection('bingo')
+        .orderBy('date', descending: true)
+        .limit(_dashboardPublicationLimit)
+        .get();
+    final preferences = await SharedPreferences.getInstance();
+    final activities = await Future.wait(
+      bingoSnapshot.docs.map(
+        (document) => _loadWithPreferences(document.reference, preferences),
+      ),
+    );
+
+    var commentCount = 0;
+    var reactionCount = 0;
+    var newCommentCount = 0;
+    var newReactionCount = 0;
+    var bingoWithNewActivityCount = 0;
+    for (final activity in activities) {
+      commentCount += activity.commentCount;
+      reactionCount += activity.reactionCount;
+      newCommentCount += activity.newCommentCount;
+      newReactionCount += activity.newReactionCount;
+      if (activity.hasNewActivity) bingoWithNewActivityCount++;
+    }
+
+    return BingoActivityOverview(
+      commentCount: commentCount,
+      reactionCount: reactionCount,
+      newCommentCount: newCommentCount,
+      newReactionCount: newReactionCount,
+      bingoWithNewActivityCount: bingoWithNewActivityCount,
+    );
+  }
+
+  static Future<void> markCommentsSeen(
+    DocumentReference bingoReference,
+    Iterable<String> commentIds,
+  ) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setStringList(
+      _key(bingoReference, 'comments'),
+      commentIds.toSet().toList()..sort(),
+    );
+  }
+
+  static Future<void> markReactionsSeen(
+    DocumentReference bingoReference,
+    Iterable<String> reactionIds,
+  ) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setStringList(
+      _key(bingoReference, 'reactions'),
+      reactionIds.toSet().toList()..sort(),
+    );
+  }
+
+  static String _key(DocumentReference bingoReference, String activityType) {
+    final adminId = FirebaseAuth.instance.currentUser?.uid ?? 'local-admin';
+    final bingoPath = bingoReference.path.replaceAll('/', '__');
+    return '${_preferencePrefix}_${adminId}_${bingoPath}_$activityType';
+  }
+}
 
 class BingoCommentEntry {
   const BingoCommentEntry({

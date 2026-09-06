@@ -2,6 +2,35 @@ import 'package:c_h_o_l_o_t_o_dashboard/publications_history/bingo_comments_serv
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('identifies only unseen Bingo comments and reactions as new', () {
+    final activity = BingoActivitySnapshot(
+      commentIds: const ['comment-1', 'comment-2', 'comment-3'],
+      reactionIds: const ['reaction-1', 'reaction-2'],
+      seenCommentIds: const ['comment-1'],
+      seenReactionIds: const ['reaction-1', 'removed-reaction'],
+    );
+
+    expect(activity.commentCount, 3);
+    expect(activity.reactionCount, 2);
+    expect(activity.newCommentIds, {'comment-2', 'comment-3'});
+    expect(activity.newReactionIds, {'reaction-2'});
+    expect(activity.newActivityCount, 3);
+    expect(activity.hasNewActivity, isTrue);
+  });
+
+  test('reports Bingo activity as read when every current item was seen', () {
+    final activity = BingoActivitySnapshot(
+      commentIds: const ['comment-1'],
+      reactionIds: const ['reaction-1'],
+      seenCommentIds: const ['comment-1'],
+      seenReactionIds: const ['reaction-1'],
+    );
+
+    expect(activity.newCommentCount, 0);
+    expect(activity.newReactionCount, 0);
+    expect(activity.hasNewActivity, isFalse);
+  });
+
   test('maps a stored Bingo comment and its author profile', () {
     final createdAt = DateTime(2026, 8, 23, 9, 30);
     final updatedAt = DateTime(2026, 8, 23, 9, 35);
