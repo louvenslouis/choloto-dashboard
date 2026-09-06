@@ -1,4 +1,5 @@
 import '/payments/payment_reviews_widget.dart';
+import '/support/support_inbox_widget.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/admin_ui.dart';
@@ -176,6 +177,7 @@ class _DashboardWidgetState extends State<DashboardWidget> {
                       ),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
+                          const PendingSupportConversationsTile(),
                           const PendingPaymentRequestsTile(),
                           const SizedBox(height: 20),
                           FutureBuilder<BingoActivityOverview>(

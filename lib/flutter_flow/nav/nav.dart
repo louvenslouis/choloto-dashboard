@@ -103,6 +103,12 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           builder: (context, params) => const PaymentReviewsWidget(),
         ),
         FFRoute(
+          name: SupportInboxWidget.routeName,
+          path: SupportInboxWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => const SupportInboxWidget(),
+        ),
+        FFRoute(
           name: DashboardWidget.routeName,
           path: DashboardWidget.routePath,
           requireAuth: true,

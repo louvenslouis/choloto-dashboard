@@ -10,3 +10,4 @@ export '/youtube/youtube_widget.dart' show YoutubeWidget;
 export '/publications/publications_widget.dart' show PublicationsWidget;
 export '/publications_history/publications_history_widget.dart'
     show PublicationsHistoryWidget;
+export '/support/support_inbox_widget.dart' show SupportInboxWidget;
