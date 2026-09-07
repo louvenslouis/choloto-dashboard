@@ -131,7 +131,15 @@ class _PaymentReviewsWidgetState extends State<PaymentReviewsWidget> {
 
 /// Live entry on the dashboard; the query downloads metadata, never images.
 class PendingPaymentRequestsTile extends StatefulWidget {
-  const PendingPaymentRequestsTile({super.key});
+  const PendingPaymentRequestsTile({
+    super.key,
+    this.compact = false,
+    this.showBottomSpacing = true,
+  });
+
+  final bool compact;
+  final bool showBottomSpacing;
+
   @override
   State<PendingPaymentRequestsTile> createState() =>
       _PendingPaymentRequestsTileState();
@@ -144,22 +152,35 @@ class _PendingPaymentRequestsTileState
   Widget build(BuildContext context) {
     final t = FlutterFlowTheme.of(context);
     return Padding(
-        padding: EdgeInsets.only(bottom: t.designToken.spacing.md),
+        padding: EdgeInsets.only(
+            bottom: widget.showBottomSpacing ? t.designToken.spacing.md : 0),
         child: AdminSurface(
+            padding: EdgeInsets.all(widget.compact ? 14 : 16),
             child: StreamBuilder<List<PaymentRequest>>(
                 stream: _stream,
                 builder: (context, snapshot) => ListTile(
+                      dense: widget.compact,
                       contentPadding: EdgeInsets.zero,
-                      leading: const AdminIconTile(
-                          icon: Icons.receipt_long_outlined),
+                      horizontalTitleGap: widget.compact ? 10 : null,
+                      leading: AdminIconTile(
+                        icon: Icons.receipt_long_outlined,
+                        size: widget.compact ? 40 : 44,
+                        iconSize: widget.compact ? 20 : 22,
+                        radius: widget.compact ? 13 : 14,
+                      ),
                       title: Text(paymentText(context, 'adminTitle'),
-                          style: t.titleLarge),
+                          maxLines: widget.compact ? 2 : 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: widget.compact ? t.titleMedium : t.titleLarge),
                       subtitle: Text(
                           snapshot.hasError
                               ? paymentText(context, 'error')
                               : '${paymentText(context, 'pending')}${snapshot.hasData ? ' · ${snapshot.data!.length}' : ''}',
+                          maxLines: widget.compact ? 2 : 1,
+                          overflow: TextOverflow.ellipsis,
                           style: t.bodyMedium),
-                      trailing: Icon(Icons.chevron_right, color: t.primary),
+                      trailing: Icon(Icons.chevron_right,
+                          color: t.primary, size: widget.compact ? 20 : 24),
                       onTap: () =>
                           context.pushNamed(PaymentReviewsWidget.routeName),
                     ))));

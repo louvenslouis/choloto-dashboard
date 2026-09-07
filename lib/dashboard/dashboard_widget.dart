@@ -177,19 +177,9 @@ class _DashboardWidgetState extends State<DashboardWidget> {
                       ),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
-                          const PendingSupportConversationsTile(),
-                          const PendingPaymentRequestsTile(),
-                          const SizedBox(height: 20),
-                          FutureBuilder<BingoActivityOverview>(
-                            future: _bingoActivityFuture,
-                            builder: (context, snapshot) =>
-                                _BingoActivityOverviewCard(
-                              overview: snapshot.data,
-                              loading: snapshot.connectionState ==
-                                  ConnectionState.waiting,
-                              hasError: snapshot.hasError,
-                              onRetry: _refresh,
-                            ),
+                          _DashboardNotificationCards(
+                            bingoActivityFuture: _bingoActivityFuture,
+                            onRetry: _refresh,
                           ),
                           const SizedBox(height: 20),
                           FutureBuilder<_DashboardData>(
@@ -349,18 +339,101 @@ class _Header extends StatelessWidget {
   }
 }
 
+class _DashboardNotificationCards extends StatelessWidget {
+  const _DashboardNotificationCards({
+    required this.bingoActivityFuture,
+    required this.onRetry,
+  });
+
+  final Future<BingoActivityOverview> bingoActivityFuture;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    const gap = 14.0;
+    const cardHeight = 118.0;
+    const minimumRowCardWidth = 205.0;
+    const scrollingCardWidth = 260.0;
+
+    Widget buildCard(Widget child) => SizedBox(
+          height: cardHeight,
+          child: child,
+        );
+
+    final cards = <Widget>[
+      buildCard(
+        const PendingSupportConversationsTile(
+          compact: true,
+          showBottomSpacing: false,
+        ),
+      ),
+      buildCard(
+        const PendingPaymentRequestsTile(
+          compact: true,
+          showBottomSpacing: false,
+        ),
+      ),
+      buildCard(
+        FutureBuilder<BingoActivityOverview>(
+          future: bingoActivityFuture,
+          builder: (context, snapshot) => _BingoActivityOverviewCard(
+            overview: snapshot.data,
+            loading: snapshot.connectionState == ConnectionState.waiting,
+            hasError: snapshot.hasError,
+            onRetry: onRetry,
+            compact: true,
+          ),
+        ),
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableCardWidth =
+            (constraints.maxWidth - (gap * (cards.length - 1))) / cards.length;
+
+        if (availableCardWidth >= minimumRowCardWidth) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var index = 0; index < cards.length; index++) ...[
+                if (index > 0) const SizedBox(width: gap),
+                Expanded(child: cards[index]),
+              ],
+            ],
+          );
+        }
+
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (var index = 0; index < cards.length; index++) ...[
+                if (index > 0) const SizedBox(width: gap),
+                SizedBox(width: scrollingCardWidth, child: cards[index]),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _BingoActivityOverviewCard extends StatelessWidget {
   const _BingoActivityOverviewCard({
     required this.overview,
     required this.loading,
     required this.hasError,
     required this.onRetry,
+    this.compact = false,
   });
 
   final BingoActivityOverview? overview;
   final bool loading;
   final bool hasError;
   final VoidCallback onRetry;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -378,7 +451,7 @@ class _BingoActivityOverviewCard extends StatelessWidget {
             ? onRetry
             : () => context.goNamed(PublicationsHistoryWidget.routeName),
         child: Ink(
-          padding: const EdgeInsets.all(18),
+          padding: EdgeInsets.all(compact ? 14 : 18),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
@@ -404,36 +477,41 @@ class _BingoActivityOverviewCard extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 52,
-                height: 52,
+                width: compact ? 42 : 52,
+                height: compact ? 42 : 52,
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: .16),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(compact ? 13 : 16),
                 ),
                 child: Icon(
                   hasNewActivity
                       ? Icons.notifications_active_rounded
                       : Icons.mark_chat_read_rounded,
                   color: accent,
-                  size: 27,
+                  size: compact ? 22 : 27,
                 ),
               ),
-              const SizedBox(width: 15),
+              SizedBox(width: compact ? 11 : 15),
               Expanded(
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
                         Expanded(
                           child: Text(
-                            'Activité récente des BINGO',
+                            compact
+                                ? 'Activité BINGO'
+                                : 'Activité récente des BINGO',
+                            maxLines: compact ? 2 : 1,
+                            overflow: TextOverflow.ellipsis,
                             style: theme.titleMedium.copyWith(
                               fontWeight: FontWeight.w800,
                             ),
                           ),
                         ),
-                        if (!loading && !hasError)
+                        if (!compact && !loading && !hasError)
                           AdminStatusPill(
                             label: hasNewActivity
                                 ? '${data!.newActivityCount} NOUVEAU${data.newActivityCount > 1 ? 'X' : ''}'
@@ -457,27 +535,44 @@ class _BingoActivityOverviewCard extends StatelessWidget {
                         style: theme.bodySmall.copyWith(color: theme.error),
                       )
                     else
-                      Wrap(
-                        spacing: 14,
-                        runSpacing: 5,
-                        children: [
-                          _BingoActivityMetric(
-                            icon: Icons.chat_bubble_rounded,
-                            label:
-                                '${data!.newCommentCount} nouveau${data.newCommentCount == 1 ? '' : 'x'} commentaire${data.newCommentCount == 1 ? '' : 's'}',
-                            color: theme.primary,
-                            emphasized: data.newCommentCount > 0,
-                          ),
-                          _BingoActivityMetric(
-                            icon: Icons.favorite_rounded,
-                            label:
-                                '${data.newReactionCount} nouvelle${data.newReactionCount == 1 ? '' : 's'} réaction${data.newReactionCount == 1 ? '' : 's'}',
-                            color: theme.error,
-                            emphasized: data.newReactionCount > 0,
-                          ),
-                        ],
-                      ),
-                    if (!loading && !hasError && hasNewActivity) ...[
+                      compact
+                          ? Text(
+                              '${data!.newCommentCount} commentaire${data.newCommentCount == 1 ? '' : 's'} • ${data.newReactionCount} réaction${data.newReactionCount == 1 ? '' : 's'}',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.bodySmall.copyWith(
+                                color: hasNewActivity
+                                    ? theme.primaryText
+                                    : theme.secondaryText,
+                                fontWeight: hasNewActivity
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                              ),
+                            )
+                          : Wrap(
+                              spacing: 14,
+                              runSpacing: 5,
+                              children: [
+                                _BingoActivityMetric(
+                                  icon: Icons.chat_bubble_rounded,
+                                  label:
+                                      '${data!.newCommentCount} nouveau${data.newCommentCount == 1 ? '' : 'x'} commentaire${data.newCommentCount == 1 ? '' : 's'}',
+                                  color: theme.primary,
+                                  emphasized: data.newCommentCount > 0,
+                                ),
+                                _BingoActivityMetric(
+                                  icon: Icons.favorite_rounded,
+                                  label:
+                                      '${data.newReactionCount} nouvelle${data.newReactionCount == 1 ? '' : 's'} réaction${data.newReactionCount == 1 ? '' : 's'}',
+                                  color: theme.error,
+                                  emphasized: data.newReactionCount > 0,
+                                ),
+                              ],
+                            ),
+                    if (!compact &&
+                        !loading &&
+                        !hasError &&
+                        hasNewActivity) ...[
                       const SizedBox(height: 6),
                       Text(
                         'Sur ${data!.bingoWithNewActivityCount} publication${data.bingoWithNewActivityCount == 1 ? '' : 's'} • Ouvrir l’historique pour les consulter',

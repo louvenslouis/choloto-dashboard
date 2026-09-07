@@ -201,9 +201,16 @@ class SupportConversationList extends StatelessWidget {
 }
 
 class PendingSupportConversationsTile extends StatefulWidget {
-  const PendingSupportConversationsTile({super.key, this.repository});
+  const PendingSupportConversationsTile({
+    super.key,
+    this.repository,
+    this.compact = false,
+    this.showBottomSpacing = true,
+  });
 
   final SupportConversationRepository? repository;
+  final bool compact;
+  final bool showBottomSpacing;
 
   @override
   State<PendingSupportConversationsTile> createState() =>
@@ -219,8 +226,11 @@ class _PendingSupportConversationsTileState
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
     return Padding(
-      padding: EdgeInsets.only(bottom: theme.designToken.spacing.md),
+      padding: EdgeInsets.only(
+        bottom: widget.showBottomSpacing ? theme.designToken.spacing.md : 0,
+      ),
       child: AdminSurface(
+        padding: EdgeInsets.all(widget.compact ? 14 : 16),
         child: StreamBuilder<List<SupportConversation>>(
           stream: _repository.watchAll(),
           builder: (context, snapshot) {
@@ -230,16 +240,34 @@ class _PendingSupportConversationsTileState
                 0;
             return ListTile(
               key: const ValueKey('pending-support-conversations'),
+              dense: widget.compact,
               contentPadding: EdgeInsets.zero,
-              leading: const AdminIconTile(icon: Icons.support_agent_rounded),
-              title: Text('Service client', style: theme.titleLarge),
+              horizontalTitleGap: widget.compact ? 10 : null,
+              leading: AdminIconTile(
+                icon: Icons.support_agent_rounded,
+                size: widget.compact ? 40 : 44,
+                iconSize: widget.compact ? 20 : 22,
+                radius: widget.compact ? 13 : 14,
+              ),
+              title: Text(
+                'Service client',
+                maxLines: widget.compact ? 2 : 1,
+                overflow: TextOverflow.ellipsis,
+                style: widget.compact ? theme.titleMedium : theme.titleLarge,
+              ),
               subtitle: Text(
                 snapshot.hasError
                     ? 'Conversations indisponibles'
                     : '$waiting conversation${waiting == 1 ? '' : 's'} à traiter',
+                maxLines: widget.compact ? 2 : 1,
+                overflow: TextOverflow.ellipsis,
                 style: theme.bodyMedium,
               ),
-              trailing: Icon(Icons.chevron_right_rounded, color: theme.primary),
+              trailing: Icon(
+                Icons.chevron_right_rounded,
+                color: theme.primary,
+                size: widget.compact ? 20 : 24,
+              ),
               onTap: () => context.pushNamed(SupportInboxWidget.routeName),
             );
           },
