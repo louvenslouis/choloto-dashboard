@@ -117,8 +117,7 @@ void main() {
     expect(find.text('Utilisateurs'), findsOneWidget);
   });
 
-  testWidgets('user sorting offers alphabetical, recent, and expiration modes',
-      (tester) async {
+  testWidgets('user sorting offers every supported mode', (tester) async {
     var selectedMode = UserSortMode.alphabetical;
 
     await tester.pumpWidget(
@@ -143,13 +142,43 @@ void main() {
     expect(find.text('Ordre alphabétique'), findsOneWidget);
     expect(find.text('Dernière modification'), findsOneWidget);
     expect(find.text('Expiration proche'), findsOneWidget);
+    expect(find.text('Nouveaux utilisateurs'), findsOneWidget);
 
-    await tester.tap(find.text('Expiration proche'));
+    await tester.tap(find.text('Nouveaux utilisateurs'));
     await tester.pumpAndSettle();
 
-    expect(selectedMode, UserSortMode.nearestExpiration);
-    expect(find.text('Expiration proche'), findsOneWidget);
+    expect(selectedMode, UserSortMode.newestUsers);
+    expect(find.text('Nouveaux utilisateurs'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  test('creation sorting places the newest users first and missing dates last',
+      () {
+    final newest = DateTime(2026, 9, 8, 10);
+    final older = DateTime(2026, 8, 20, 10);
+    final creationDates = <DateTime?>[older, null, newest]
+      ..sort(compareUserCreationDates);
+
+    expect(creationDates, [newest, older, null]);
+  });
+
+  test('new user badge remains active during the first six days', () {
+    final createdAt = DateTime(2026, 9, 1, 12);
+
+    expect(
+      isNewUser(
+        createdAt,
+        createdAt.add(newUserBadgeDuration).subtract(
+              const Duration(microseconds: 1),
+            ),
+      ),
+      isTrue,
+    );
+    expect(
+      isNewUser(createdAt, createdAt.add(newUserBadgeDuration)),
+      isFalse,
+    );
+    expect(isNewUser(null, createdAt), isFalse);
   });
 
   test('expiration sorting keeps expired users at the end', () {

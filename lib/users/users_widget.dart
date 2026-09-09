@@ -19,7 +19,27 @@ export 'users_model.dart';
 
 enum _UsersViewMode { cards, list }
 
-enum UserSortMode { alphabetical, lastModified, nearestExpiration }
+enum UserSortMode {
+  alphabetical,
+  lastModified,
+  nearestExpiration,
+  newestUsers,
+}
+
+const newUserBadgeDuration = Duration(days: 6);
+
+bool isNewUser(DateTime? createdAt, DateTime referenceDate) {
+  if (createdAt == null) return false;
+  final age = referenceDate.difference(createdAt);
+  return !age.isNegative && age < newUserBadgeDuration;
+}
+
+int compareUserCreationDates(DateTime? first, DateTime? second) {
+  if (first == null && second == null) return 0;
+  if (first == null) return 1;
+  if (second == null) return -1;
+  return second.compareTo(first);
+}
 
 int compareUserExpirationDates(
   DateTime? first,
@@ -137,6 +157,16 @@ class _UsersWidgetState extends State<UsersWidget> {
       return expirationComparison == 0
           ? alphabeticalComparison
           : expirationComparison;
+    }
+
+    if (_sortMode == UserSortMode.newestUsers) {
+      final creationComparison = compareUserCreationDates(
+        first.createdTime,
+        second.createdTime,
+      );
+      return creationComparison == 0
+          ? alphabeticalComparison
+          : creationComparison;
     }
 
     final firstModified = first.updatedTime ?? first.createdTime;
@@ -1022,11 +1052,13 @@ class UserSortControl extends StatelessWidget {
       UserSortMode.alphabetical => 'Alphabétique',
       UserSortMode.lastModified => 'Modifiés récemment',
       UserSortMode.nearestExpiration => 'Expiration proche',
+      UserSortMode.newestUsers => 'Nouveaux utilisateurs',
     };
     final icon = switch (value) {
       UserSortMode.alphabetical => Icons.sort_by_alpha_rounded,
       UserSortMode.lastModified => Icons.history_rounded,
       UserSortMode.nearestExpiration => Icons.schedule_rounded,
+      UserSortMode.newestUsers => Icons.person_add_alt_1_rounded,
     };
 
     return Semantics(
@@ -1057,6 +1089,12 @@ class UserSortControl extends StatelessWidget {
               mode: UserSortMode.nearestExpiration,
               icon: Icons.schedule_rounded,
               label: 'Expiration proche',
+            ),
+            _sortMenuItem(
+              context,
+              mode: UserSortMode.newestUsers,
+              icon: Icons.person_add_alt_1_rounded,
+              label: 'Nouveaux utilisateurs',
             ),
           ],
           child: Container(
@@ -1404,8 +1442,9 @@ class _UserListItemState extends State<_UserListItem> {
     final phone = user.phoneNumber.trim().isEmpty
         ? 'Téléphone non renseigné'
         : user.phoneNumber.trim();
-    final active =
-        user.endSub != null && !user.endSub!.isBefore(DateTime.now());
+    final now = DateTime.now();
+    final active = user.endSub != null && !user.endSub!.isBefore(now);
+    final isNew = isNewUser(user.createdTime, now);
     final statusColor = active ? theme.success : theme.error;
     final initial = name.characters.first.toUpperCase();
     final deadline = user.endSub == null
@@ -1430,18 +1469,25 @@ class _UserListItemState extends State<_UserListItem> {
           ),
         ),
         const SizedBox(height: 5),
-        AdminStatusPill(
-          label: active ? 'VIP ACTIF' : 'ACCÈS GRATUIT',
-          color: statusColor,
-          compact: true,
-          leading: Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            AdminStatusPill(
+              label: active ? 'VIP ACTIF' : 'ACCÈS GRATUIT',
               color: statusColor,
-              shape: BoxShape.circle,
+              compact: true,
+              leading: Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
             ),
-          ),
+            if (isNew) const _NewUserBadge(),
+          ],
         ),
         const SizedBox(height: 7),
         UserAuthProviderBadges(
@@ -1885,6 +1931,20 @@ class _AuthProviderBadge extends StatelessWidget {
   }
 }
 
+class _NewUserBadge extends StatelessWidget {
+  const _NewUserBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    return AdminStatusPill(
+      label: 'NOUVEAU',
+      color: theme.primary,
+      compact: true,
+    );
+  }
+}
+
 class _UserCard extends StatefulWidget {
   const _UserCard({
     required this.user,
@@ -1916,8 +1976,9 @@ class _UserCardState extends State<_UserCard> {
         : user.displayName.trim();
     final email =
         user.email.trim().isEmpty ? 'E-mail non renseigné' : user.email.trim();
-    final active =
-        user.endSub != null && !user.endSub!.isBefore(DateTime.now());
+    final now = DateTime.now();
+    final active = user.endSub != null && !user.endSub!.isBefore(now);
+    final isNew = isNewUser(user.createdTime, now);
     final statusColor = active ? theme.success : theme.error;
     final initial = name.characters.first.toUpperCase();
 
@@ -1973,18 +2034,25 @@ class _UserCardState extends State<_UserCard> {
                               ),
                             ),
                             const SizedBox(height: 5),
-                            AdminStatusPill(
-                              label: active ? 'VIP ACTIF' : 'ACCÈS GRATUIT',
-                              color: statusColor,
-                              compact: true,
-                              leading: Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                AdminStatusPill(
+                                  label: active ? 'VIP ACTIF' : 'ACCÈS GRATUIT',
                                   color: statusColor,
-                                  shape: BoxShape.circle,
+                                  compact: true,
+                                  leading: Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      color: statusColor,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                if (isNew) const _NewUserBadge(),
+                              ],
                             ),
                             const SizedBox(height: 7),
                             UserAuthProviderBadges(
