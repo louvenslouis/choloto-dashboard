@@ -6,6 +6,8 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/pages/sidenav/sidenav_widget.dart';
 import 'support_conversation.dart';
+import 'support_audio_player.dart';
+import 'support_text.dart';
 
 class SupportInboxWidget extends StatefulWidget {
   const SupportInboxWidget({super.key, this.repository});
@@ -395,8 +397,11 @@ class _SupportConversationPageState extends State<SupportConversationPage> {
                         controller: _scrollController,
                         padding: EdgeInsets.all(spacing.md),
                         itemCount: messages.length,
-                        itemBuilder: (context, index) =>
-                            _AdminMessageBubble(message: messages[index]),
+                        itemBuilder: (context, index) => _AdminMessageBubble(
+                          message: messages[index],
+                          conversationId: widget.conversation.id,
+                          repository: widget.repository,
+                        ),
                       );
                     },
                   ),
@@ -479,9 +484,15 @@ class _SupportConversationPageState extends State<SupportConversationPage> {
 }
 
 class _AdminMessageBubble extends StatelessWidget {
-  const _AdminMessageBubble({required this.message});
+  const _AdminMessageBubble({
+    required this.message,
+    required this.conversationId,
+    required this.repository,
+  });
 
   final SupportMessage message;
+  final String conversationId;
+  final SupportConversationRepository repository;
 
   @override
   Widget build(BuildContext context) {
@@ -510,12 +521,32 @@ class _AdminMessageBubble extends StatelessWidget {
               ),
             ),
             SizedBox(height: spacing.xs),
-            Text(
-              message.text,
-              style: theme.bodyLarge.override(
-                color: fromAdmin ? theme.info : theme.primaryText,
+            if (message.hasAudio) ...[
+              SupportAudioPlayer(
+                key: ValueKey('admin-support-audio-${message.id}'),
+                onPrimary: fromAdmin,
+                load: () => repository.loadMessageAudio(
+                    conversationId: conversationId, messageId: message.id),
               ),
-            ),
+              SizedBox(height: spacing.sm),
+            ],
+            if (message.hasImage) ...[
+              _AdminSupportImage(
+                key: ValueKey('admin-support-image-${message.id}'),
+                image: repository.loadMessageImage(
+                  conversationId: conversationId,
+                  messageId: message.id,
+                ),
+              ),
+              SizedBox(height: spacing.sm),
+            ],
+            if (!message.hasAudio || !isSupportAudioPlaceholder(message.text))
+              Text(
+                message.text,
+                style: theme.bodyLarge.override(
+                  color: fromAdmin ? theme.info : theme.primaryText,
+                ),
+              ),
             if (message.createdAt != null) ...[
               SizedBox(height: spacing.xs),
               Text(
@@ -533,6 +564,98 @@ class _AdminMessageBubble extends StatelessWidget {
     );
   }
 }
+
+class _AdminSupportImage extends StatefulWidget {
+  const _AdminSupportImage({super.key, required this.image});
+
+  final Future<Uint8List> image;
+
+  @override
+  State<_AdminSupportImage> createState() => _AdminSupportImageState();
+}
+
+class _AdminSupportImageState extends State<_AdminSupportImage> {
+  late final Future<Uint8List> _image = widget.image;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    final spacing = theme.designToken.spacing;
+    return FutureBuilder<Uint8List>(
+      future: _image,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.broken_image_outlined, color: theme.error, size: 20),
+              SizedBox(width: spacing.xs),
+              Text('Impossible de charger l’image.',
+                  style: theme.bodySmall.override(color: theme.error)),
+            ],
+          );
+        }
+        if (!snapshot.hasData) {
+          return SizedBox(
+            width: 48,
+            height: 48,
+            child: Padding(
+              padding: EdgeInsets.all(spacing.sm),
+              child: CircularProgressIndicator(
+                color: theme.primary,
+                strokeWidth: 2,
+              ),
+            ),
+          );
+        }
+        final bytes = snapshot.data!;
+        return InkWell(
+          onTap: () => _showAdminSupportImage(context, bytes),
+          borderRadius: BorderRadius.circular(theme.designToken.radius.sm),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(theme.designToken.radius.sm),
+            child: Image.memory(
+              bytes,
+              width: 300,
+              height: 240,
+              fit: BoxFit.cover,
+              semanticLabel: 'Image jointe au message',
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+Future<void> _showAdminSupportImage(BuildContext context, Uint8List bytes) =>
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        final theme = FlutterFlowTheme.of(context);
+        return AlertDialog(
+          backgroundColor: theme.secondaryBackground,
+          content: SizedBox(
+            width: 760,
+            child: InteractiveViewer(
+              minScale: 1,
+              maxScale: 5,
+              child: Image.memory(
+                bytes,
+                fit: BoxFit.contain,
+                semanticLabel: 'Image jointe au message',
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Fermer'),
+            ),
+          ],
+        );
+      },
+    );
 
 class _InboxState extends StatelessWidget {
   const _InboxState({required this.icon, required this.message});

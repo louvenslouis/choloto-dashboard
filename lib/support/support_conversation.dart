@@ -1,4 +1,10 @@
+import 'support_audio.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '/payments/payment_request.dart' show maxProofBytes;
 
 DateTime? supportDate(Object? value) => value is Timestamp
     ? value.toDate()
@@ -36,6 +42,8 @@ class SupportMessage {
   String get senderUid => data['sender_uid'] as String? ?? '';
   String get senderRole => data['sender_role'] as String? ?? '';
   String get text => data['text'] as String? ?? '';
+  bool get hasImage => data['attachment_type'] == 'image';
+  bool get hasAudio => data['attachment_type'] == 'audio';
   DateTime? get createdAt => supportDate(data['created_at']);
   bool get sentByAdmin => senderRole == 'admin';
 }
@@ -65,6 +73,42 @@ class SupportConversationRepository {
           .toList()
         ..sort((a, b) => (a.createdAt ?? DateTime(1970))
             .compareTo(b.createdAt ?? DateTime(1970))));
+
+  Future<Uint8List> loadMessageImage({
+    required String conversationId,
+    required String messageId,
+  }) async {
+    final snapshot = await conversations
+        .doc(conversationId)
+        .collection('messages')
+        .doc(messageId)
+        .collection('attachments')
+        .doc('image')
+        .get();
+    final data = snapshot.data();
+    if (data == null ||
+        data['base64'] is! String ||
+        (data['base64'] as String).length > 800000) {
+      throw const FormatException('support-image-unavailable');
+    }
+    final bytes = base64Decode(data['base64'] as String);
+    if (bytes.isEmpty || bytes.length > maxProofBytes) {
+      throw const FormatException('invalid-support-image');
+    }
+    return bytes;
+  }
+
+  Future<SupportAudio> loadMessageAudio(
+      {required String conversationId, required String messageId}) async {
+    final snapshot = await conversations
+        .doc(conversationId)
+        .collection('messages')
+        .doc(messageId)
+        .collection('attachments')
+        .doc('audio')
+        .get();
+    return SupportAudio.fromData(snapshot.data());
+  }
 
   Future<void> sendAdminReply({
     required String conversationId,
