@@ -3,9 +3,18 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-enum OfficialLottery { newYork, florida }
+enum OfficialLottery {
+  newYork,
+  florida,
+  texas,
+  maryland,
+  georgia,
+  tennessee,
+  pennsylvania,
+  newJersey,
+}
 
-enum OfficialDrawPeriod { midday, evening }
+enum OfficialDrawPeriod { morning, midday, day, evening, night }
 
 class OfficialLotteryProposal {
   const OfficialLotteryProposal({
@@ -27,11 +36,23 @@ class OfficialLotteryProposal {
   String get lotteryCode => switch (lottery) {
         OfficialLottery.newYork => 'ny',
         OfficialLottery.florida => 'fl',
+        OfficialLottery.texas => 'tx',
+        OfficialLottery.maryland => 'md',
+        OfficialLottery.georgia => 'ga',
+        OfficialLottery.tennessee => 'tn',
+        OfficialLottery.pennsylvania => 'pa',
+        OfficialLottery.newJersey => 'nj',
       };
 
   String get lotteryLabel => switch (lottery) {
         OfficialLottery.newYork => 'New York',
         OfficialLottery.florida => 'Floride',
+        OfficialLottery.texas => 'Texas',
+        OfficialLottery.maryland => 'Maryland',
+        OfficialLottery.georgia => 'Georgia',
+        OfficialLottery.tennessee => 'Tennessee',
+        OfficialLottery.pennsylvania => 'Pennsylvania',
+        OfficialLottery.newJersey => 'New Jersey',
       };
 
   String get periodLabel => switch ((lottery, period)) {
@@ -39,11 +60,31 @@ class OfficialLotteryProposal {
         (OfficialLottery.newYork, OfficialDrawPeriod.evening) => '10:30 PM',
         (OfficialLottery.florida, OfficialDrawPeriod.midday) => '01:34 PM',
         (OfficialLottery.florida, OfficialDrawPeriod.evening) => '09:49 PM',
+        (OfficialLottery.texas, OfficialDrawPeriod.morning) => 'MORNING',
+        (OfficialLottery.texas, OfficialDrawPeriod.day) => 'DAY',
+        (OfficialLottery.texas, OfficialDrawPeriod.evening) => 'EVENING',
+        (OfficialLottery.texas, OfficialDrawPeriod.night) => 'NIGHT',
+        (OfficialLottery.maryland, OfficialDrawPeriod.midday) => 'MIDDAY',
+        (OfficialLottery.maryland, OfficialDrawPeriod.evening) => 'EVENING',
+        (OfficialLottery.georgia, OfficialDrawPeriod.midday) => 'MIDDAY',
+        (OfficialLottery.georgia, OfficialDrawPeriod.evening) => 'EVENING',
+        (OfficialLottery.georgia, OfficialDrawPeriod.night) => 'NIGHT',
+        (OfficialLottery.tennessee, OfficialDrawPeriod.morning) => 'MORNING',
+        (OfficialLottery.tennessee, OfficialDrawPeriod.midday) => 'MIDDAY',
+        (OfficialLottery.tennessee, OfficialDrawPeriod.evening) => 'EVENING',
+        (OfficialLottery.pennsylvania, OfficialDrawPeriod.day) => 'DAY',
+        (OfficialLottery.pennsylvania, OfficialDrawPeriod.evening) => 'EVENING',
+        (OfficialLottery.newJersey, OfficialDrawPeriod.midday) => 'MIDDAY',
+        (OfficialLottery.newJersey, OfficialDrawPeriod.evening) => 'EVENING',
+        _ => period.name.toUpperCase(),
       };
 
   String get periodSourceLabel => switch (period) {
         OfficialDrawPeriod.midday => 'MIDDAY',
         OfficialDrawPeriod.evening => 'EVENING',
+        OfficialDrawPeriod.morning => 'MORNING',
+        OfficialDrawPeriod.day => 'DAY',
+        OfficialDrawPeriod.night => 'NIGHT',
       };
 
   List<String> get fieldLabels => switch (lottery) {
@@ -54,11 +95,44 @@ class OfficialLotteryProposal {
             'PK4 · 1–2',
             'PK4 · 3–4',
           ],
+        _ => const ['3CF', '2LO', '3LO'],
       };
 
   List<int> get expectedLengths => switch (lottery) {
         OfficialLottery.newYork => const [3, 2, 2],
         OfficialLottery.florida => const [2, 3, 2, 2],
+        _ => const [3, 2, 2],
+      };
+
+  List<OfficialDrawPeriod> get availablePeriods => switch (lottery) {
+        OfficialLottery.newYork ||
+        OfficialLottery.florida ||
+        OfficialLottery.maryland ||
+        OfficialLottery.newJersey =>
+          const [
+            OfficialDrawPeriod.midday,
+            OfficialDrawPeriod.evening,
+          ],
+        OfficialLottery.texas => const [
+            OfficialDrawPeriod.morning,
+            OfficialDrawPeriod.day,
+            OfficialDrawPeriod.evening,
+            OfficialDrawPeriod.night,
+          ],
+        OfficialLottery.georgia => const [
+            OfficialDrawPeriod.midday,
+            OfficialDrawPeriod.evening,
+            OfficialDrawPeriod.night,
+          ],
+        OfficialLottery.tennessee => const [
+            OfficialDrawPeriod.morning,
+            OfficialDrawPeriod.midday,
+            OfficialDrawPeriod.evening,
+          ],
+        OfficialLottery.pennsylvania => const [
+            OfficialDrawPeriod.day,
+            OfficialDrawPeriod.evening,
+          ],
       };
 
   DateTime get drawDateTime {
@@ -67,6 +141,23 @@ class OfficialLotteryProposal {
       (OfficialLottery.newYork, OfficialDrawPeriod.evening) => (22, 30),
       (OfficialLottery.florida, OfficialDrawPeriod.midday) => (13, 34),
       (OfficialLottery.florida, OfficialDrawPeriod.evening) => (21, 49),
+      (OfficialLottery.texas, OfficialDrawPeriod.morning) => (10, 0),
+      (OfficialLottery.texas, OfficialDrawPeriod.day) => (12, 27),
+      (OfficialLottery.texas, OfficialDrawPeriod.evening) => (18, 0),
+      (OfficialLottery.texas, OfficialDrawPeriod.night) => (22, 12),
+      (OfficialLottery.maryland, OfficialDrawPeriod.midday) => (12, 30),
+      (OfficialLottery.maryland, OfficialDrawPeriod.evening) => (19, 56),
+      (OfficialLottery.georgia, OfficialDrawPeriod.midday) => (12, 29),
+      (OfficialLottery.georgia, OfficialDrawPeriod.evening) => (18, 59),
+      (OfficialLottery.georgia, OfficialDrawPeriod.night) => (23, 34),
+      (OfficialLottery.tennessee, OfficialDrawPeriod.morning) => (10, 28),
+      (OfficialLottery.tennessee, OfficialDrawPeriod.midday) => (13, 28),
+      (OfficialLottery.tennessee, OfficialDrawPeriod.evening) => (18, 28),
+      (OfficialLottery.pennsylvania, OfficialDrawPeriod.day) => (13, 35),
+      (OfficialLottery.pennsylvania, OfficialDrawPeriod.evening) => (18, 59),
+      (OfficialLottery.newJersey, OfficialDrawPeriod.midday) => (12, 59),
+      (OfficialLottery.newJersey, OfficialDrawPeriod.evening) => (22, 57),
+      _ => (12, 0),
     };
     return DateTime(
       drawDate.year,
@@ -123,13 +214,17 @@ class OfficialLotteryFetchResult {
 }
 
 class OfficialLotteryResultsService {
-  OfficialLotteryResultsService({http.Client? client})
-      : _client = client ?? http.Client(),
+  OfficialLotteryResultsService({
+    http.Client? client,
+    this.includeAdditionalLotteries = true,
+  })  : _client = client ?? http.Client(),
         _ownsClient = client == null;
 
   static const newYorkSourceUrl = 'https://data.ny.gov/d/hsys-3def';
   static const floridaSourceUrl =
       'https://floridalottery.com/games/winning-numbers/history';
+  static const additionalLotteriesSourceUrl =
+      'data/official-additional-lottery-results.json';
 
   static final Uri _newYorkApiUrl = Uri.https(
     'data.ny.gov',
@@ -153,6 +248,14 @@ class OfficialLotteryResultsService {
     '/choloto-dashboard/data/official-new-york-results.json',
   );
 
+  static Uri get _additionalStaticSnapshotUrl =>
+      Uri.base.resolve(additionalLotteriesSourceUrl);
+
+  static final Uri _additionalScheduledSnapshotUrl = Uri.https(
+    'louvenslouis.github.io',
+    '/choloto-dashboard/data/official-additional-lottery-results.json',
+  );
+
   static Uri _floridaApiUrl(String gameId) => Uri.https(
         'apim-website-prod-eastus.azure-api.net',
         '/drawgamesapp/getLatestDrawGames',
@@ -161,12 +264,16 @@ class OfficialLotteryResultsService {
 
   final http.Client _client;
   final bool _ownsClient;
+  final bool includeAdditionalLotteries;
 
   Future<OfficialLotteryFetchResult> fetchLatest() async {
-    final loads = await Future.wait([
+    final sourceLoads = <Future<_SourceLoad>>[
       _loadSource('New York', _fetchNewYork),
       _loadSource('Floride', _fetchFlorida),
-    ]);
+      if (includeAdditionalLotteries)
+        _loadSource('Autres loteries', _fetchAdditionalLotteries),
+    ];
+    final loads = await Future.wait(sourceLoads);
 
     final warnings = <String>[];
     final proposals = <OfficialLotteryProposal>[];
@@ -185,14 +292,20 @@ class OfficialLotteryResultsService {
     }
 
     final ordered = <OfficialLotteryProposal>[];
-    for (final slot in const [
-      'ny_midday',
-      'ny_evening',
-      'fl_midday',
-      'fl_evening',
-    ]) {
-      final proposal = latestBySlot[slot];
-      if (proposal != null) ordered.add(proposal);
+    for (final lottery in OfficialLottery.values) {
+      final template = OfficialLotteryProposal(
+        lottery: lottery,
+        period: OfficialDrawPeriod.midday,
+        drawDate: DateTime(2000),
+        numbers: const [],
+        sourceName: '',
+        sourceUrl: '',
+      );
+      for (final period in template.availablePeriods) {
+        final slot = '${template.lotteryCode}_${period.name}';
+        final proposal = latestBySlot[slot];
+        if (proposal != null) ordered.add(proposal);
+      }
     }
 
     return OfficialLotteryFetchResult(
@@ -431,6 +544,78 @@ class OfficialLotteryResultsService {
     return proposals;
   }
 
+  Future<List<OfficialLotteryProposal>> _fetchAdditionalLotteries() async {
+    Object? staticError;
+    List<dynamic>? rows;
+    try {
+      rows = await _requestJsonList(
+        _additionalStaticSnapshotUrl,
+        headers: const {'Accept': 'application/json'},
+      );
+    } catch (error) {
+      staticError = error;
+    }
+
+    if (rows == null) {
+      try {
+        rows = await _requestJsonList(
+          _additionalScheduledSnapshotUrl,
+          headers: const {'Accept': 'application/json'},
+        );
+      } catch (scheduledError) {
+        throw HttpException(
+          'copie web indisponible '
+          '(${_readableError(staticError ?? const HttpException('inconnue'))}), '
+          'puis miroir planifié indisponible '
+          '(${_readableError(scheduledError)})',
+        );
+      }
+    }
+
+    final proposals = <OfficialLotteryProposal>[];
+    for (final value in rows) {
+      if (value is! Map) continue;
+      final row = Map<String, dynamic>.from(value);
+      final lottery = _parseAdditionalLottery(row['lottery']);
+      final period = _parseAdditionalPeriod(row['period']);
+      final drawDate = _parseIsoDate(row['draw_date']);
+      final pick3 = _digits(row['pick3']);
+      final pick4 = _digits(row['pick4']);
+      if (lottery == null ||
+          period == null ||
+          drawDate == null ||
+          pick3.length != 3 ||
+          pick4.length != 4 ||
+          !_supportsPeriod(lottery, period)) {
+        continue;
+      }
+
+      proposals.add(
+        OfficialLotteryProposal(
+          lottery: lottery,
+          period: period,
+          drawDate: drawDate,
+          numbers: List.unmodifiable([
+            pick3,
+            pick4.substring(0, 2),
+            pick4.substring(2, 4),
+          ]),
+          sourceName: row['source_name']?.toString().trim().isNotEmpty == true
+              ? row['source_name'].toString().trim()
+              : '${_lotteryLabel(lottery)} Lottery',
+          sourceUrl: row['source_url']?.toString().trim() ?? '',
+        ),
+      );
+    }
+
+    if (proposals.isEmpty) {
+      throw const FormatException(
+        'aucun résultat complet Pick 3 + Pick 4 reçu',
+      );
+    }
+    return proposals;
+  }
+
   Future<List<dynamic>> _requestJsonList(
     Uri url, {
     required Map<String, String> headers,
@@ -493,6 +678,55 @@ class OfficialLotteryResultsService {
       'EVENING' => OfficialDrawPeriod.evening,
       _ => null,
     };
+  }
+
+  static OfficialLottery? _parseAdditionalLottery(dynamic value) {
+    return switch (value?.toString().toLowerCase()) {
+      'tx' || 'texas' => OfficialLottery.texas,
+      'md' || 'maryland' => OfficialLottery.maryland,
+      'ga' || 'georgia' => OfficialLottery.georgia,
+      'tn' || 'tennessee' => OfficialLottery.tennessee,
+      'pa' || 'pennsylvania' => OfficialLottery.pennsylvania,
+      'nj' || 'new_jersey' || 'new-jersey' => OfficialLottery.newJersey,
+      _ => null,
+    };
+  }
+
+  static OfficialDrawPeriod? _parseAdditionalPeriod(dynamic value) {
+    return switch (value?.toString().toLowerCase()) {
+      'morning' => OfficialDrawPeriod.morning,
+      'midday' => OfficialDrawPeriod.midday,
+      'day' => OfficialDrawPeriod.day,
+      'evening' => OfficialDrawPeriod.evening,
+      'night' => OfficialDrawPeriod.night,
+      _ => null,
+    };
+  }
+
+  static bool _supportsPeriod(
+    OfficialLottery lottery,
+    OfficialDrawPeriod period,
+  ) {
+    final template = OfficialLotteryProposal(
+      lottery: lottery,
+      period: period,
+      drawDate: DateTime(2000),
+      numbers: const [],
+      sourceName: '',
+      sourceUrl: '',
+    );
+    return template.availablePeriods.contains(period);
+  }
+
+  static String _lotteryLabel(OfficialLottery lottery) {
+    return OfficialLotteryProposal(
+      lottery: lottery,
+      period: OfficialDrawPeriod.midday,
+      drawDate: DateTime(2000),
+      numbers: const [],
+      sourceName: '',
+      sourceUrl: '',
+    ).lotteryLabel;
   }
 
   static String? _parseFloridaWinningNumber(

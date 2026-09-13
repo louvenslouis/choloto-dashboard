@@ -5,8 +5,8 @@ on:
     branches:
       - main
   schedule:
-    # Shortly after both NY drawings, with daylight/standard time coverage.
-    - cron: "5 3,4,19,20 * * *"
+    # Poll the US draw window hourly; includes DST and standard-time offsets.
+    - cron: "15 0-4,14-23 * * *"
   workflow_dispatch:
 
 permissions:
@@ -41,6 +41,11 @@ jobs:
         run: >-
           node tools/fetch_new_york_results.mjs
           build/web/data/official-new-york-results.json
+
+      - name: Fetch additional US lottery results
+        run: >-
+          node tools/fetch_additional_lottery_results.mjs
+          build/web/data/official-additional-lottery-results.json
 
       - name: Add GitHub Pages files
         run: |

@@ -142,12 +142,30 @@ class _TiragesWidgetState extends State<TiragesWidget> {
     required String period,
     required List<String> numbers,
   }) async {
+    final periodTemplate = OfficialLotteryProposal(
+      lottery: lottery,
+      period: OfficialDrawPeriod.midday,
+      drawDate: DateTime.now(),
+      numbers: numbers,
+      sourceName: 'Saisie manuelle',
+      sourceUrl: '',
+    );
+    final selectedPeriod = periodTemplate.availablePeriods.firstWhere(
+      (candidate) =>
+          OfficialLotteryProposal(
+            lottery: lottery,
+            period: candidate,
+            drawDate: DateTime.now(),
+            numbers: const [],
+            sourceName: '',
+            sourceUrl: '',
+          ).periodLabel ==
+          period,
+      orElse: () => periodTemplate.availablePeriods.first,
+    );
     final template = OfficialLotteryProposal(
       lottery: lottery,
-      period: period ==
-              (lottery == OfficialLottery.newYork ? '02:30 PM' : '01:34 PM')
-          ? OfficialDrawPeriod.midday
-          : OfficialDrawPeriod.evening,
+      period: selectedPeriod,
       drawDate: DateTime.now(),
       numbers: numbers,
       sourceName: 'Saisie manuelle',
@@ -295,22 +313,17 @@ class _TiragesWidgetState extends State<TiragesWidget> {
                             return Wrap(
                               spacing: 14,
                               runSpacing: 14,
-                              children: [
-                                SizedBox(
-                                  width: width,
-                                  child: _ManualResultCard(
-                                    lottery: OfficialLottery.newYork,
-                                    onPublish: _publishManualResult,
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: width,
-                                  child: _ManualResultCard(
-                                    lottery: OfficialLottery.florida,
-                                    onPublish: _publishManualResult,
-                                  ),
-                                ),
-                              ],
+                              children: OfficialLottery.values
+                                  .map(
+                                    (lottery) => SizedBox(
+                                      width: width,
+                                      child: _ManualResultCard(
+                                        lottery: lottery,
+                                        onPublish: _publishManualResult,
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
                             );
                           },
                         ),
@@ -798,7 +811,7 @@ class _ManualResultCardState extends State<_ManualResultCard> {
     super.initState();
     _template = OfficialLotteryProposal(
       lottery: widget.lottery,
-      period: OfficialDrawPeriod.midday,
+      period: _defaultPeriod(widget.lottery),
       drawDate: DateTime.now(),
       numbers: const [],
       sourceName: 'Saisie manuelle',
@@ -848,9 +861,18 @@ class _ManualResultCardState extends State<_ManualResultCard> {
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
-    final periods = widget.lottery == OfficialLottery.newYork
-        ? const ['02:30 PM', '10:30 PM']
-        : const ['01:34 PM', '09:49 PM'];
+    final periods = _template.availablePeriods
+        .map(
+          (period) => OfficialLotteryProposal(
+            lottery: widget.lottery,
+            period: period,
+            drawDate: DateTime.now(),
+            numbers: const [],
+            sourceName: '',
+            sourceUrl: '',
+          ).periodLabel,
+        )
+        .toList();
 
     return AdminSurface(
       padding: const EdgeInsets.all(17),
@@ -917,23 +939,46 @@ class _ManualResultCardState extends State<_ManualResultCard> {
           const SizedBox(height: 14),
           LayoutBuilder(
             builder: (context, constraints) {
-              final periodSelector = SegmentedButton<String>(
-                segments: periods
-                    .map(
-                      (period) => ButtonSegment<String>(
-                        value: period,
-                        label: Text(period),
+              final Widget periodSelector = periods.length > 2
+                  ? DropdownButtonFormField<String>(
+                      initialValue: _period,
+                      decoration: const InputDecoration(
+                        labelText: 'Créneau',
+                        isDense: true,
                       ),
+                      items: periods
+                          .map(
+                            (period) => DropdownMenuItem<String>(
+                              value: period,
+                              child: Text(period),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: _publishing
+                          ? null
+                          : (value) {
+                              if (value != null) {
+                                setState(() => _period = value);
+                              }
+                            },
                     )
-                    .toList(),
-                selected: {_period},
-                onSelectionChanged: _publishing
-                    ? null
-                    : (selection) {
-                        setState(() => _period = selection.first);
-                      },
-                showSelectedIcon: false,
-              );
+                  : SegmentedButton<String>(
+                      segments: periods
+                          .map(
+                            (period) => ButtonSegment<String>(
+                              value: period,
+                              label: Text(period),
+                            ),
+                          )
+                          .toList(),
+                      selected: {_period},
+                      onSelectionChanged: _publishing
+                          ? null
+                          : (selection) {
+                              setState(() => _period = selection.first);
+                            },
+                      showSelectedIcon: false,
+                    );
               final publishButton = FilledButton.icon(
                 onPressed: _publishing ? null : _submit,
                 icon: _publishing
@@ -971,6 +1016,16 @@ class _ManualResultCardState extends State<_ManualResultCard> {
       ),
     );
   }
+}
+
+OfficialDrawPeriod _defaultPeriod(OfficialLottery lottery) {
+  return switch (lottery) {
+    OfficialLottery.texas ||
+    OfficialLottery.tennessee =>
+      OfficialDrawPeriod.morning,
+    OfficialLottery.pennsylvania => OfficialDrawPeriod.day,
+    _ => OfficialDrawPeriod.midday,
+  };
 }
 
 class _NumberField extends StatelessWidget {

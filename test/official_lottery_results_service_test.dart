@@ -9,6 +9,7 @@ void main() {
   test('arranges official NY and Florida games in the CHOLOTO format',
       () async {
     final service = OfficialLotteryResultsService(
+      includeAdditionalLotteries: false,
       client: MockClient((request) async {
         if (_isStaticSnapshot(request)) {
           return http.Response('not generated', 404);
@@ -52,6 +53,7 @@ void main() {
 
   test('keeps the available source when the other source fails', () async {
     final service = OfficialLotteryResultsService(
+      includeAdditionalLotteries: false,
       client: MockClient((request) async {
         if (_isStaticSnapshot(request)) {
           return http.Response('not generated', 404);
@@ -84,6 +86,7 @@ void main() {
 
   test('uses the Firebase relay when it is available', () async {
     final service = OfficialLotteryResultsService(
+      includeAdditionalLotteries: false,
       client: MockClient((request) async {
         if (_isStaticSnapshot(request)) {
           return http.Response('not generated', 404);
@@ -123,6 +126,7 @@ void main() {
 
   test('falls back to NY Open Data when the relay is unavailable', () async {
     final service = OfficialLotteryResultsService(
+      includeAdditionalLotteries: false,
       client: MockClient((request) async {
         if (_isStaticSnapshot(request)) {
           return http.Response('not generated', 404);
@@ -170,6 +174,7 @@ void main() {
         '${staleDate.month.toString().padLeft(2, '0')}-'
         '${staleDate.day.toString().padLeft(2, '0')}T00:00:00.000';
     final service = OfficialLotteryResultsService(
+      includeAdditionalLotteries: false,
       client: MockClient((request) async {
         if (_isStaticSnapshot(request)) {
           return _jsonResponse([
@@ -216,6 +221,7 @@ void main() {
         '${now.month.toString().padLeft(2, '0')}-'
         '${now.day.toString().padLeft(2, '0')}T00:00:00.000';
     final service = OfficialLotteryResultsService(
+      includeAdditionalLotteries: false,
       client: MockClient((request) async {
         if (_isStaticSnapshot(request)) {
           return _jsonResponse([
@@ -247,6 +253,39 @@ void main() {
     expect(result.proposals[1].numbers, ['901', '00', '75']);
   });
 
+  test('parses all six additional lotteries and preserves leading zeros',
+      () async {
+    final service = OfficialLotteryResultsService(
+      client: MockClient((request) async {
+        if (request.url.path
+            .endsWith('/data/official-additional-lottery-results.json')) {
+          return _jsonResponse([
+            _additionalRow('tx', 'morning', '232', '7097'),
+            _additionalRow('md', 'midday', '816', '5952'),
+            _additionalRow('ga', 'night', '056', '2006'),
+            _additionalRow('tn', 'evening', '183', '9914'),
+            _additionalRow('pa', 'day', '003', '3992'),
+            _additionalRow('nj', 'evening', '122', '4907'),
+          ]);
+        }
+        return http.Response('unavailable', 503);
+      }),
+    );
+
+    final result = await service.fetchLatest();
+
+    expect(result.proposals, hasLength(6));
+    expect(
+      result.proposals.map((proposal) => proposal.lotteryCode),
+      ['tx', 'md', 'ga', 'tn', 'pa', 'nj'],
+    );
+    expect(result.proposals[0].numbers, ['232', '70', '97']);
+    expect(result.proposals[2].numbers, ['056', '20', '06']);
+    expect(result.proposals[4].numbers, ['003', '39', '92']);
+    expect(result.proposals[0].periodLabel, 'MORNING');
+    expect(result.proposals[4].documentId, 'official_pa_20260911_day');
+  });
+
   test('rejects malformed values before publication', () {
     final proposal = OfficialLotteryProposal(
       lottery: OfficialLottery.florida,
@@ -268,6 +307,22 @@ void main() {
     );
   });
 }
+
+Map<String, String> _additionalRow(
+  String lottery,
+  String period,
+  String pick3,
+  String pick4,
+) =>
+    {
+      'lottery': lottery,
+      'period': period,
+      'draw_date': '2026-09-11',
+      'pick3': pick3,
+      'pick4': pick4,
+      'source_name': 'Test Lottery',
+      'source_url': 'https://example.com/results',
+    };
 
 http.Response _jsonResponse(Object body) => http.Response(
       jsonEncode(body),

@@ -15,6 +15,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import 'flutter_flow/flutter_flow_util.dart';
 import 'flutter_flow/internationalization.dart';
 import 'tirages/automatic_lottery_publication_controller.dart';
+import 'support/support_conversation_retention.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -68,6 +69,9 @@ class _MyAppState extends State<MyApp> {
   late GoRouter _router;
   late final AutomaticLotteryPublicationController
       _automaticLotteryPublicationController;
+  late final SupportConversationRetentionService
+      _supportConversationRetentionService;
+  bool _supportCleanupStarted = false;
   StreamSubscription<BaseAuthUser>? _userSubscription;
   StreamSubscription<dynamic>? _jwtTokenSubscription;
   String getRoute([RouteMatch? routeMatch]) {
@@ -93,18 +97,33 @@ class _MyAppState extends State<MyApp> {
     _router = createRouter(_appStateNotifier);
     _automaticLotteryPublicationController =
         context.read<AutomaticLotteryPublicationController>();
+    _supportConversationRetentionService =
+        SupportConversationRetentionService();
     userStream = cHOLOTODashboardFirebaseUserStream();
     _userSubscription = userStream.listen((user) {
       _appStateNotifier.update(user);
       unawaited(
         _automaticLotteryPublicationController.setAuthenticatedUser(user.uid),
       );
+      if (user.uid?.isNotEmpty == true && !_supportCleanupStarted) {
+        _supportCleanupStarted = true;
+        unawaited(_deleteExpiredSupportConversations());
+      }
     });
     _jwtTokenSubscription = jwtTokenStream.listen((_) {});
     Future.delayed(
       Duration(milliseconds: 1000),
       () => _appStateNotifier.stopShowingSplashImage(),
     );
+  }
+
+  Future<void> _deleteExpiredSupportConversations() async {
+    try {
+      await _supportConversationRetentionService.deleteExpiredConversations();
+    } catch (error, stackTrace) {
+      debugPrint('Support conversation cleanup failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   @override

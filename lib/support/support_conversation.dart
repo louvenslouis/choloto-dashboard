@@ -57,6 +57,9 @@ class SupportConversationRepository {
   CollectionReference<Map<String, dynamic>> get conversations =>
       db.collection('support_conversations');
 
+  String newMessageId(String conversationId) =>
+      conversations.doc(conversationId).collection('messages').doc().id;
+
   Stream<List<SupportConversation>> watchAll() =>
       conversations.snapshots().map((snapshot) => snapshot.docs
           .map((doc) => SupportConversation(doc.id, doc.data()))
@@ -114,6 +117,8 @@ class SupportConversationRepository {
     required String conversationId,
     required String adminUid,
     required String text,
+    Uint8List? image,
+    SupportAudio? audio,
     String? messageId,
   }) async {
     final normalized = text.trim();
@@ -121,6 +126,8 @@ class SupportConversationRepository {
         adminUid.isEmpty ||
         normalized.isEmpty ||
         normalized.length > 1000 ||
+        (image != null && audio != null) ||
+        (image != null && (image.isEmpty || image.length > maxProofBytes)) ||
         (messageId != null &&
             (messageId.isEmpty ||
                 messageId.length > 128 ||
@@ -133,14 +140,32 @@ class SupportConversationRepository {
         messageId ?? conversationRef.collection('messages').doc().id;
     final messageRef =
         conversationRef.collection('messages').doc(resolvedMessageId);
+    final imageRef = messageRef.collection('attachments').doc('image');
+    final audioRef = messageRef.collection('attachments').doc('audio');
     await db.runTransaction((transaction) async {
       final conversation = await transaction.get(conversationRef);
       final existingMessage = await transaction.get(messageRef);
+      final existingImage =
+          image == null ? null : await transaction.get(imageRef);
+      final existingAudio =
+          audio == null ? null : await transaction.get(audioRef);
       if (existingMessage.exists) {
         final data = existingMessage.data();
         if (data?['sender_uid'] == adminUid &&
             data?['sender_role'] == 'admin' &&
             data?['text'] == normalized &&
+            ((image == null &&
+                    audio == null &&
+                    data?['attachment_type'] == null) ||
+                (image != null &&
+                    data?['attachment_type'] == 'image' &&
+                    existingImage?.data()?['base64'] == base64Encode(image)) ||
+                (audio != null &&
+                    data?['attachment_type'] == 'audio' &&
+                    existingAudio?.data()?['base64'] ==
+                        base64Encode(audio.bytes) &&
+                    existingAudio?.data()?['duration_ms'] ==
+                        audio.durationMs)) &&
             conversation.data()?['last_message_id'] == resolvedMessageId) {
           return;
         }
@@ -161,8 +186,18 @@ class SupportConversationRepository {
         'sender_uid': adminUid,
         'sender_role': 'admin',
         'text': normalized,
+        if (image != null) 'attachment_type': 'image',
+        if (audio != null) 'attachment_type': 'audio',
         'created_at': FieldValue.serverTimestamp(),
       });
+      if (image != null) {
+        transaction.set(imageRef, {
+          'base64': base64Encode(image),
+          'mime_type': 'image/jpeg',
+          'byte_length': image.length,
+        });
+      }
+      if (audio != null) transaction.set(audioRef, audio.toData());
     });
   }
 }

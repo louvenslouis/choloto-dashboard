@@ -44,6 +44,7 @@ dependencies:
       path: packages/dropdown_button2
   easy_debounce: 2.0.1
   equatable: 2.0.7
+  file_picker: 10.1.9
   firebase_analytics: 11.5.0
   firebase_analytics_platform_interface: 4.4.0
   firebase_analytics_web: 0.5.10+13
@@ -74,6 +75,7 @@ dependencies:
   google_sign_in_platform_interface: 2.5.0
   google_sign_in_web: 0.12.4+4
   http: 1.4.0
+  image: 4.2.0
   intl: 0.20.2
   json_path: 0.7.2
   mime_type: 1.0.0
@@ -121,6 +123,7 @@ dependencies:
   excel: ^4.0.6
   file_saver: ^0.2.14
   audioplayers: ^6.5.1
+  record: ^6.1.2
 
 dependency_overrides:
   http: 1.4.0

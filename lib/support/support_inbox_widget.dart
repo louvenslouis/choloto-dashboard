@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '/auth/firebase_auth/auth_util.dart';
@@ -6,8 +8,11 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/pages/sidenav/sidenav_widget.dart';
 import 'support_conversation.dart';
+import 'support_audio.dart';
 import 'support_audio_player.dart';
+import 'support_image_picker.dart';
 import 'support_text.dart';
+import 'support_voice_recorder.dart';
 
 class SupportInboxWidget extends StatefulWidget {
   const SupportInboxWidget({super.key, this.repository});
@@ -284,25 +289,57 @@ class SupportConversationPage extends StatefulWidget {
     super.key,
     required this.conversation,
     required this.repository,
+    this.pickImage,
+    this.recorderFactory,
   });
 
   final SupportConversation conversation;
   final SupportConversationRepository repository;
+  final Future<Uint8List?> Function()? pickImage;
+  final SupportVoiceRecorder Function()? recorderFactory;
 
   @override
   State<SupportConversationPage> createState() =>
       _SupportConversationPageState();
 }
 
-class _SupportConversationPageState extends State<SupportConversationPage> {
+class _SupportConversationPageState extends State<SupportConversationPage>
+    with WidgetsBindingObserver {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   bool _sending = false;
+  bool _preparingImage = false;
+  bool _recording = false;
+  bool _voiceBusy = false;
+  Uint8List? _image;
+  SupportAudio? _audio;
+  SupportVoiceRecorder? _recorder;
+  Timer? _recordingTimer;
+  final _recordingWatch = Stopwatch();
+  String? _pendingAttachmentId;
   String? _error;
   int _messageCount = 0;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if ((state == AppLifecycleState.paused ||
+            state == AppLifecycleState.hidden) &&
+        _recording) {
+      unawaited(_finishVoice());
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _recordingTimer?.cancel();
+    unawaited(_recorder?.dispose().catchError((Object _) {}));
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -323,7 +360,26 @@ class _SupportConversationPageState extends State<SupportConversationPage> {
 
   Future<void> _send() async {
     final text = _controller.text.trim();
-    if (_sending || text.isEmpty || text.length > 1000) return;
+    final messageText = text.isNotEmpty
+        ? text
+        : _audio != null
+            ? 'Note vocale'
+            : _image != null
+                ? 'Photo'
+                : '';
+    if (_sending ||
+        _preparingImage ||
+        _recording ||
+        _voiceBusy ||
+        messageText.isEmpty ||
+        messageText.length > 1000) {
+      return;
+    }
+    final hasAttachment = _image != null || _audio != null;
+    if (hasAttachment) {
+      _pendingAttachmentId ??=
+          widget.repository.newMessageId(widget.conversation.id);
+    }
     setState(() {
       _sending = true;
       _error = null;
@@ -332,9 +388,20 @@ class _SupportConversationPageState extends State<SupportConversationPage> {
       await widget.repository.sendAdminReply(
         conversationId: widget.conversation.id,
         adminUid: currentUserUid,
-        text: text,
+        text: messageText,
+        image: _image,
+        audio: _audio,
+        messageId: hasAttachment ? _pendingAttachmentId : null,
       );
-      if (mounted) _controller.clear();
+      if (mounted) {
+        SupportAudioPlayer.active.value = null;
+        _controller.clear();
+        setState(() {
+          _image = null;
+          _audio = null;
+          _pendingAttachmentId = null;
+        });
+      }
     } catch (_) {
       if (mounted) {
         setState(() => _error =
@@ -342,6 +409,125 @@ class _SupportConversationPageState extends State<SupportConversationPage> {
       }
     } finally {
       if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _pickImage() async {
+    if (_sending ||
+        _preparingImage ||
+        _recording ||
+        _voiceBusy ||
+        _audio != null) {
+      return;
+    }
+    setState(() {
+      _preparingImage = true;
+      _error = null;
+    });
+    try {
+      final image = widget.pickImage != null
+          ? await widget.pickImage!()
+          : await pickPreparedSupportImage();
+      if (mounted && image != null) {
+        setState(() {
+          _image = image;
+          _pendingAttachmentId = null;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error =
+            'Cette image ne peut pas être ajoutée. Choisissez un fichier JPEG ou PNG valide.');
+      }
+    } finally {
+      if (mounted) setState(() => _preparingImage = false);
+    }
+  }
+
+  Future<void> _startVoice() async {
+    if (_voiceBusy ||
+        _recording ||
+        _sending ||
+        _preparingImage ||
+        _image != null ||
+        _audio != null) {
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    SupportAudioPlayer.active.value = null;
+    setState(() {
+      _voiceBusy = true;
+      _error = null;
+    });
+    try {
+      _recorder ??=
+          widget.recorderFactory?.call() ?? DeviceSupportVoiceRecorder();
+      await _recorder!.start(() => unawaited(_finishVoice()));
+      if (!mounted) return;
+      final lifecycle = WidgetsBinding.instance.lifecycleState;
+      if (lifecycle == AppLifecycleState.hidden ||
+          lifecycle == AppLifecycleState.paused ||
+          lifecycle == AppLifecycleState.detached) {
+        await _recorder!.cancel();
+        return;
+      }
+      _recordingWatch
+        ..reset()
+        ..start();
+      setState(() => _recording = true);
+      _recordingTimer = Timer.periodic(const Duration(milliseconds: 200), (_) {
+        if (_recordingWatch.elapsed.inSeconds >= maxSupportAudioSeconds) {
+          unawaited(_finishVoice());
+        } else if (mounted) {
+          setState(() {});
+        }
+      });
+    } catch (error) {
+      try {
+        await _recorder?.cancel();
+      } catch (_) {}
+      if (mounted) {
+        setState(() => _error = error is MicrophonePermissionDenied
+            ? 'Autorisez le microphone dans les réglages de l’application ou du navigateur.'
+            : 'Enregistrement impossible. Vérifiez le microphone puis réessayez.');
+      }
+    } finally {
+      if (mounted) setState(() => _voiceBusy = false);
+    }
+  }
+
+  Future<void> _finishVoice({bool discard = false}) async {
+    if (!_recording || _voiceBusy) return;
+    _recordingTimer?.cancel();
+    _recordingWatch.stop();
+    setState(() => _voiceBusy = true);
+    try {
+      if (discard) {
+        await _recorder!.cancel();
+      } else {
+        final audio = await _recorder!.stop();
+        if (mounted) {
+          setState(() {
+            _audio = audio;
+            _pendingAttachmentId = null;
+          });
+        }
+      }
+    } catch (_) {
+      try {
+        await _recorder?.cancel();
+      } catch (_) {}
+      if (mounted) {
+        setState(() => _error =
+            'Enregistrement impossible. Vérifiez le microphone puis réessayez.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _recording = false;
+          _voiceBusy = false;
+        });
+      }
     }
   }
 
@@ -420,18 +606,129 @@ class _SupportConversationPageState extends State<SupportConversationPage> {
                       if (_error != null)
                         Padding(
                           padding: EdgeInsets.only(bottom: spacing.sm),
-                          child: Text(_error!,
+                          child: Semantics(
+                            liveRegion: true,
+                            child: Text(
+                              _error!,
                               style:
-                                  theme.bodySmall.override(color: theme.error)),
+                                  theme.bodySmall.override(color: theme.error),
+                            ),
+                          ),
                         ),
+                      if (_recording) ...[
+                        Row(
+                          children: [
+                            Icon(Icons.mic_rounded, color: theme.error),
+                            SizedBox(width: spacing.sm),
+                            Expanded(
+                              child: Text(
+                                'Enregistrement… ${supportAudioTime(_recordingWatch.elapsed)} / 0:30',
+                                style: theme.bodyMedium,
+                              ),
+                            ),
+                            IconButton(
+                              key: const ValueKey(
+                                  'admin-support-cancel-recording'),
+                              tooltip: 'Supprimer la note vocale',
+                              onPressed: _voiceBusy
+                                  ? null
+                                  : () => _finishVoice(discard: true),
+                              icon: Icon(Icons.delete_outline_rounded,
+                                  color: theme.primaryText),
+                            ),
+                            IconButton(
+                              key: const ValueKey(
+                                  'admin-support-stop-recording'),
+                              tooltip: 'Arrêter l’enregistrement',
+                              onPressed: _voiceBusy ? null : _finishVoice,
+                              icon: Icon(Icons.stop_circle_outlined,
+                                  color: theme.primary),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: spacing.sm),
+                      ],
+                      if (_audio != null) ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: IgnorePointer(
+                                ignoring: _sending,
+                                child: SupportAudioPlayer(
+                                  key: ObjectKey(_audio),
+                                  load: () async => _audio!,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              key: const ValueKey('admin-support-remove-audio'),
+                              tooltip: 'Supprimer la note vocale',
+                              onPressed: _sending
+                                  ? null
+                                  : () => setState(() {
+                                        _audio = null;
+                                        _pendingAttachmentId = null;
+                                      }),
+                              icon: Icon(Icons.delete_outline_rounded,
+                                  color: theme.primaryText),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: spacing.sm),
+                      ],
+                      if (_image != null) ...[
+                        _AdminSelectedImagePreview(
+                          bytes: _image!,
+                          onRemove: _sending
+                              ? null
+                              : () => setState(() {
+                                    _image = null;
+                                    _pendingAttachmentId = null;
+                                  }),
+                        ),
+                        SizedBox(height: spacing.sm),
+                      ],
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
+                          Semantics(
+                            button: true,
+                            label: 'Ajouter une image',
+                            child: IconButton(
+                              key: const ValueKey(
+                                  'admin-support-attach-image-button'),
+                              tooltip: 'Ajouter une image',
+                              onPressed: _sending ||
+                                      _preparingImage ||
+                                      _recording ||
+                                      _voiceBusy ||
+                                      _audio != null
+                                  ? null
+                                  : _pickImage,
+                              style: IconButton.styleFrom(
+                                foregroundColor: theme.primary,
+                                disabledForegroundColor:
+                                    theme.secondaryText.withValues(alpha: .45),
+                                minimumSize: const Size(48, 48),
+                              ),
+                              icon: _preparingImage
+                                  ? SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        color: theme.primary,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.attach_file_rounded),
+                            ),
+                          ),
+                          SizedBox(width: spacing.xs),
                           Expanded(
                             child: TextField(
                               key: const ValueKey('admin-support-reply-field'),
                               controller: _controller,
-                              enabled: !_sending,
+                              enabled: !_sending && !_recording && !_voiceBusy,
                               minLines: 1,
                               maxLines: 5,
                               maxLength: 1000,
@@ -449,10 +746,49 @@ class _SupportConversationPageState extends State<SupportConversationPage> {
                               onSubmitted: (_) => _send(),
                             ),
                           ),
-                          SizedBox(width: spacing.sm),
+                          SizedBox(width: spacing.xs),
+                          Semantics(
+                            button: true,
+                            label: 'Enregistrer une note vocale',
+                            child: IconButton(
+                              key: const ValueKey('admin-support-record-audio'),
+                              tooltip:
+                                  'Enregistrer une note vocale (30 s max.)',
+                              onPressed: _sending ||
+                                      _recording ||
+                                      _voiceBusy ||
+                                      _preparingImage ||
+                                      _image != null ||
+                                      _audio != null
+                                  ? null
+                                  : _startVoice,
+                              style: IconButton.styleFrom(
+                                foregroundColor: theme.primary,
+                                disabledForegroundColor:
+                                    theme.secondaryText.withValues(alpha: .45),
+                                minimumSize: const Size(48, 48),
+                              ),
+                              icon: _voiceBusy && !_recording
+                                  ? SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        color: theme.primary,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.mic_none_rounded),
+                            ),
+                          ),
                           IconButton.filled(
                             key: const ValueKey('admin-support-send-button'),
-                            onPressed: _sending ? null : _send,
+                            tooltip: 'Envoyer',
+                            onPressed: _sending ||
+                                    _preparingImage ||
+                                    _recording ||
+                                    _voiceBusy
+                                ? null
+                                : _send,
                             style: IconButton.styleFrom(
                               backgroundColor: theme.primary,
                               foregroundColor: theme.info,
@@ -478,6 +814,55 @@ class _SupportConversationPageState extends State<SupportConversationPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _AdminSelectedImagePreview extends StatelessWidget {
+  const _AdminSelectedImagePreview({
+    required this.bytes,
+    required this.onRemove,
+  });
+
+  final Uint8List bytes;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    final spacing = theme.designToken.spacing;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(theme.designToken.radius.md),
+            child: Image.memory(
+              bytes,
+              key: const ValueKey('admin-support-selected-image'),
+              width: 144,
+              height: 112,
+              fit: BoxFit.cover,
+              semanticLabel: 'Image sélectionnée',
+            ),
+          ),
+          Positioned(
+            top: spacing.xs,
+            right: spacing.xs,
+            child: IconButton.filled(
+              key: const ValueKey('admin-support-remove-image-button'),
+              onPressed: onRemove,
+              tooltip: 'Retirer l’image',
+              style: IconButton.styleFrom(
+                backgroundColor: theme.secondaryBackground,
+                foregroundColor: theme.primaryText,
+                minimumSize: const Size(40, 40),
+              ),
+              icon: const Icon(Icons.close_rounded, size: 20),
+            ),
+          ),
+        ],
       ),
     );
   }
