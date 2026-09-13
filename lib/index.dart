@@ -11,3 +11,5 @@ export '/publications/publications_widget.dart' show PublicationsWidget;
 export '/publications_history/publications_history_widget.dart'
     show PublicationsHistoryWidget;
 export '/support/support_inbox_widget.dart' show SupportInboxWidget;
+export '/payments/payment_transactions_widget.dart'
+    show PaymentTransactionsWidget;

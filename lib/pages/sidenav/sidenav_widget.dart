@@ -43,6 +43,11 @@ class _SidenavWidgetState extends State<SidenavWidget> {
   static final _communityItems = <_NavItem>[
     const _NavItem('Service client', Icons.support_agent_rounded,
         SupportInboxWidget.routeName, SupportInboxWidget.routePath),
+    const _NavItem(
+        'Paiements clients',
+        Icons.payments_outlined,
+        PaymentTransactionsWidget.routeName,
+        PaymentTransactionsWidget.routePath),
     const _NavItem('Preuves de paiement', Icons.receipt_long_outlined,
         PaymentReviewsWidget.routeName, PaymentReviewsWidget.routePath),
     _NavItem('Utilisateurs', Icons.people_alt_rounded, UsersWidget.routeName,
