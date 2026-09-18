@@ -1,11 +1,11 @@
-import 'dart:typed_data';
 import 'dart:math' as math;
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
 import '/payments/payment_request.dart' show maxProofBytes;
+import 'support_image_picker_native.dart'
+    if (dart.library.js_interop) 'support_image_picker_web.dart';
 
 /// Selects a still image, removes metadata and bounds its Firestore payload.
 Future<Uint8List?> pickPreparedSupportImage({
@@ -15,32 +15,7 @@ Future<Uint8List?> pickPreparedSupportImage({
   if (pickImage != null) {
     bytes = await pickImage();
   } else {
-    final result = await FilePicker.platform.pickFiles(
-      // Use the browser's image filter instead of extension-only filtering:
-      // phone photos are often named .heic or .webp and otherwise do not
-      // appear in the picker at all.
-      type: FileType.image,
-      withData: kIsWeb,
-      withReadStream: !kIsWeb,
-    );
-    if (result == null) return null;
-    final file = result.files.single;
-    if (file.size > 12 * 1024 * 1024) {
-      throw const FormatException('image-size');
-    }
-    bytes = file.bytes;
-    if (bytes == null) {
-      final stream = file.readStream;
-      if (stream == null) throw const FormatException('image-unavailable');
-      final buffer = BytesBuilder(copy: false);
-      await for (final chunk in stream) {
-        if (buffer.length + chunk.length > 12 * 1024 * 1024) {
-          throw const FormatException('image-size');
-        }
-        buffer.add(chunk);
-      }
-      bytes = buffer.takeBytes();
-    }
+    bytes = await pickSupportImageBytes();
   }
   if (bytes == null) return null;
   return compute(prepareSupportImage, bytes);

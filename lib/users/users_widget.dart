@@ -976,115 +976,220 @@ class _UsersToolbar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
 
-    final search = TextField(
-      controller: controller,
-      focusNode: focusNode,
-      onChanged: onQueryChanged,
-      textInputAction: TextInputAction.search,
-      decoration: InputDecoration(
-        hintText: 'Rechercher…',
-        prefixIcon: const Icon(Icons.search_rounded, size: 20),
-        suffixIcon: controller.text.isEmpty
-            ? null
-            : IconButton(
-                tooltip: 'Effacer la recherche',
-                onPressed: onClearQuery,
-                icon: const Icon(Icons.close_rounded, size: 18),
-              ),
-        filled: true,
-        fillColor: theme.primaryBackground,
-        isDense: true,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: theme.alternate),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: theme.alternate),
-        ),
-      ),
-    );
-
-    final filters = SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _FilterChip(
-            label: 'Tous',
-            count: totalCount,
-            selected: selectedFilter == 'Tout',
-            onSelected: () => onFilterChanged('Tout'),
-          ),
-          const SizedBox(width: 6),
-          _FilterChip(
-            label: 'VIP',
-            count: vipCount,
-            selected: selectedFilter == 'VIP',
-            onSelected: () => onFilterChanged('VIP'),
-          ),
-          const SizedBox(width: 6),
-          _FilterChip(
-            label: 'Gratuit',
-            count: totalCount - vipCount,
-            selected: selectedFilter == 'Gratuit',
-            onSelected: () => onFilterChanged('Gratuit'),
-          ),
-        ],
-      ),
-    );
-
-    final exportButton = Tooltip(
-      message: isExporting ? 'Export en cours…' : 'Exporter vers Excel',
-      child: IconButton(
-        onPressed: isExporting ? null : onExport,
-        icon: isExporting
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.file_download_outlined, size: 20),
-        style: IconButton.styleFrom(
-          minimumSize: const Size(40, 40),
-          foregroundColor: theme.primary,
-          backgroundColor: theme.accent1,
-          side: BorderSide(
-            color: theme.secondary.withValues(alpha: .35),
-          ),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      ),
-    );
-
     return AdminSurface(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.all(16),
       radius: 20,
-      child: Row(
-        children: [
-          Expanded(flex: 3, child: search),
-          const SizedBox(width: 10),
-          Flexible(flex: 2, child: filters),
-          const SizedBox(width: 6),
-          exportButton,
-          const SizedBox(width: 2),
-          UserSortControl(
-            value: sortMode,
-            onChanged: onSortModeChanged,
-          ),
-          const SizedBox(width: 6),
-          _ViewModeToggle(
-            viewMode: viewMode,
-            onChanged: onViewModeChanged,
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final stacked = constraints.maxWidth < 720;
+          final search = TextField(
+            controller: controller,
+            focusNode: focusNode,
+            onChanged: onQueryChanged,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              labelText: 'Rechercher un utilisateur',
+              hintText: 'Nom, e-mail, téléphone ou code',
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: controller.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: 'Effacer la recherche',
+                      onPressed: onClearQuery,
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+              filled: true,
+              fillColor: theme.primaryBackground,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: theme.alternate),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: theme.alternate),
+              ),
+            ),
+          );
+
+          final filters = SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _FilterChip(
+                  label: 'Tous',
+                  count: totalCount,
+                  selected: selectedFilter == 'Tout',
+                  onSelected: () => onFilterChanged('Tout'),
+                ),
+                const SizedBox(width: 8),
+                _FilterChip(
+                  label: 'VIP',
+                  count: vipCount,
+                  selected: selectedFilter == 'VIP',
+                  onSelected: () => onFilterChanged('VIP'),
+                ),
+                const SizedBox(width: 8),
+                _FilterChip(
+                  label: 'Gratuit',
+                  count: totalCount - vipCount,
+                  selected: selectedFilter == 'Gratuit',
+                  onSelected: () => onFilterChanged('Gratuit'),
+                ),
+              ],
+            ),
+          );
+
+          if (stacked) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                search,
+                const SizedBox(height: 14),
+                filters,
+                const SizedBox(height: 12),
+                _ResultsAndViewMode(
+                  count: resultCount,
+                  viewMode: viewMode,
+                  sortMode: sortMode,
+                  isExporting: isExporting,
+                  onViewModeChanged: onViewModeChanged,
+                  onSortModeChanged: onSortModeChanged,
+                  onExport: onExport,
+                ),
+              ],
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(flex: 3, child: search),
+                  const SizedBox(width: 16),
+                  Flexible(flex: 2, child: filters),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _ResultsAndViewMode(
+                count: resultCount,
+                viewMode: viewMode,
+                sortMode: sortMode,
+                isExporting: isExporting,
+                onViewModeChanged: onViewModeChanged,
+                onSortModeChanged: onSortModeChanged,
+                onExport: onExport,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
+class _ResultsAndViewMode extends StatelessWidget {
+  const _ResultsAndViewMode({
+    required this.count,
+    required this.viewMode,
+    required this.sortMode,
+    required this.isExporting,
+    required this.onViewModeChanged,
+    required this.onSortModeChanged,
+    required this.onExport,
+  });
+
+  final int count;
+  final _UsersViewMode viewMode;
+  final UserSortMode sortMode;
+  final bool isExporting;
+  final ValueChanged<_UsersViewMode> onViewModeChanged;
+  final ValueChanged<UserSortMode> onSortModeChanged;
+  final VoidCallback? onExport;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    return Row(
+      children: [
+        Icon(
+          viewMode == _UsersViewMode.cards
+              ? Icons.grid_view_rounded
+              : Icons.view_list_rounded,
+          size: 16,
+          color: theme.secondaryText,
+        ),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            '$count ${count > 1 ? 'utilisateurs affichés' : 'utilisateur affiché'}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.labelMedium.copyWith(
+              color: theme.secondaryText,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = MediaQuery.sizeOf(context).width < 560;
+            if (compact) {
+              return IconButton(
+                tooltip: 'Exporter vers Excel',
+                onPressed: isExporting ? null : onExport,
+                icon: isExporting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.file_download_outlined, size: 20),
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(44, 44),
+                  foregroundColor: theme.primary,
+                  backgroundColor: theme.accent1,
+                  side: BorderSide(
+                    color: theme.secondary.withValues(alpha: .35),
+                  ),
+                ),
+              );
+            }
+            return OutlinedButton.icon(
+              onPressed: isExporting ? null : onExport,
+              icon: isExporting
+                  ? const SizedBox(
+                      width: 17,
+                      height: 17,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.file_download_outlined, size: 19),
+              label: Text(isExporting ? 'Export…' : 'Exporter Excel'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 44),
+                foregroundColor: theme.primary,
+                side: BorderSide(
+                  color: theme.secondary.withValues(alpha: .55),
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(width: 10),
+        UserSortControl(
+          value: sortMode,
+          onChanged: onSortModeChanged,
+        ),
+        const SizedBox(width: 10),
+        _ViewModeToggle(
+          viewMode: viewMode,
+          onChanged: onViewModeChanged,
+        ),
+      ],
+    );
+  }
+}
 
 class UserSortControl extends StatelessWidget {
   const UserSortControl({
@@ -1099,6 +1204,7 @@ class UserSortControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
+    final compact = MediaQuery.sizeOf(context).width < 560;
     final label = switch (value) {
       UserSortMode.alphabetical => 'Alphabétique',
       UserSortMode.lastModified => 'Modifiés récemment',
@@ -1116,7 +1222,7 @@ class UserSortControl extends StatelessWidget {
       button: true,
       label: 'Trier les utilisateurs : $label',
       child: Tooltip(
-        message: 'Trier : $label',
+        message: 'Trier les utilisateurs',
         child: PopupMenuButton<UserSortMode>(
           initialValue: value,
           tooltip: '',
@@ -1149,14 +1255,35 @@ class UserSortControl extends StatelessWidget {
             ),
           ],
           child: Container(
-            width: 40,
-            height: 40,
+            height: 44,
+            padding: EdgeInsets.symmetric(horizontal: compact ? 11 : 14),
             decoration: BoxDecoration(
               color: theme.primaryBackground,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: theme.alternate),
             ),
-            child: Icon(icon, size: 20, color: theme.primary),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 20, color: theme.primary),
+                if (!compact) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    label,
+                    style: theme.labelMedium.copyWith(
+                      color: theme.primaryText,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 18,
+                    color: theme.secondaryText,
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -2478,4 +2605,3 @@ class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
     return widget.child;
   }
 }
-
