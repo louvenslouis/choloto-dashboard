@@ -5,26 +5,41 @@ import '/backend/backend.dart';
 import '/components/admin_ui.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/pages/sidenav/sidenav_widget.dart';
 import '/transactions/payment_receipt_exporter.dart';
 import 'payment_request.dart';
 import 'payment_review_service.dart';
 import 'payment_text.dart';
 import 'payment_widgets.dart';
 
-class PaymentReviewsWidget extends StatefulWidget {
+import '/users/users_widget.dart';
+
+class PaymentReviewsWidget extends StatelessWidget {
   const PaymentReviewsWidget({super.key});
   static const routeName = 'PaymentReviews';
   static const routePath = '/payment-reviews';
+
   @override
-  State<PaymentReviewsWidget> createState() => _PaymentReviewsWidgetState();
+  Widget build(BuildContext context) {
+    return const UsersWidget(initialTabIndex: 1);
+  }
 }
 
-class _PaymentReviewsWidgetState extends State<PaymentReviewsWidget> {
+class PaymentReviewsView extends StatefulWidget {
+  const PaymentReviewsView({super.key});
+
+  @override
+  State<PaymentReviewsView> createState() => _PaymentReviewsViewState();
+}
+
+class _PaymentReviewsViewState extends State<PaymentReviewsView>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final _repository = PaymentRequestRepository();
-  final _scaffold = GlobalKey<ScaffoldState>();
   String? _status = 'pending';
   late Stream<List<PaymentRequest>> _stream;
+
   @override
   void initState() {
     super.initState();
@@ -37,95 +52,152 @@ class _PaymentReviewsWidgetState extends State<PaymentReviewsWidget> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final t = FlutterFlowTheme.of(context);
     final s = t.designToken.spacing;
-    final desktop = MediaQuery.sizeOf(context).width >= 992;
-    return Scaffold(
-        key: _scaffold,
-        backgroundColor: t.primaryBackground,
-        drawer: desktop
-            ? null
-            : const Drawer(child: SidenavWidget(forceVisible: true)),
-        appBar: desktop
-            ? null
-            : AdminMobileAppBar(title: paymentText(context, 'adminTitle')),
-        bottomNavigationBar: desktop
-            ? null
-            : AdminMobileBottomBar(
-                activeDestination: AdminMobileDestination.more,
-                onOpenMenu: () => _scaffold.currentState?.openDrawer()),
-        body: SafeArea(
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const SidenavWidget(),
-          Expanded(
-              child: Center(
-                  child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1100),
-                      child: ListView(padding: EdgeInsets.all(s.md), children: [
-                        Text(paymentText(context, 'adminTitle'),
-                            style: t.headlineMedium),
-                        SizedBox(height: s.md),
-                        DropdownButtonFormField<String>(
-                            initialValue: _status ?? 'all',
-                            isExpanded: true,
-                            style: t.bodyLarge,
-                            dropdownColor: t.secondaryBackground,
-                            items: [
-                              for (final value in [
-                                'pending',
-                                'approved',
-                                'rejected',
-                                'all'
-                              ])
-                                DropdownMenuItem(
-                                    value: value,
-                                    child: Text(paymentText(context, value)))
-                            ],
-                            onChanged: (v) => setState(() {
-                                  _status = v == 'all' ? null : v;
-                                  _refresh();
-                                })),
-                        SizedBox(height: s.lg),
-                        StreamBuilder<List<PaymentRequest>>(
-                            stream: _stream,
-                            builder: (context, snapshot) {
-                              if (snapshot.hasError) {
-                                return PaymentSurface(
-                                    child: Column(children: [
-                                  Text(paymentText(context, 'error'),
-                                      style: t.bodyLarge),
-                                  TextButton(
-                                      onPressed: () => setState(_refresh),
-                                      child:
-                                          Text(paymentText(context, 'retry'))),
-                                ]));
-                              }
-                              if (!snapshot.hasData) {
-                                return Center(
-                                    child: CircularProgressIndicator(
-                                        color: t.primary));
-                              }
-                              if (snapshot.data!.isEmpty) {
-                                return PaymentSurface(
-                                    child: Text(paymentText(context, 'empty'),
-                                        style: t.bodyLarge));
-                              }
-                              return Column(children: [
-                                for (final request in snapshot.data!)
-                                  Padding(
-                                      padding: EdgeInsets.only(bottom: s.md),
-                                      child: PaymentRequestCard(
-                                          request: request,
-                                          admin: true,
-                                          onOpen: () => Navigator.of(context)
-                                              .push(MaterialPageRoute<void>(
-                                                  builder: (_) =>
-                                                      PaymentReviewPage(
-                                                          request: request))))),
-                              ]);
-                            }),
-                      ])))),
-        ])));
+    final compact = MediaQuery.sizeOf(context).width < 992;
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1100),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: compact ? 16 : 24),
+          child: ListView(
+            padding: EdgeInsets.symmetric(vertical: s.md),
+            children: [
+              AdminSectionHeader(
+                title: paymentText(context, 'adminTitle'),
+                icon: Icons.receipt_long_outlined,
+                eyebrow: 'VALIDATION DE JUSTIFICATIFS',
+                trailing: IconButton(
+                  tooltip: paymentText(context, 'retry'),
+                  onPressed: () => setState(_refresh),
+                  icon: const Icon(Icons.refresh_rounded),
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(44, 44),
+                    backgroundColor: t.secondaryBackground,
+                    foregroundColor: t.primary,
+                    side: BorderSide(color: t.alternate),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _status ?? 'all',
+                isExpanded: true,
+                style: t.bodyLarge,
+                dropdownColor: t.secondaryBackground,
+                decoration: InputDecoration(
+                  labelText: 'Filtrer par statut',
+                  labelStyle: t.labelMedium,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  filled: true,
+                  fillColor: t.secondaryBackground,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: t.alternate),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: t.alternate),
+                  ),
+                ),
+                items: [
+                  for (final value in [
+                    'pending',
+                    'approved',
+                    'rejected',
+                    'all'
+                  ])
+                    DropdownMenuItem(
+                      value: value,
+                      child: Text(paymentText(context, value)),
+                    )
+                ],
+                onChanged: (v) => setState(() {
+                  _status = v == 'all' ? null : v;
+                  _refresh();
+                }),
+              ),
+              SizedBox(height: s.lg),
+              StreamBuilder<List<PaymentRequest>>(
+                stream: _stream,
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return PaymentSurface(
+                      child: Column(
+                        children: [
+                          Text(paymentText(context, 'error'),
+                              style: t.bodyLarge),
+                          const SizedBox(height: 12),
+                          TextButton(
+                            onPressed: () => setState(_refresh),
+                            child: Text(paymentText(context, 'retry')),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  if (!snapshot.hasData) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: CircularProgressIndicator(color: t.primary),
+                      ),
+                    );
+                  }
+                  if (snapshot.data!.isEmpty) {
+                    return PaymentSurface(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Center(
+                          child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check_circle_outline_rounded,
+                                size: 48, color: t.secondaryText),
+                            const SizedBox(height: 12),
+                            Text(
+                              paymentText(context, 'empty'),
+                              style: t.bodyLarge
+                                  .copyWith(color: t.secondaryText),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                  return Column(
+                    children: [
+                      for (final request in snapshot.data!)
+                        Padding(
+                          padding: EdgeInsets.only(bottom: s.md),
+                          child: PaymentRequestCard(
+                            request: request,
+                            admin: true,
+                            onOpen: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    PaymentReviewPage(request: request),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

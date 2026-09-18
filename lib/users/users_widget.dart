@@ -7,6 +7,9 @@ import '/components/user_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/pages/sidenav/sidenav_widget.dart';
+import '/payments/payment_reviews_widget.dart';
+import '/payments/payment_transactions_widget.dart';
+import '/payments/payment_request.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -64,18 +67,24 @@ int compareUserExpirationDates(
 }
 
 class UsersWidget extends StatefulWidget {
-  const UsersWidget({super.key});
+  const UsersWidget({super.key, this.initialTabIndex = 0});
 
   static String routeName = 'users';
   static String routePath = '/users';
+
+  /// 0 = Utilisateurs, 1 = Preuves de paiement, 2 = Paiements clients
+  final int initialTabIndex;
 
   @override
   State<UsersWidget> createState() => _UsersWidgetState();
 }
 
-class _UsersWidgetState extends State<UsersWidget> {
+class _UsersWidgetState extends State<UsersWidget>
+    with TickerProviderStateMixin {
   late UsersModel _model;
   late Future<List<UserRecord>> _usersFuture;
+  late TabController _tabController;
+  late final Stream<List<PaymentRequest>> _pendingRequestsStream;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isHeaderCollapsed = false;
@@ -89,6 +98,16 @@ class _UsersWidgetState extends State<UsersWidget> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 2),
+    );
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _pendingRequestsStream =
+        PaymentRequestRepository().watch(status: 'pending');
     _model = createModel(context, () => UsersModel());
     _model.textController ??= TextEditingController();
     _model.textFieldFocusNode ??= FocusNode();
@@ -98,7 +117,16 @@ class _UsersWidgetState extends State<UsersWidget> {
   }
 
   @override
+  void didUpdateWidget(UsersWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialTabIndex != widget.initialTabIndex) {
+      _tabController.animateTo(widget.initialTabIndex.clamp(0, 2));
+    }
+  }
+
+  @override
   void dispose() {
+    _tabController.dispose();
     _model.dispose();
     super.dispose();
   }
@@ -364,10 +392,238 @@ class _UsersWidgetState extends State<UsersWidget> {
     }
   }
 
+  // ── Helpers pour la vue Utilisateurs ──────────────────────────────────────
+
+  Widget _buildUsersTab(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    final compactNavigation = MediaQuery.sizeOf(context).width < 992;
+
+    return FutureBuilder<List<UserRecord>>(
+      future: _usersFuture,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _UsersErrorState(onRetry: _reloadUsers);
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final allUsers = snapshot.data!;
+        final users = _filteredUsers(allUsers);
+        final vipCount = allUsers
+            .where(
+              (user) =>
+                  user.endSub != null &&
+                  !user.endSub!.isBefore(DateTime.now()),
+            )
+            .length;
+
+        return Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: compactNavigation ? 16 : 24,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AnimatedCrossFade(
+                firstChild: AdminSectionHeader(
+                  title: 'Utilisateurs',
+                  icon: Icons.people_alt_rounded,
+                  trailing: IconButton(
+                    tooltip: 'Ajouter un utilisateur',
+                    onPressed: _showAddUserDialog,
+                    icon: const Icon(Icons.add_rounded, size: 23),
+                    style: IconButton.styleFrom(
+                      minimumSize: const Size(44, 44),
+                      backgroundColor: theme.primary,
+                      foregroundColor: theme.info,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+                secondChild: const SizedBox(width: double.infinity),
+                crossFadeState: _isHeaderCollapsed
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                duration: const Duration(milliseconds: 220),
+                sizeCurve: Curves.easeOutCubic,
+              ),
+              _UsersToolbar(
+                controller: _model.textController!,
+                focusNode: _model.textFieldFocusNode!,
+                selectedFilter: _model.filtres,
+                totalCount: allUsers.length,
+                vipCount: vipCount,
+                resultCount: users.length,
+                viewMode: _viewMode,
+                sortMode: _sortMode,
+                isExporting: _isExporting,
+                onQueryChanged: (_) => setState(() {}),
+                onClearQuery: () {
+                  _model.textController!.clear();
+                  setState(() {});
+                },
+                onFilterChanged: (filter) {
+                  setState(() => _model.filtres = filter);
+                },
+                onViewModeChanged: (mode) {
+                  setState(() => _viewMode = mode);
+                },
+                onSortModeChanged: (mode) {
+                  if (mode == _sortMode) return;
+                  logFirebaseEvent(
+                    'USERS_SORT_CHANGED',
+                    parameters: {'sort': mode.name},
+                  );
+                  setState(() => _sortMode = mode);
+                },
+                onExport: users.isEmpty ? null : () => _exportUsers(users),
+              ),
+              const SizedBox(height: 18),
+              Expanded(
+                child: users.isEmpty
+                    ? _UsersEmptyState(
+                        hasSearch: _model.textController!.text.trim().isNotEmpty,
+                        onReset: () {
+                          _model.textController!.clear();
+                          setState(() => _model.filtres = 'Tout');
+                        },
+                      )
+                    : NotificationListener<ScrollNotification>(
+                        onNotification: _handleUserListScroll,
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          child: _viewMode == _UsersViewMode.cards
+                              ? LayoutBuilder(
+                                  key: const ValueKey('users-card-view'),
+                                  builder: (context, constraints) {
+                                    final cardWidth =
+                                        constraints.maxWidth < 720
+                                            ? constraints.maxWidth
+                                            : constraints.maxWidth < 1160
+                                                ? 360.0
+                                                : 380.0;
+
+                                    return GridView.builder(
+                                      padding: const EdgeInsets.only(bottom: 28),
+                                      keyboardDismissBehavior:
+                                          ScrollViewKeyboardDismissBehavior
+                                              .onDrag,
+                                      gridDelegate:
+                                          SliverGridDelegateWithMaxCrossAxisExtent(
+                                        maxCrossAxisExtent: cardWidth,
+                                        mainAxisExtent: 388,
+                                        crossAxisSpacing: 16,
+                                        mainAxisSpacing: 16,
+                                      ),
+                                      itemCount: users.length,
+                                      itemBuilder: (context, index) {
+                                        final user = users[index];
+                                        return _UserCard(
+                                          user: user,
+                                          authProviderIds:
+                                              _authProvidersFor(user),
+                                          authProvidersUnavailable:
+                                              _authProvidersUnavailable,
+                                          onViewProfile: () => _showUser(user),
+                                          onAddPayment: () =>
+                                              _showPayment(user),
+                                        );
+                                      },
+                                    );
+                                  },
+                                )
+                              : _UsersList(
+                                  key: const ValueKey('users-list-view'),
+                                  users: users,
+                                  authProvidersFor: _authProvidersFor,
+                                  authProvidersUnavailable:
+                                      _authProvidersUnavailable,
+                                  onViewProfile: _showUser,
+                                  onAddPayment: _showPayment,
+                                ),
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final compactNavigation = MediaQuery.sizeOf(context).width < 992;
     final theme = FlutterFlowTheme.of(context);
+
+    // Labels des onglets (avec badge « pending » pour les preuves)
+    final tabTitles = ['Utilisateurs', 'Preuves de paiement', 'Paiements clients'];
+    final currentTabTitle = tabTitles[_tabController.index.clamp(0, 2)];
+
+    final tabs = <Widget>[
+      const Tab(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.people_alt_rounded, size: 18),
+            SizedBox(width: 8),
+            Text('Utilisateurs'),
+          ],
+        ),
+      ),
+      Tab(
+        child: StreamBuilder<List<PaymentRequest>>(
+          stream: _pendingRequestsStream,
+          builder: (context, snapshot) {
+            final pendingCount = snapshot.data?.length ?? 0;
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.receipt_long_outlined, size: 18),
+                const SizedBox(width: 8),
+                const Text('Preuves de paiement'),
+                if (pendingCount > 0) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      pendingCount > 99 ? '99+' : '$pendingCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+      ),
+      const Tab(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.payments_outlined, size: 18),
+            SizedBox(width: 8),
+            Text('Paiements clients'),
+          ],
+        ),
+      ),
+    ];
 
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
@@ -375,7 +631,7 @@ class _UsersWidgetState extends State<UsersWidget> {
         key: scaffoldKey,
         backgroundColor: theme.primaryBackground,
         appBar: compactNavigation
-            ? const AdminMobileAppBar(title: 'Utilisateurs')
+            ? AdminMobileAppBar(title: currentTabTitle)
             : null,
         drawer: compactNavigation
             ? const Drawer(
@@ -403,182 +659,73 @@ class _UsersWidgetState extends State<UsersWidget> {
                   ),
                 ),
               Expanded(
-                child: FutureBuilder<List<UserRecord>>(
-                  future: _usersFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.hasError) {
-                      return _UsersErrorState(
-                        onRetry: _reloadUsers,
-                      );
-                    }
-                    if (!snapshot.hasData) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-
-                    final allUsers = snapshot.data!;
-                    final users = _filteredUsers(allUsers);
-                    final vipCount = allUsers
-                        .where(
-                          (user) =>
-                              user.endSub != null &&
-                              !user.endSub!.isBefore(DateTime.now()),
-                        )
-                        .length;
-
-                    return Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: compactNavigation ? 16 : 24,
-                      ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── En-tête de page + TabBar ──────────────────────────
+                    Container(
+                      color: theme.secondaryBackground,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          AnimatedCrossFade(
-                            firstChild: AdminSectionHeader(
-                              title: 'Utilisateurs',
-                              icon: Icons.people_alt_rounded,
-                              trailing: IconButton(
-                                tooltip: 'Ajouter un utilisateur',
-                                onPressed: _showAddUserDialog,
-                                icon: const Icon(Icons.add_rounded, size: 23),
-                                style: IconButton.styleFrom(
-                                  minimumSize: const Size(44, 44),
-                                  backgroundColor: theme.primary,
-                                  foregroundColor: theme.info,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                ),
+                          // Titre de section (desktop uniquement)
+                          if (!compactNavigation)
+                            const Padding(
+                              padding: EdgeInsets.fromLTRB(24, 20, 24, 0),
+                              child: AdminSectionHeader(
+                                title: 'Membres & Paiements',
+                                icon: Icons.manage_accounts_rounded,
+                                eyebrow: 'GESTION',
                               ),
                             ),
-                            secondChild: const SizedBox(width: double.infinity),
-                            crossFadeState: _isHeaderCollapsed
-                                ? CrossFadeState.showSecond
-                                : CrossFadeState.showFirst,
-                            duration: const Duration(milliseconds: 220),
-                            sizeCurve: Curves.easeOutCubic,
-                          ),
-                          _UsersToolbar(
-                            controller: _model.textController!,
-                            focusNode: _model.textFieldFocusNode!,
-                            selectedFilter: _model.filtres,
-                            totalCount: allUsers.length,
-                            vipCount: vipCount,
-                            resultCount: users.length,
-                            viewMode: _viewMode,
-                            sortMode: _sortMode,
-                            isExporting: _isExporting,
-                            onQueryChanged: (_) => setState(() {}),
-                            onClearQuery: () {
-                              _model.textController!.clear();
-                              setState(() {});
-                            },
-                            onFilterChanged: (filter) {
-                              setState(() => _model.filtres = filter);
-                            },
-                            onViewModeChanged: (mode) {
-                              setState(() => _viewMode = mode);
-                            },
-                            onSortModeChanged: (mode) {
-                              if (mode == _sortMode) return;
-                              logFirebaseEvent(
-                                'USERS_SORT_CHANGED',
-                                parameters: {'sort': mode.name},
-                              );
-                              setState(() => _sortMode = mode);
-                            },
-                            onExport: users.isEmpty
-                                ? null
-                                : () => _exportUsers(users),
-                          ),
-                          const SizedBox(height: 18),
-                          Expanded(
-                            child: users.isEmpty
-                                ? _UsersEmptyState(
-                                    hasSearch: _model.textController!.text
-                                        .trim()
-                                        .isNotEmpty,
-                                    onReset: () {
-                                      _model.textController!.clear();
-                                      setState(() => _model.filtres = 'Tout');
-                                    },
-                                  )
-                                : NotificationListener<ScrollNotification>(
-                                    onNotification: _handleUserListScroll,
-                                    child: AnimatedSwitcher(
-                                      duration:
-                                          const Duration(milliseconds: 220),
-                                      switchInCurve: Curves.easeOutCubic,
-                                      switchOutCurve: Curves.easeInCubic,
-                                      child: _viewMode == _UsersViewMode.cards
-                                          ? LayoutBuilder(
-                                              key: const ValueKey(
-                                                'users-card-view',
-                                              ),
-                                              builder: (context, constraints) {
-                                                final cardWidth =
-                                                    constraints.maxWidth < 720
-                                                        ? constraints.maxWidth
-                                                        : constraints.maxWidth <
-                                                                1160
-                                                            ? 360.0
-                                                            : 380.0;
-
-                                                return GridView.builder(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                    bottom: 28,
-                                                  ),
-                                                  keyboardDismissBehavior:
-                                                      ScrollViewKeyboardDismissBehavior
-                                                          .onDrag,
-                                                  gridDelegate:
-                                                      SliverGridDelegateWithMaxCrossAxisExtent(
-                                                    maxCrossAxisExtent:
-                                                        cardWidth,
-                                                    mainAxisExtent: 388,
-                                                    crossAxisSpacing: 16,
-                                                    mainAxisSpacing: 16,
-                                                  ),
-                                                  itemCount: users.length,
-                                                  itemBuilder:
-                                                      (context, index) {
-                                                    final user = users[index];
-                                                    return _UserCard(
-                                                      user: user,
-                                                      authProviderIds:
-                                                          _authProvidersFor(
-                                                        user,
-                                                      ),
-                                                      authProvidersUnavailable:
-                                                          _authProvidersUnavailable,
-                                                      onViewProfile: () =>
-                                                          _showUser(user),
-                                                      onAddPayment: () =>
-                                                          _showPayment(user),
-                                                    );
-                                                  },
-                                                );
-                                              },
-                                            )
-                                          : _UsersList(
-                                              key: const ValueKey(
-                                                'users-list-view',
-                                              ),
-                                              users: users,
-                                              authProvidersFor:
-                                                  _authProvidersFor,
-                                              authProvidersUnavailable:
-                                                  _authProvidersUnavailable,
-                                              onViewProfile: _showUser,
-                                              onAddPayment: _showPayment,
-                                            ),
-                                    ),
-                                  ),
+                          // TabBar
+                          TabBar(
+                            controller: _tabController,
+                            tabs: tabs,
+                            isScrollable: true,
+                            tabAlignment: TabAlignment.start,
+                            padding: EdgeInsets.fromLTRB(
+                              compactNavigation ? 16 : 24,
+                              compactNavigation ? 12 : 16,
+                              16,
+                              0,
+                            ),
+                            labelStyle: theme.labelLarge.copyWith(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12.5,
+                            ),
+                            unselectedLabelStyle: theme.labelLarge.copyWith(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12.5,
+                            ),
+                            labelColor: theme.primaryText,
+                            unselectedLabelColor: theme.secondaryText,
+                            indicatorColor: theme.primary,
+                            indicatorWeight: 2.5,
+                            indicatorSize: TabBarIndicatorSize.tab,
+                            splashBorderRadius: BorderRadius.circular(12),
+                            dividerColor:
+                                theme.alternate.withValues(alpha: .72),
                           ),
                         ],
                       ),
-                    );
-                  },
+                    ),
+                    // ── Contenu des onglets ──────────────────────────────
+                    Expanded(
+                      child: TabBarView(
+                        controller: _tabController,
+                        physics: const NeverScrollableScrollPhysics(),
+                        children: [
+                          // Onglet 0 — Utilisateurs
+                          _KeepAliveWrapper(child: _buildUsersTab(context)),
+                          // Onglet 1 — Preuves de paiement
+                          const PaymentReviewsView(),
+                          // Onglet 2 — Paiements clients
+                          const PaymentTransactionsView(),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -2428,3 +2575,24 @@ class _UsersErrorState extends StatelessWidget {
     );
   }
 }
+
+class _KeepAliveWrapper extends StatefulWidget {
+  const _KeepAliveWrapper({required this.child});
+  final Widget child;
+
+  @override
+  State<_KeepAliveWrapper> createState() => _KeepAliveWrapperState();
+}
+
+class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
+}
+

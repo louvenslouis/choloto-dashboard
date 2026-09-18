@@ -2,25 +2,37 @@ import '/backend/backend.dart';
 import '/components/admin_ui.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/pages/sidenav/sidenav_widget.dart';
 import '/transactions/payment_receipt_exporter.dart';
+import '/users/users_widget.dart';
 import 'package:flutter/material.dart';
 
 enum PaymentTransactionStatusFilter { all, active, cancelled }
 
-class PaymentTransactionsWidget extends StatefulWidget {
+class PaymentTransactionsWidget extends StatelessWidget {
   const PaymentTransactionsWidget({super.key});
 
   static const routeName = 'PaymentTransactions';
   static const routePath = '/payments';
 
   @override
-  State<PaymentTransactionsWidget> createState() =>
-      _PaymentTransactionsWidgetState();
+  Widget build(BuildContext context) {
+    return const UsersWidget(initialTabIndex: 2);
+  }
 }
 
-class _PaymentTransactionsWidgetState extends State<PaymentTransactionsWidget> {
-  final _scaffoldKey = GlobalKey<ScaffoldState>();
+class PaymentTransactionsView extends StatefulWidget {
+  const PaymentTransactionsView({super.key});
+
+  @override
+  State<PaymentTransactionsView> createState() =>
+      _PaymentTransactionsViewState();
+}
+
+class _PaymentTransactionsViewState extends State<PaymentTransactionsView>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final _searchController = TextEditingController();
   late Stream<List<PaymentTransactionRecord>> _transactionsStream;
   PaymentTransactionStatusFilter _statusFilter =
@@ -80,136 +92,104 @@ class _PaymentTransactionsWidgetState extends State<PaymentTransactionsWidget> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final theme = FlutterFlowTheme.of(context);
     final compactNavigation = MediaQuery.sizeOf(context).width < 992;
 
-    return GestureDetector(
-      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      child: Scaffold(
-        key: _scaffoldKey,
-        backgroundColor: theme.primaryBackground,
-        appBar: compactNavigation
-            ? const AdminMobileAppBar(title: 'Paiements clients')
-            : null,
-        drawer: compactNavigation
-            ? const Drawer(
-                width: 264,
-                child: SidenavWidget(forceVisible: true),
-              )
-            : null,
-        bottomNavigationBar: compactNavigation
-            ? AdminMobileBottomBar(
-                activeDestination: AdminMobileDestination.more,
-                onOpenMenu: () => _scaffoldKey.currentState?.openDrawer(),
-              )
-            : null,
-        body: SafeArea(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (!compactNavigation) const SidenavWidget(),
-              Expanded(
-                child: StreamBuilder<List<PaymentTransactionRecord>>(
-                  stream: _transactionsStream,
-                  builder: (context, snapshot) {
-                    if (snapshot.hasError) {
-                      return _PaymentTransactionsError(onRetry: _retry);
-                    }
-                    if (!snapshot.hasData) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
+    return StreamBuilder<List<PaymentTransactionRecord>>(
+      stream: _transactionsStream,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _PaymentTransactionsError(onRetry: _retry);
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-                    final ledger = PaymentTransactionLedger.fromRecords(
-                      snapshot.data!,
-                    );
-                    final visiblePayments = ledger.filtered(
-                      query: _searchController.text,
-                      status: _statusFilter,
-                      method: _methodFilter,
-                    );
+        final ledger = PaymentTransactionLedger.fromRecords(
+          snapshot.data!,
+        );
+        final visiblePayments = ledger.filtered(
+          query: _searchController.text,
+          status: _statusFilter,
+          method: _methodFilter,
+        );
 
-                    return Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1440),
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: compactNavigation ? 16 : 24,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              AdminSectionHeader(
-                                title: 'Paiements clients',
-                                icon: Icons.payments_rounded,
-                                eyebrow: 'SUIVI FINANCIER',
-                                trailing: IconButton(
-                                  tooltip: 'Actualiser',
-                                  onPressed: _retry,
-                                  icon: const Icon(Icons.refresh_rounded),
-                                  style: IconButton.styleFrom(
-                                    minimumSize: const Size(44, 44),
-                                    backgroundColor: theme.secondaryBackground,
-                                    foregroundColor: theme.primary,
-                                    side: BorderSide(color: theme.alternate),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              _PaymentSummary(ledger: ledger),
-                              const SizedBox(height: 16),
-                              _PaymentToolbar(
-                                searchController: _searchController,
-                                statusFilter: _statusFilter,
-                                methodFilter: _methodFilter,
-                                resultCount: visiblePayments.length,
-                                onSearchChanged: (_) => setState(() {}),
-                                onClearSearch: () {
-                                  _searchController.clear();
-                                  setState(() {});
-                                },
-                                onStatusChanged: (status) {
-                                  setState(() => _statusFilter = status);
-                                },
-                                onMethodChanged: (method) {
-                                  setState(() => _methodFilter = method);
-                                },
-                              ),
-                              const SizedBox(height: 16),
-                              Expanded(
-                                child: visiblePayments.isEmpty
-                                    ? _PaymentTransactionsEmpty(
-                                        filtered: ledger.payments.isNotEmpty,
-                                        onReset: () {
-                                          _searchController.clear();
-                                          setState(() {
-                                            _statusFilter =
-                                                PaymentTransactionStatusFilter
-                                                    .all;
-                                            _methodFilter = 'all';
-                                          });
-                                        },
-                                      )
-                                    : _PaymentList(
-                                        payments: visiblePayments,
-                                        downloadingTransactionId:
-                                            _downloadingTransactionId,
-                                        onDownload: _downloadReceipt,
-                                      ),
-                              ),
-                            ],
-                          ),
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1440),
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: compactNavigation ? 16 : 24,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AdminSectionHeader(
+                    title: 'Paiements clients',
+                    icon: Icons.payments_rounded,
+                    eyebrow: 'SUIVI FINANCIER',
+                    trailing: IconButton(
+                      tooltip: 'Actualiser',
+                      onPressed: _retry,
+                      icon: const Icon(Icons.refresh_rounded),
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size(44, 44),
+                        backgroundColor: theme.secondaryBackground,
+                        foregroundColor: theme.primary,
+                        side: BorderSide(color: theme.alternate),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                  _PaymentSummary(ledger: ledger),
+                  const SizedBox(height: 16),
+                  _PaymentToolbar(
+                    searchController: _searchController,
+                    statusFilter: _statusFilter,
+                    methodFilter: _methodFilter,
+                    resultCount: visiblePayments.length,
+                    onSearchChanged: (_) => setState(() {}),
+                    onClearSearch: () {
+                      _searchController.clear();
+                      setState(() {});
+                    },
+                    onStatusChanged: (status) {
+                      setState(() => _statusFilter = status);
+                    },
+                    onMethodChanged: (method) {
+                      setState(() => _methodFilter = method);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: visiblePayments.isEmpty
+                        ? _PaymentTransactionsEmpty(
+                            filtered: ledger.payments.isNotEmpty,
+                            onReset: () {
+                              _searchController.clear();
+                              setState(() {
+                                _statusFilter =
+                                    PaymentTransactionStatusFilter.all;
+                                _methodFilter = 'all';
+                              });
+                            },
+                          )
+                        : _PaymentList(
+                            payments: visiblePayments,
+                            downloadingTransactionId:
+                                _downloadingTransactionId,
+                            onDownload: _downloadReceipt,
+                          ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

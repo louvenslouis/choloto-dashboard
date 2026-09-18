@@ -1,4 +1,3 @@
-import '/payments/payment_text.dart';
 import '/payments/payment_reviews_widget.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '/components/admin_ui.dart';
@@ -43,15 +42,8 @@ class _SidenavWidgetState extends State<SidenavWidget> {
   static final _communityItems = <_NavItem>[
     const _NavItem('Service client', Icons.support_agent_rounded,
         SupportInboxWidget.routeName, SupportInboxWidget.routePath),
-    const _NavItem(
-        'Paiements clients',
-        Icons.payments_outlined,
-        PaymentTransactionsWidget.routeName,
-        PaymentTransactionsWidget.routePath),
-    const _NavItem('Preuves de paiement', Icons.receipt_long_outlined,
-        PaymentReviewsWidget.routeName, PaymentReviewsWidget.routePath),
-    _NavItem('Utilisateurs', Icons.people_alt_rounded, UsersWidget.routeName,
-        UsersWidget.routePath),
+    _NavItem('Membres & Paiements', Icons.manage_accounts_rounded,
+        UsersWidget.routeName, UsersWidget.routePath),
   ];
 
   @override
@@ -447,6 +439,22 @@ class _NavMenuGroup extends StatelessWidget {
   final ValueChanged<String> onNavigate;
   final bool collapsed;
 
+  bool _isItemSelected(_NavItem item, String currentRoute) {
+    final isCurrentRoute = currentRoute == item.routePath ||
+        currentRoute.startsWith('${item.routePath}/') ||
+        (currentRoute == '/' && item.routeName == UsersWidget.routeName);
+
+    if (item.routePath == UsersWidget.routePath) {
+      return isCurrentRoute ||
+          currentRoute == PaymentReviewsWidget.routePath ||
+          currentRoute.startsWith('${PaymentReviewsWidget.routePath}/') ||
+          currentRoute == PaymentTransactionsWidget.routePath ||
+          currentRoute.startsWith('${PaymentTransactionsWidget.routePath}/');
+    }
+
+    return isCurrentRoute;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -460,14 +468,9 @@ class _NavMenuGroup extends StatelessWidget {
           (item) => Padding(
             padding: const EdgeInsets.only(bottom: 3),
             child: _NavTile(
-              label: (item.routeName == PaymentReviewsWidget.routeName
-                  ? paymentText(context, 'adminTitle')
-                  : item.label),
+              label: item.label,
               icon: item.icon,
-              selected: currentRoute == item.routePath ||
-                  currentRoute.startsWith('${item.routePath}/') ||
-                  (currentRoute == '/' &&
-                      item.routeName == UsersWidget.routeName),
+              selected: _isItemSelected(item, currentRoute),
               collapsed: collapsed,
               onTap: () => onNavigate(item.routeName),
             ),
