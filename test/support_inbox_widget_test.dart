@@ -440,6 +440,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Modifié'), findsOneWidget);
+    expect(find.byIcon(Icons.more_vert_rounded), findsNWidgets(2));
     expect(
       find.byKey(const ValueKey('admin-support-message-menu-u1')),
       findsNothing,

@@ -1181,7 +1181,7 @@ class _SupportConversationPageState extends State<SupportConversationPage>
     } catch (_) {
       if (mounted) {
         setState(() => _error =
-            'Cette image ne peut pas être ajoutée. Choisissez un fichier JPEG ou PNG valide.');
+            'Cette photo ne peut pas être ajoutée. Choisissez une image JPEG, PNG ou WebP valide.');
       }
     } finally {
       if (mounted) setState(() => _preparingImage = false);
@@ -1999,173 +1999,183 @@ class _AdminMessageBubble extends StatelessWidget {
             bottomLeft: const Radius.circular(4),
           );
 
-    return Align(
-      alignment: fromAdmin ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 560),
-        margin: EdgeInsets.only(bottom: spacing.md),
-        padding: EdgeInsets.all(spacing.md),
-        decoration: BoxDecoration(
-          color: fromAdmin ? theme.primary : theme.secondaryBackground,
-          borderRadius: borderRadius,
-          border: fromAdmin ? null : Border.all(color: theme.alternate),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+    final bubble = Container(
+      constraints: const BoxConstraints(maxWidth: 560),
+      margin: EdgeInsets.only(bottom: spacing.md),
+      padding: EdgeInsets.all(spacing.md),
+      decoration: BoxDecoration(
+        color: fromAdmin ? theme.primary : theme.secondaryBackground,
+        borderRadius: borderRadius,
+        border: fromAdmin ? null : Border.all(color: theme.alternate),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                fromAdmin
+                    ? Icons.support_agent_rounded
+                    : Icons.person_outline_rounded,
+                size: 14,
+                color: fromAdmin ? theme.info : theme.secondaryText,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                fromAdmin
+                    ? 'Administration CHOLOTO'
+                    : (memberName?.isNotEmpty == true ? memberName! : 'Membre'),
+                style: theme.labelSmall.override(
+                  color: fromAdmin ? theme.info : theme.secondaryText,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: spacing.xs),
+          if (message.hasAudio) ...[
+            SupportAudioPlayer(
+              key: ValueKey('admin-support-audio-${message.id}'),
+              onPrimary: fromAdmin,
+              load: () => repository.loadMessageAudio(
+                  conversationId: conversationId, messageId: message.id),
             ),
+            SizedBox(height: spacing.sm),
           ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+          if (message.hasImage) ...[
+            _AdminSupportImage(
+              key: ValueKey('admin-support-image-${message.id}'),
+              image: repository.loadMessageImage(
+                conversationId: conversationId,
+                messageId: message.id,
+              ),
+            ),
+            SizedBox(height: spacing.sm),
+          ],
+          if (!message.hasAudio || !isSupportAudioPlaceholder(message.text))
+            Text(
+              message.text,
+              style: theme.bodyLarge.override(
+                color: fromAdmin ? theme.info : theme.primaryText,
+              ),
+            ),
+          if (message.createdAt != null) ...[
+            SizedBox(height: spacing.xs),
             Row(
               mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment:
+                  fromAdmin ? MainAxisAlignment.end : MainAxisAlignment.start,
               children: [
-                Icon(
-                  fromAdmin
-                      ? Icons.support_agent_rounded
-                      : Icons.person_outline_rounded,
-                  size: 14,
-                  color: fromAdmin ? theme.info : theme.secondaryText,
-                ),
-                const SizedBox(width: 4),
                 Text(
-                  fromAdmin
-                      ? 'Administration CHOLOTO'
-                      : (memberName?.isNotEmpty == true
-                          ? memberName!
-                          : 'Membre'),
+                  _formatSupportDate(message.createdAt),
                   style: theme.labelSmall.override(
-                    color: fromAdmin ? theme.info : theme.secondaryText,
-                    fontWeight: FontWeight.w700,
+                    color: fromAdmin
+                        ? theme.info.withValues(alpha: .75)
+                        : theme.secondaryText,
                   ),
                 ),
-                if (fromAdmin) ...[
-                  const SizedBox(width: 4),
-                  SizedBox(
-                    width: 32,
-                    height: 32,
-                    child: PopupMenuButton<_AdminMessageAction>(
-                      key: ValueKey('admin-support-message-menu-${message.id}'),
-                      enabled: !actionBusy,
-                      tooltip: 'Actions sur le message',
-                      padding: EdgeInsets.zero,
-                      iconSize: 19,
-                      icon: actionBusy
-                          ? SizedBox(
-                              width: 15,
-                              height: 15,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: theme.info,
-                              ),
-                            )
-                          : Icon(Icons.more_horiz_rounded, color: theme.info),
-                      onSelected: (action) {
-                        switch (action) {
-                          case _AdminMessageAction.edit:
-                            onEdit?.call();
-                          case _AdminMessageAction.delete:
-                            onDelete?.call();
-                        }
-                      },
-                      itemBuilder: (_) => const [
-                        PopupMenuItem(
-                          value: _AdminMessageAction.edit,
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit_outlined, size: 19),
-                              SizedBox(width: 10),
-                              Text('Modifier'),
-                            ],
-                          ),
-                        ),
-                        PopupMenuItem(
-                          value: _AdminMessageAction.delete,
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete_outline_rounded, size: 19),
-                              SizedBox(width: 10),
-                              Text('Supprimer'),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            SizedBox(height: spacing.xs),
-            if (message.hasAudio) ...[
-              SupportAudioPlayer(
-                key: ValueKey('admin-support-audio-${message.id}'),
-                onPrimary: fromAdmin,
-                load: () => repository.loadMessageAudio(
-                    conversationId: conversationId, messageId: message.id),
-              ),
-              SizedBox(height: spacing.sm),
-            ],
-            if (message.hasImage) ...[
-              _AdminSupportImage(
-                key: ValueKey('admin-support-image-${message.id}'),
-                image: repository.loadMessageImage(
-                  conversationId: conversationId,
-                  messageId: message.id,
-                ),
-              ),
-              SizedBox(height: spacing.sm),
-            ],
-            if (!message.hasAudio || !isSupportAudioPlaceholder(message.text))
-              Text(
-                message.text,
-                style: theme.bodyLarge.override(
-                  color: fromAdmin ? theme.info : theme.primaryText,
-                ),
-              ),
-            if (message.createdAt != null) ...[
-              SizedBox(height: spacing.xs),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment:
-                    fromAdmin ? MainAxisAlignment.end : MainAxisAlignment.start,
-                children: [
+                if (message.editedAt != null) ...[
+                  const SizedBox(width: 6),
                   Text(
-                    _formatSupportDate(message.createdAt),
+                    'Modifié',
                     style: theme.labelSmall.override(
                       color: fromAdmin
                           ? theme.info.withValues(alpha: .75)
                           : theme.secondaryText,
+                      fontStyle: FontStyle.italic,
                     ),
                   ),
-                  if (message.editedAt != null) ...[
-                    const SizedBox(width: 6),
-                    Text(
-                      'Modifié',
-                      style: theme.labelSmall.override(
-                        color: fromAdmin
-                            ? theme.info.withValues(alpha: .75)
-                            : theme.secondaryText,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                  if (fromAdmin) ...[
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.done_all_rounded,
-                      size: 14,
-                      color: theme.info.withValues(alpha: .85),
-                    ),
-                  ],
                 ],
-              ),
-            ],
+                if (fromAdmin) ...[
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.done_all_rounded,
+                    size: 14,
+                    color: theme.info.withValues(alpha: .85),
+                  ),
+                ],
+              ],
+            ),
           ],
-        ),
+        ],
       ),
+    );
+
+    final messageMenu = SizedBox(
+      width: 34,
+      height: 38,
+      child: PopupMenuButton<_AdminMessageAction>(
+        key: ValueKey('admin-support-message-menu-${message.id}'),
+        enabled: !actionBusy,
+        tooltip: 'Actions sur le message',
+        padding: EdgeInsets.zero,
+        iconSize: 22,
+        icon: actionBusy
+            ? SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: theme.secondaryText,
+                ),
+              )
+            : Icon(Icons.more_vert_rounded, color: theme.secondaryText),
+        onSelected: (action) {
+          switch (action) {
+            case _AdminMessageAction.edit:
+              onEdit?.call();
+            case _AdminMessageAction.delete:
+              onDelete?.call();
+          }
+        },
+        itemBuilder: (_) => const [
+          PopupMenuItem(
+            value: _AdminMessageAction.edit,
+            child: Row(
+              children: [
+                Icon(Icons.edit_outlined, size: 19),
+                SizedBox(width: 10),
+                Text('Modifier'),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: _AdminMessageAction.delete,
+            child: Row(
+              children: [
+                Icon(Icons.delete_outline_rounded, size: 19),
+                SizedBox(width: 10),
+                Text('Supprimer'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return Align(
+      alignment: fromAdmin ? Alignment.centerRight : Alignment.centerLeft,
+      child: fromAdmin
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Flexible(child: bubble),
+                Padding(
+                  padding: EdgeInsets.only(left: spacing.xs),
+                  child: messageMenu,
+                ),
+              ],
+            )
+          : bubble,
     );
   }
 }

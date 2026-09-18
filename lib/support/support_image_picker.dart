@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:math' as math;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -15,8 +16,10 @@ Future<Uint8List?> pickPreparedSupportImage({
     bytes = await pickImage();
   } else {
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['jpg', 'jpeg', 'png'],
+      // Use the browser's image filter instead of extension-only filtering:
+      // phone photos are often named .heic or .webp and otherwise do not
+      // appear in the picker at all.
+      type: FileType.image,
       withData: kIsWeb,
       withReadStream: !kIsWeb,
     );
@@ -59,6 +62,16 @@ Uint8List prepareSupportImage(Uint8List bytes) {
       bytes[2] == 78 &&
       bytes[3] == 71) {
     decoder = img.PngDecoder();
+  } else if (bytes.length > 12 &&
+      bytes[0] == 82 &&
+      bytes[1] == 73 &&
+      bytes[2] == 70 &&
+      bytes[3] == 70 &&
+      bytes[8] == 87 &&
+      bytes[9] == 69 &&
+      bytes[10] == 66 &&
+      bytes[11] == 80) {
+    decoder = img.WebPDecoder();
   } else {
     throw const FormatException('image-format');
   }
@@ -86,9 +99,17 @@ Uint8List prepareSupportImage(Uint8List bytes) {
     bytes: picture.getBytes(order: img.ChannelOrder.rgb).buffer,
     numChannels: 3,
   );
-  for (final quality in [88, 78, 65, 50]) {
-    final encoded = img.encodeJpg(picture, quality: quality);
-    if (encoded.length <= maxProofBytes) return encoded;
+  // Camera photos can still be larger than the Firestore attachment limit
+  // after the first resize. Keep reducing the bounded image until the encoded
+  // payload fits instead of rejecting an otherwise valid photo.
+  for (var pass = 0; pass < 8; pass++) {
+    for (final quality in [88, 78, 65, 50, 40, 32]) {
+      final encoded = img.encodeJpg(picture, quality: quality);
+      if (encoded.length <= maxProofBytes) return encoded;
+    }
+    final nextWidth = math.max(320, (picture.width * .75).round());
+    if (nextWidth >= picture.width) break;
+    picture = img.copyResize(picture, width: nextWidth);
   }
   throw const FormatException('image-size');
 }
