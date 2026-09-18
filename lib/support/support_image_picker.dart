@@ -17,23 +17,27 @@ Future<Uint8List?> pickPreparedSupportImage({
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['jpg', 'jpeg', 'png'],
-      withData: false,
-      withReadStream: true,
+      withData: kIsWeb,
+      withReadStream: !kIsWeb,
     );
     if (result == null) return null;
-    if (result.files.single.size > 12 * 1024 * 1024) {
+    final file = result.files.single;
+    if (file.size > 12 * 1024 * 1024) {
       throw const FormatException('image-size');
     }
-    final stream = result.files.single.readStream;
-    if (stream == null) throw const FormatException('image-unavailable');
-    final buffer = BytesBuilder(copy: false);
-    await for (final chunk in stream) {
-      if (buffer.length + chunk.length > 12 * 1024 * 1024) {
-        throw const FormatException('image-size');
+    bytes = file.bytes;
+    if (bytes == null) {
+      final stream = file.readStream;
+      if (stream == null) throw const FormatException('image-unavailable');
+      final buffer = BytesBuilder(copy: false);
+      await for (final chunk in stream) {
+        if (buffer.length + chunk.length > 12 * 1024 * 1024) {
+          throw const FormatException('image-size');
+        }
+        buffer.add(chunk);
       }
-      buffer.add(chunk);
+      bytes = buffer.takeBytes();
     }
-    bytes = buffer.takeBytes();
   }
   if (bytes == null) return null;
   return compute(prepareSupportImage, bytes);

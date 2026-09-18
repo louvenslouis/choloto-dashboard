@@ -198,4 +198,132 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test('admin edits a message and keeps the latest summary in sync', () async {
+    final db = MemoryFirestore();
+    db.rows['support_conversations/member'] = {
+      'user_uid': 'member',
+      'last_message': 'Ancienne réponse',
+      'last_message_id': 'a1',
+      'last_sender_role': 'admin',
+    };
+    db.rows['support_conversations/member/messages/a1'] = {
+      'sender_uid': 'admin',
+      'sender_role': 'admin',
+      'text': 'Ancienne réponse',
+      'created_at': DateTime(2026),
+    };
+    final repository = SupportConversationRepository(firestore: db);
+
+    await repository.editAdminMessage(
+      conversationId: 'member',
+      messageId: 'a1',
+      text: ' Réponse corrigée ',
+    );
+
+    expect(
+      db.rows['support_conversations/member/messages/a1'],
+      containsPair('text', 'Réponse corrigée'),
+    );
+    expect(
+      db.rows['support_conversations/member/messages/a1']?['edited_at'],
+      isNotNull,
+    );
+    expect(
+      db.rows['support_conversations/member']?['last_message'],
+      'Réponse corrigée',
+    );
+    expect(db.rows['support_conversations/member']?['updated_at'], isNotNull);
+  });
+
+  test('admin deletes its latest message, media and restores prior summary',
+      () async {
+    final db = MemoryFirestore();
+    db.rows['support_conversations/member'] = {
+      'user_uid': 'member',
+      'last_message': 'Photo envoyée',
+      'last_message_id': 'a1',
+      'last_sender_role': 'admin',
+    };
+    db.rows['support_conversations/member/messages/u1'] = {
+      'sender_uid': 'member',
+      'sender_role': 'user',
+      'text': 'Pouvez-vous vérifier ?',
+      'created_at': DateTime(2026),
+    };
+    db.rows['support_conversations/member/messages/a1'] = {
+      'sender_uid': 'admin',
+      'sender_role': 'admin',
+      'text': 'Photo envoyée',
+      'attachment_type': 'image',
+      'created_at': DateTime(2026, 1, 2),
+    };
+    db.rows['support_conversations/member/messages/a1/attachments/image'] = {
+      'base64': 'AQID',
+    };
+    final repository = SupportConversationRepository(firestore: db);
+
+    await repository.deleteAdminMessage(
+      conversationId: 'member',
+      messageId: 'a1',
+      replacementMessageId: 'u1',
+    );
+
+    expect(
+      db.rows,
+      isNot(contains('support_conversations/member/messages/a1')),
+    );
+    expect(
+      db.rows,
+      isNot(contains(
+          'support_conversations/member/messages/a1/attachments/image')),
+    );
+    expect(
+      db.rows['support_conversations/member']?['last_message'],
+      'Pouvez-vous vérifier ?',
+    );
+    expect(
+      db.rows['support_conversations/member']?['last_message_id'],
+      'u1',
+    );
+    expect(
+      db.rows['support_conversations/member']?['last_sender_role'],
+      'user',
+    );
+  });
+
+  test('member messages cannot be edited or deleted through admin actions',
+      () async {
+    final db = MemoryFirestore();
+    db.rows['support_conversations/member'] = {
+      'user_uid': 'member',
+      'last_message_id': 'u1',
+    };
+    db.rows['support_conversations/member/messages/u1'] = {
+      'sender_uid': 'member',
+      'sender_role': 'user',
+      'text': 'Message membre',
+    };
+    final repository = SupportConversationRepository(firestore: db);
+
+    await expectLater(
+      repository.editAdminMessage(
+        conversationId: 'member',
+        messageId: 'u1',
+        text: 'Modification interdite',
+      ),
+      throwsStateError,
+    );
+    await expectLater(
+      repository.deleteAdminMessage(
+        conversationId: 'member',
+        messageId: 'u1',
+      ),
+      throwsStateError,
+    );
+    expect(
+      db.rows['support_conversations/member/messages/u1']?['text'],
+      'Message membre',
+    );
+  });
 }

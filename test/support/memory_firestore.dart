@@ -80,6 +80,13 @@ class MemoryTransaction extends Fake implements Transaction {
   }
 
   @override
+  Transaction delete(DocumentReference ref) {
+    written = true;
+    rows.remove(ref.path);
+    return this;
+  }
+
+  @override
   Transaction set<T>(DocumentReference<T> ref, T data, [SetOptions? options]) {
     written = true;
     rows[ref.path] = {...data as Map<String, dynamic>};

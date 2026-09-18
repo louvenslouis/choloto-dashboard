@@ -45,7 +45,8 @@ class _SupportInboxWidgetState extends State<SupportInboxWidget> {
       drawer: isDesktop
           ? null
           : const Drawer(child: SidenavWidget(forceVisible: true)),
-      appBar: isDesktop ? null : const AdminMobileAppBar(title: 'Service client'),
+      appBar:
+          isDesktop ? null : const AdminMobileAppBar(title: 'Service client'),
       bottomNavigationBar: isDesktop
           ? null
           : AdminMobileBottomBar(
@@ -175,11 +176,13 @@ class _SupportInboxWidgetState extends State<SupportInboxWidget> {
                                   padding: EdgeInsets.all(spacing.md),
                                   child: SupportConversationList(
                                     conversations: conversations,
-                                    selectedConversationId: _selectedConversationId,
+                                    selectedConversationId:
+                                        _selectedConversationId,
                                     isEmbedded: true,
                                     onOpen: (conversation) {
                                       setState(() {
-                                        _selectedConversationId = conversation.id;
+                                        _selectedConversationId =
+                                            conversation.id;
                                       });
                                     },
                                   ),
@@ -194,14 +197,16 @@ class _SupportInboxWidgetState extends State<SupportInboxWidget> {
                       Expanded(
                         child: selectedConversation != null
                             ? SupportConversationPage(
-                                key: ValueKey('chat-pane-${selectedConversation.id}'),
+                                key: ValueKey(
+                                    'chat-pane-${selectedConversation.id}'),
                                 conversation: selectedConversation,
                                 repository: _repository,
                                 embedded: true,
                                 onClose: () => setState(
                                     () => _selectedConversationId = null),
                               )
-                            : _DesktopEmptyChatPane(conversations: conversations),
+                            : _DesktopEmptyChatPane(
+                                conversations: conversations),
                       ),
                     ],
                   );
@@ -298,16 +303,14 @@ class _SupportConversationListState extends State<SupportConversationList> {
     final query = _searchController.text.trim().toLowerCase();
     final pendingTotal =
         widget.conversations.where((c) => c.waitingForAdmin).length;
-    final treatedTotal =
-        widget.conversations.where((c) => c.isTreated).length;
+    final treatedTotal = widget.conversations.where((c) => c.isTreated).length;
 
     final filtered = widget.conversations.where((conversation) {
       if (_currentFilter == _SupportFilter.pending &&
           !conversation.waitingForAdmin) {
         return false;
       }
-      if (_currentFilter == _SupportFilter.treated &&
-          !conversation.isTreated) {
+      if (_currentFilter == _SupportFilter.treated && !conversation.isTreated) {
         return false;
       }
       if (query.isNotEmpty) {
@@ -505,7 +508,7 @@ class _SupportConversationListState extends State<SupportConversationList> {
               ),
               title: Text(
                 conversation.memberLabel,
-                style: theme.titleMedium.copyWith(
+                style: theme.titleSmall.copyWith(
                   fontWeight: isWaiting ? FontWeight.w700 : FontWeight.w600,
                 ),
               ),
@@ -518,8 +521,8 @@ class _SupportConversationListState extends State<SupportConversationList> {
                       conversation.userEmail,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.labelMedium
-                          .override(color: theme.secondaryText),
+                      style:
+                          theme.labelSmall.override(color: theme.secondaryText),
                     ),
                   SizedBox(height: spacing.xs),
                   Row(
@@ -546,10 +549,9 @@ class _SupportConversationListState extends State<SupportConversationList> {
                           conversation.lastMessage,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.bodyMedium.copyWith(
-                            fontWeight: isWaiting
-                                ? FontWeight.w600
-                                : FontWeight.normal,
+                          style: theme.bodySmall.copyWith(
+                            fontWeight:
+                                isWaiting ? FontWeight.w600 : FontWeight.normal,
                           ),
                         ),
                       ),
@@ -579,8 +581,8 @@ class _SupportConversationListState extends State<SupportConversationList> {
                   SizedBox(height: spacing.xs),
                   Text(
                     _formatSupportDate(conversation.updatedAt),
-                    style: theme.labelSmall
-                        .override(color: theme.secondaryText),
+                    style:
+                        theme.labelSmall.override(color: theme.secondaryText),
                   ),
                 ],
               ),
@@ -602,8 +604,7 @@ class _DesktopEmptyChatPane extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
     final spacing = theme.designToken.spacing;
-    final pendingCount =
-        conversations.where((c) => c.waitingForAdmin).length;
+    final pendingCount = conversations.where((c) => c.waitingForAdmin).length;
     final treatedCount = conversations.where((c) => c.isTreated).length;
 
     return Center(
@@ -839,6 +840,7 @@ class _SupportConversationPageState extends State<SupportConversationPage>
   String? _error;
   int _messageCount = 0;
   bool _supportActionBusy = false;
+  String? _messageActionId;
   late bool _isTreated;
   bool _showScrollToBottom = false;
 
@@ -984,6 +986,118 @@ class _SupportConversationPageState extends State<SupportConversationPage>
       );
     } finally {
       if (mounted) setState(() => _supportActionBusy = false);
+    }
+  }
+
+  Future<void> _editMessage(SupportMessage message) async {
+    if (_messageActionId != null || !message.sentByAdmin) return;
+    var draft = message.text;
+    final updatedText = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Modifier le message'),
+        content: TextFormField(
+          key: const ValueKey('admin-support-edit-message-field'),
+          initialValue: message.text,
+          autofocus: true,
+          minLines: 2,
+          maxLines: 6,
+          maxLength: 1000,
+          onChanged: (value) => draft = value,
+          decoration: const InputDecoration(
+            labelText: 'Message',
+            alignLabelWithHint: true,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            key: const ValueKey('admin-support-confirm-edit-message'),
+            onPressed: () {
+              final text = draft.trim();
+              if (text.isNotEmpty) Navigator.pop(dialogContext, text);
+            },
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || updatedText == null || updatedText == message.text) return;
+
+    setState(() => _messageActionId = message.id);
+    try {
+      await widget.repository.editAdminMessage(
+        conversationId: widget.conversation.id,
+        messageId: message.id,
+        text: updatedText,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Message modifié.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de modifier ce message.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _messageActionId = null);
+    }
+  }
+
+  Future<void> _deleteMessage(
+    SupportMessage message,
+    SupportMessage? replacement,
+  ) async {
+    if (_messageActionId != null || !message.sentByAdmin) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Supprimer ce message ?'),
+        content: const Text(
+          'Le message et son média éventuel seront supprimés définitivement.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            key: const ValueKey('admin-support-confirm-delete-message'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+
+    setState(() => _messageActionId = message.id);
+    try {
+      await widget.repository.deleteAdminMessage(
+        conversationId: widget.conversation.id,
+        messageId: message.id,
+        replacementMessageId: replacement?.id,
+      );
+      SupportAudioPlayer.active.value = null;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Message supprimé.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de supprimer ce message.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _messageActionId = null);
     }
   }
 
@@ -1210,8 +1324,7 @@ class _SupportConversationPageState extends State<SupportConversationPage>
             ),
             child: Row(
               children: [
-                _MemberAvatar(
-                    label: widget.conversation.memberLabel, size: 40),
+                _MemberAvatar(label: widget.conversation.memberLabel, size: 40),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -1293,15 +1406,13 @@ class _SupportConversationPageState extends State<SupportConversationPage>
               ),
               OutlinedButton.icon(
                 key: const ValueKey('admin-support-delete'),
-                onPressed:
-                    _supportActionBusy ? null : _deleteConversation,
+                onPressed: _supportActionBusy ? null : _deleteConversation,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: theme.error,
                 ),
                 icon: const Icon(Icons.delete_outline_rounded),
-                label: Text(widget.conversation.isDeleting
-                    ? 'Réessayer'
-                    : 'Effacer'),
+                label: Text(
+                    widget.conversation.isDeleting ? 'Réessayer' : 'Effacer'),
               ),
             ],
           ),
@@ -1312,8 +1423,7 @@ class _SupportConversationPageState extends State<SupportConversationPage>
           child: Stack(
             children: [
               StreamBuilder<List<SupportMessage>>(
-                stream:
-                    widget.repository.watchMessages(widget.conversation.id),
+                stream: widget.repository.watchMessages(widget.conversation.id),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return const _InboxState(
@@ -1346,15 +1456,14 @@ class _SupportConversationPageState extends State<SupportConversationPage>
                         children: [
                           if (showDateHeader && message.createdAt != null)
                             Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 12),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                               child: Center(
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 12, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: theme.alternate
-                                        .withValues(alpha: .6),
+                                    color:
+                                        theme.alternate.withValues(alpha: .6),
                                     borderRadius: BorderRadius.circular(
                                         theme.designToken.radius.full),
                                   ),
@@ -1374,6 +1483,16 @@ class _SupportConversationPageState extends State<SupportConversationPage>
                             conversationId: widget.conversation.id,
                             repository: widget.repository,
                             memberName: widget.conversation.memberLabel,
+                            actionBusy: _messageActionId != null,
+                            onEdit: message.sentByAdmin
+                                ? () => _editMessage(message)
+                                : null,
+                            onDelete: message.sentByAdmin
+                                ? () => _deleteMessage(
+                                      message,
+                                      index == 0 ? null : messages[index - 1],
+                                    )
+                                : null,
                           ),
                         ],
                       );
@@ -1440,8 +1559,7 @@ class _SupportConversationPageState extends State<SupportConversationPage>
                         Expanded(
                           child: Text(
                             _error!,
-                            style: theme.bodySmall
-                                .override(color: theme.error),
+                            style: theme.bodySmall.override(color: theme.error),
                           ),
                         ),
                       ],
@@ -1460,8 +1578,8 @@ class _SupportConversationPageState extends State<SupportConversationPage>
                         Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: ActionChip(
-                            avatar: const Icon(Icons.flash_on_rounded,
-                                size: 14),
+                            avatar:
+                                const Icon(Icons.flash_on_rounded, size: 14),
                             label: Text(canned),
                             labelStyle: theme.labelSmall
                                 .copyWith(fontWeight: FontWeight.w600),
@@ -1600,8 +1718,7 @@ class _SupportConversationPageState extends State<SupportConversationPage>
                     button: true,
                     label: 'Ajouter une image',
                     child: IconButton(
-                      key: const ValueKey(
-                          'admin-support-attach-image-button'),
+                      key: const ValueKey('admin-support-attach-image-button'),
                       tooltip: 'Ajouter une image',
                       onPressed: _sending ||
                               _preparingImage ||
@@ -1657,8 +1774,7 @@ class _SupportConversationPageState extends State<SupportConversationPage>
                     label: 'Enregistrer une note vocale',
                     child: IconButton(
                       key: const ValueKey('admin-support-record-audio'),
-                      tooltip:
-                          'Enregistrer une note vocale (30 s max.)',
+                      tooltip: 'Enregistrer une note vocale (30 s max.)',
                       onPressed: _sending ||
                               _recording ||
                               _voiceBusy ||
@@ -1688,12 +1804,10 @@ class _SupportConversationPageState extends State<SupportConversationPage>
                   IconButton.filled(
                     key: const ValueKey('admin-support-send-button'),
                     tooltip: 'Envoyer',
-                    onPressed: _sending ||
-                            _preparingImage ||
-                            _recording ||
-                            _voiceBusy
-                        ? null
-                        : _send,
+                    onPressed:
+                        _sending || _preparingImage || _recording || _voiceBusy
+                            ? null
+                            : _send,
                     style: IconButton.styleFrom(
                       backgroundColor: theme.primary,
                       foregroundColor: theme.info,
@@ -1808,8 +1922,7 @@ class _AdminSelectedImagePreview extends StatelessWidget {
               bottom: 4,
               left: 4,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.65),
                   borderRadius: BorderRadius.circular(4),
@@ -1845,17 +1958,25 @@ class _AdminSelectedImagePreview extends StatelessWidget {
   }
 }
 
+enum _AdminMessageAction { edit, delete }
+
 class _AdminMessageBubble extends StatelessWidget {
   const _AdminMessageBubble({
     required this.message,
     required this.conversationId,
     required this.repository,
+    required this.actionBusy,
+    this.onEdit,
+    this.onDelete,
     this.memberName,
   });
 
   final SupportMessage message;
   final String conversationId;
   final SupportConversationRepository repository;
+  final bool actionBusy;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
   final String? memberName;
 
   @override
@@ -1921,6 +2042,60 @@ class _AdminMessageBubble extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+                if (fromAdmin) ...[
+                  const SizedBox(width: 4),
+                  SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: PopupMenuButton<_AdminMessageAction>(
+                      key: ValueKey('admin-support-message-menu-${message.id}'),
+                      enabled: !actionBusy,
+                      tooltip: 'Actions sur le message',
+                      padding: EdgeInsets.zero,
+                      iconSize: 19,
+                      icon: actionBusy
+                          ? SizedBox(
+                              width: 15,
+                              height: 15,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: theme.info,
+                              ),
+                            )
+                          : Icon(Icons.more_horiz_rounded, color: theme.info),
+                      onSelected: (action) {
+                        switch (action) {
+                          case _AdminMessageAction.edit:
+                            onEdit?.call();
+                          case _AdminMessageAction.delete:
+                            onDelete?.call();
+                        }
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(
+                          value: _AdminMessageAction.edit,
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit_outlined, size: 19),
+                              SizedBox(width: 10),
+                              Text('Modifier'),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: _AdminMessageAction.delete,
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete_outline_rounded, size: 19),
+                              SizedBox(width: 10),
+                              Text('Supprimer'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
             SizedBox(height: spacing.xs),
@@ -1954,9 +2129,8 @@ class _AdminMessageBubble extends StatelessWidget {
               SizedBox(height: spacing.xs),
               Row(
                 mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: fromAdmin
-                    ? MainAxisAlignment.end
-                    : MainAxisAlignment.start,
+                mainAxisAlignment:
+                    fromAdmin ? MainAxisAlignment.end : MainAxisAlignment.start,
                 children: [
                   Text(
                     _formatSupportDate(message.createdAt),
@@ -1966,6 +2140,18 @@ class _AdminMessageBubble extends StatelessWidget {
                           : theme.secondaryText,
                     ),
                   ),
+                  if (message.editedAt != null) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      'Modifié',
+                      style: theme.labelSmall.override(
+                        color: fromAdmin
+                            ? theme.info.withValues(alpha: .75)
+                            : theme.secondaryText,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
                   if (fromAdmin) ...[
                     const SizedBox(width: 4),
                     Icon(
@@ -2007,8 +2193,7 @@ class _AdminSupportImageState extends State<_AdminSupportImage> {
           return Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.broken_image_outlined,
-                  color: theme.error, size: 20),
+              Icon(Icons.broken_image_outlined, color: theme.error, size: 20),
               SizedBox(width: spacing.xs),
               Text('Impossible de charger l’image.',
                   style: theme.bodySmall.override(color: theme.error)),

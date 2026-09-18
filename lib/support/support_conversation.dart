@@ -49,6 +49,7 @@ class SupportMessage {
   bool get hasImage => data['attachment_type'] == 'image';
   bool get hasAudio => data['attachment_type'] == 'audio';
   DateTime? get createdAt => supportDate(data['created_at']);
+  DateTime? get editedAt => supportDate(data['edited_at']);
   bool get sentByAdmin => senderRole == 'admin';
 }
 
@@ -258,5 +259,112 @@ class SupportConversationRepository {
       }
       if (audio != null) transaction.set(audioRef, audio.toData());
     });
+  }
+
+  Future<void> editAdminMessage({
+    required String conversationId,
+    required String messageId,
+    required String text,
+  }) async {
+    _validateConversationId(conversationId);
+    _validateMessageId(messageId);
+    final normalized = text.trim();
+    if (normalized.isEmpty || normalized.length > 1000) {
+      throw ArgumentError('invalid-support-message-text');
+    }
+
+    final conversationRef = conversations.doc(conversationId);
+    final messageRef = conversationRef.collection('messages').doc(messageId);
+    await db.runTransaction((transaction) async {
+      final conversation = await transaction.get(conversationRef);
+      final message = await transaction.get(messageRef);
+      if (!conversation.exists ||
+          conversation.data()?['user_uid'] != conversationId) {
+        throw StateError('support-conversation-missing');
+      }
+      if (!message.exists || message.data()?['sender_role'] != 'admin') {
+        throw StateError('support-admin-message-missing');
+      }
+      if (message.data()?['text'] == normalized) return;
+
+      if (conversation.data()?['last_message_id'] == messageId) {
+        transaction.update(conversationRef, {
+          'updated_at': FieldValue.serverTimestamp(),
+          'last_message': normalized,
+        });
+      }
+      transaction.update(messageRef, {
+        'text': normalized,
+        'edited_at': FieldValue.serverTimestamp(),
+      });
+    });
+  }
+
+  Future<void> deleteAdminMessage({
+    required String conversationId,
+    required String messageId,
+    String? replacementMessageId,
+  }) async {
+    _validateConversationId(conversationId);
+    _validateMessageId(messageId);
+    if (replacementMessageId != null) {
+      _validateMessageId(replacementMessageId);
+      if (replacementMessageId == messageId) {
+        throw ArgumentError('invalid-support-message-replacement');
+      }
+    }
+
+    final conversationRef = conversations.doc(conversationId);
+    final messages = conversationRef.collection('messages');
+    final messageRef = messages.doc(messageId);
+    final replacementRef = replacementMessageId == null
+        ? null
+        : messages.doc(replacementMessageId);
+    final imageRef = messageRef.collection('attachments').doc('image');
+    final audioRef = messageRef.collection('attachments').doc('audio');
+
+    await db.runTransaction((transaction) async {
+      final conversation = await transaction.get(conversationRef);
+      final message = await transaction.get(messageRef);
+      final replacement =
+          replacementRef == null ? null : await transaction.get(replacementRef);
+      if (!conversation.exists ||
+          conversation.data()?['user_uid'] != conversationId) {
+        throw StateError('support-conversation-missing');
+      }
+      if (!message.exists || message.data()?['sender_role'] != 'admin') {
+        throw StateError('support-admin-message-missing');
+      }
+
+      final isLastMessage =
+          conversation.data()?['last_message_id'] == messageId;
+      if (isLastMessage &&
+          (replacement == null ||
+              !replacement.exists ||
+              replacement.data()?['text'] is! String ||
+              replacement.data()?['sender_role'] is! String)) {
+        throw StateError('support-message-replacement-missing');
+      }
+
+      transaction.delete(imageRef);
+      transaction.delete(audioRef);
+      transaction.delete(messageRef);
+      if (isLastMessage) {
+        transaction.update(conversationRef, {
+          'updated_at': FieldValue.serverTimestamp(),
+          'last_message': replacement!.data()!['text'],
+          'last_message_id': replacement.id,
+          'last_sender_role': replacement.data()!['sender_role'],
+        });
+      }
+    });
+  }
+
+  void _validateMessageId(String messageId) {
+    if (messageId.isEmpty ||
+        messageId.length > 128 ||
+        messageId.contains('/')) {
+      throw ArgumentError('invalid-support-message');
+    }
   }
 }

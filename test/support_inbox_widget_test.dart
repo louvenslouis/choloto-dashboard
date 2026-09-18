@@ -95,6 +95,60 @@ class _ActionRepository extends SupportConversationRepository {
   }
 }
 
+class _MessageActionRepository extends SupportConversationRepository {
+  _MessageActionRepository() : super(firestore: MemoryFirestore());
+
+  String? editedMessageId;
+  String? editedText;
+  String? deletedMessageId;
+  String? replacementMessageId;
+
+  @override
+  Stream<List<SupportMessage>> watchMessages(String userUid) => Stream.value([
+        SupportMessage('u1', {
+          'sender_uid': 'member',
+          'sender_role': 'user',
+          'text': 'Question du membre',
+          'created_at': DateTime(2026, 9, 18, 9),
+        }),
+        SupportMessage('a1', {
+          'sender_uid': 'admin',
+          'sender_role': 'admin',
+          'text': 'Première réponse',
+          'created_at': DateTime(2026, 9, 18, 9, 5),
+          'edited_at': DateTime(2026, 9, 18, 9, 6),
+        }),
+        SupportMessage('a2', {
+          'sender_uid': 'admin',
+          'sender_role': 'admin',
+          'text': 'Dernière réponse',
+          'created_at': DateTime(2026, 9, 18, 9, 10),
+        }),
+      ]);
+
+  @override
+  Future<void> editAdminMessage({
+    required String conversationId,
+    required String messageId,
+    required String text,
+  }) async {
+    expect(conversationId, 'member');
+    editedMessageId = messageId;
+    editedText = text;
+  }
+
+  @override
+  Future<void> deleteAdminMessage({
+    required String conversationId,
+    required String messageId,
+    String? replacementMessageId,
+  }) async {
+    expect(conversationId, 'member');
+    deletedMessageId = messageId;
+    this.replacementMessageId = replacementMessageId;
+  }
+}
+
 class _VoiceRecorder implements SupportVoiceRecorder {
   bool recording = false;
 
@@ -368,6 +422,62 @@ void main() {
     expect(repository.messageId, 'attachment-1');
   });
 
+  testWidgets('administrator can edit and delete admin messages only',
+      (tester) async {
+    tester.view.physicalSize = const Size(600, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = _MessageActionRepository();
+
+    await tester.pumpWidget(MaterialApp(
+      home: SupportConversationPage(
+        conversation:
+            const SupportConversation('member', {'user_uid': 'member'}),
+        repository: repository,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Modifié'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('admin-support-message-menu-u1')),
+      findsNothing,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('admin-support-message-menu-a1')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Modifier'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('admin-support-edit-message-field')),
+      'Réponse corrigée',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('admin-support-confirm-edit-message')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(repository.editedMessageId, 'a1');
+    expect(repository.editedText, 'Réponse corrigée');
+
+    await tester.tap(
+      find.byKey(const ValueKey('admin-support-message-menu-a2')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Supprimer'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('admin-support-confirm-delete-message')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(repository.deletedMessageId, 'a2');
+    expect(repository.replacementMessageId, 'a1');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('support inbox can filter conversations by search query',
       (tester) async {
     final conversations = [
@@ -401,8 +511,7 @@ void main() {
     expect(find.text('Alice Martin'), findsOneWidget);
     expect(find.text('Bob Dupont'), findsOneWidget);
 
-    await tester.enterText(
-        find.byType(TextField), 'Alice');
+    await tester.enterText(find.byType(TextField), 'Alice');
     await tester.pumpAndSettle();
 
     expect(find.text('Alice Martin'), findsOneWidget);
