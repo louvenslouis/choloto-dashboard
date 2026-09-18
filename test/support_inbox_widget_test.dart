@@ -72,6 +72,29 @@ class _ComposerRepository extends SupportConversationRepository {
   }
 }
 
+class _ActionRepository extends SupportConversationRepository {
+  _ActionRepository() : super(firestore: MemoryFirestore());
+
+  bool markedAsTreated = false;
+  bool deleted = false;
+
+  @override
+  Stream<List<SupportMessage>> watchMessages(String userUid) =>
+      Stream.value(const []);
+
+  @override
+  Future<void> markAsTreated(String conversationId) async {
+    expect(conversationId, 'member');
+    markedAsTreated = true;
+  }
+
+  @override
+  Future<void> deleteConversation(String conversationId) async {
+    expect(conversationId, 'member');
+    deleted = true;
+  }
+}
+
 class _VoiceRecorder implements SupportVoiceRecorder {
   bool recording = false;
 
@@ -115,8 +138,6 @@ void main() {
             child: SupportConversationList(
               conversations: [conversation],
               onOpen: (value) => opened = value,
-              onMarkTreated: (_) {},
-              onDelete: (_) {},
             ),
           ),
         ),
@@ -143,10 +164,13 @@ void main() {
     expect(find.text('Aucune conversation pour le moment.'), findsOneWidget);
   });
 
-  testWidgets('support inbox exposes treated and immediate-delete actions',
+  testWidgets('support actions are inside the conversation and aligned right',
       (tester) async {
-    SupportConversation? treated;
-    SupportConversation? deleted;
+    tester.view.physicalSize = const Size(360, 720);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = _ActionRepository();
     const conversation = SupportConversation('member', {
       'user_uid': 'member',
       'user_display_name': 'Marie Exemple',
@@ -155,24 +179,36 @@ void main() {
       'status': 'open',
     });
     await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: SingleChildScrollView(
-          child: SupportConversationList(
-            conversations: const [conversation],
-            onOpen: (_) {},
-            onMarkTreated: (value) => treated = value,
-            onDelete: (value) => deleted = value,
-          ),
-        ),
+      home: SupportConversationPage(
+        conversation: conversation,
+        repository: repository,
       ),
     ));
+    await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.byKey(const ValueKey('support-mark-treated-member')),
+    final treatedButton =
+        find.byKey(const ValueKey('admin-support-mark-treated'));
+    final deleteButton = find.byKey(const ValueKey('admin-support-delete'));
+    expect(treatedButton, findsOneWidget);
+    expect(deleteButton, findsOneWidget);
+    expect(
+      tester.getTopRight(deleteButton).dx,
+      closeTo(tester.getTopRight(treatedButton).dx, .1),
     );
-    expect(treated, same(conversation));
-    await tester.tap(find.byKey(const ValueKey('support-delete-member')));
-    expect(deleted, same(conversation));
+    expect(tester.getTopRight(deleteButton).dx, closeTo(344, .1));
+
+    await tester.tap(treatedButton);
+    await tester.pumpAndSettle();
+    expect(repository.markedAsTreated, isTrue);
+    expect(find.text('Traité'), findsOneWidget);
+
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('admin-support-confirm-delete')),
+    );
+    await tester.pumpAndSettle();
+    expect(repository.deleted, isTrue);
     expect(tester.takeException(), isNull);
   });
 
@@ -190,23 +226,16 @@ void main() {
             }),
           ],
           onOpen: (_) {},
-          onMarkTreated: (_) {},
-          onDelete: (_) {},
         ),
       ),
     ));
 
-    expect(find.text('Traité'), findsNWidgets(2));
+    expect(find.text('Traité'), findsOneWidget);
     expect(find.text('À répondre'), findsNothing);
-    final button = tester.widget<OutlinedButton>(
-      find.byKey(const ValueKey('support-mark-treated-member')),
-    );
-    expect(button.onPressed, isNull);
   });
 
-  testWidgets('interrupted deletion stays visible and can be retried',
+  testWidgets('interrupted deletion stays visible in the inbox',
       (tester) async {
-    SupportConversation? retried;
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: SupportConversationList(
@@ -219,17 +248,12 @@ void main() {
             }),
           ],
           onOpen: (_) {},
-          onMarkTreated: (_) {},
-          onDelete: (value) => retried = value,
         ),
       ),
     ));
 
     expect(find.text('Suppression…'), findsOneWidget);
     expect(find.text('À répondre'), findsNothing);
-    expect(find.text('Réessayer'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('support-delete-member')));
-    expect(retried?.id, 'member');
   });
 
   testWidgets('admin conversation displays and enlarges a received image',

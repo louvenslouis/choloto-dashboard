@@ -30,82 +30,6 @@ class _SupportInboxWidgetState extends State<SupportInboxWidget> {
   final _scaffold = GlobalKey<ScaffoldState>();
   late final SupportConversationRepository _repository =
       widget.repository ?? SupportConversationRepository();
-  final Set<String> _busyConversationIds = {};
-
-  Future<void> _markAsTreated(SupportConversation conversation) async {
-    if (_busyConversationIds.contains(conversation.id) ||
-        conversation.isTreated) {
-      return;
-    }
-    setState(() => _busyConversationIds.add(conversation.id));
-    try {
-      await _repository.markAsTreated(conversation.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Conversation marquée comme traitée.')),
-        );
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Impossible de marquer cette conversation comme traitée.',
-            ),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _busyConversationIds.remove(conversation.id));
-    }
-  }
-
-  Future<void> _deleteConversation(SupportConversation conversation) async {
-    if (_busyConversationIds.contains(conversation.id)) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Effacer la conversation ?'),
-        content: Text(
-          'La conversation avec ${conversation.memberLabel} et tous ses '
-          'messages seront supprimés définitivement, sans attendre 15 jours.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Effacer'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    setState(() => _busyConversationIds.add(conversation.id));
-    try {
-      await _repository.deleteConversation(conversation.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Conversation effacée.')),
-        );
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Suppression impossible. Vérifiez la connexion et réessayez.',
-            ),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _busyConversationIds.remove(conversation.id));
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -165,9 +89,6 @@ class _SupportInboxWidgetState extends State<SupportInboxWidget> {
                           }
                           return SupportConversationList(
                             conversations: snapshot.data!,
-                            busyConversationIds: _busyConversationIds,
-                            onMarkTreated: _markAsTreated,
-                            onDelete: _deleteConversation,
                             onOpen: (conversation) =>
                                 Navigator.of(context).push(
                               MaterialPageRoute<void>(
@@ -197,16 +118,10 @@ class SupportConversationList extends StatelessWidget {
     super.key,
     required this.conversations,
     required this.onOpen,
-    this.onMarkTreated,
-    this.onDelete,
-    this.busyConversationIds = const {},
   });
 
   final List<SupportConversation> conversations;
   final ValueChanged<SupportConversation> onOpen;
-  final ValueChanged<SupportConversation>? onMarkTreated;
-  final ValueChanged<SupportConversation>? onDelete;
-  final Set<String> busyConversationIds;
 
   @override
   Widget build(BuildContext context) {
@@ -301,50 +216,6 @@ class SupportConversationList extends StatelessWidget {
                     ),
                     onTap: () => onOpen(conversation),
                   ),
-                  if (onMarkTreated != null || onDelete != null) ...[
-                    SizedBox(height: spacing.sm),
-                    Wrap(
-                      alignment: WrapAlignment.end,
-                      spacing: spacing.sm,
-                      runSpacing: spacing.xs,
-                      children: [
-                        if (onMarkTreated != null)
-                          OutlinedButton.icon(
-                            key: ValueKey(
-                              'support-mark-treated-${conversation.id}',
-                            ),
-                            onPressed:
-                                busyConversationIds.contains(conversation.id) ||
-                                        conversation.isTreated ||
-                                        conversation.isDeleting
-                                    ? null
-                                    : () => onMarkTreated!(conversation),
-                            icon:
-                                const Icon(Icons.check_circle_outline_rounded),
-                            label: Text(conversation.isTreated
-                                ? 'Traité'
-                                : 'Marquer traité'),
-                          ),
-                        if (onDelete != null)
-                          OutlinedButton.icon(
-                            key: ValueKey(
-                              'support-delete-${conversation.id}',
-                            ),
-                            onPressed:
-                                busyConversationIds.contains(conversation.id)
-                                    ? null
-                                    : () => onDelete!(conversation),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: theme.error,
-                            ),
-                            icon: const Icon(Icons.delete_outline_rounded),
-                            label: Text(
-                              conversation.isDeleting ? 'Réessayer' : 'Effacer',
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -466,10 +337,13 @@ class _SupportConversationPageState extends State<SupportConversationPage>
   String? _pendingAttachmentId;
   String? _error;
   int _messageCount = 0;
+  bool _supportActionBusy = false;
+  late bool _isTreated;
 
   @override
   void initState() {
     super.initState();
+    _isTreated = widget.conversation.isTreated;
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -503,6 +377,84 @@ class _SupportConversationPageState extends State<SupportConversationPage>
         curve: Curves.easeOut,
       );
     });
+  }
+
+  Future<void> _markAsTreated() async {
+    if (_supportActionBusy || _isTreated || widget.conversation.isDeleting) {
+      return;
+    }
+    setState(() => _supportActionBusy = true);
+    try {
+      await widget.repository.markAsTreated(widget.conversation.id);
+      if (mounted) {
+        setState(() => _isTreated = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Conversation marquée comme traitée.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Impossible de marquer cette conversation comme traitée.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _supportActionBusy = false);
+    }
+  }
+
+  Future<void> _deleteConversation() async {
+    if (_supportActionBusy) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Effacer la conversation ?'),
+        content: Text(
+          'La conversation avec ${widget.conversation.memberLabel} et tous '
+          'ses messages seront supprimés définitivement, sans attendre '
+          '15 jours.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            key: const ValueKey('admin-support-confirm-delete'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Effacer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _supportActionBusy = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await widget.repository.deleteConversation(widget.conversation.id);
+      if (!mounted) return;
+      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Conversation effacée.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Suppression impossible. Revenez dans la conversation pour réessayer.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _supportActionBusy = false);
+    }
   }
 
   Future<void> _send() async {
@@ -547,6 +499,7 @@ class _SupportConversationPageState extends State<SupportConversationPage>
           _image = null;
           _audio = null;
           _pendingAttachmentId = null;
+          _isTreated = false;
         });
       }
     } catch (_) {
@@ -706,6 +659,48 @@ class _SupportConversationPageState extends State<SupportConversationPage>
             constraints: const BoxConstraints(maxWidth: 820),
             child: Column(
               children: [
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: spacing.md,
+                    vertical: spacing.sm,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.secondaryBackground,
+                    border: Border(
+                      bottom: BorderSide(color: theme.alternate),
+                    ),
+                  ),
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: spacing.sm,
+                    runSpacing: spacing.xs,
+                    children: [
+                      OutlinedButton.icon(
+                        key: const ValueKey('admin-support-mark-treated'),
+                        onPressed: _supportActionBusy ||
+                                _isTreated ||
+                                widget.conversation.isDeleting
+                            ? null
+                            : _markAsTreated,
+                        icon: const Icon(Icons.check_circle_outline_rounded),
+                        label: Text(_isTreated ? 'Traité' : 'Marquer traité'),
+                      ),
+                      OutlinedButton.icon(
+                        key: const ValueKey('admin-support-delete'),
+                        onPressed:
+                            _supportActionBusy ? null : _deleteConversation,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: theme.error,
+                        ),
+                        icon: const Icon(Icons.delete_outline_rounded),
+                        label: Text(widget.conversation.isDeleting
+                            ? 'Réessayer'
+                            : 'Effacer'),
+                      ),
+                    ],
+                  ),
+                ),
                 Expanded(
                   child: StreamBuilder<List<SupportMessage>>(
                     stream:
