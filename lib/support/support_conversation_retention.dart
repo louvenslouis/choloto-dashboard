@@ -44,6 +44,7 @@ class FirestoreSupportConversationCleanupStore
     int limit = _conversationPageSize,
   }) async {
     final snapshot = await _conversations
+        .where('status', isEqualTo: 'open')
         .where(
           'updated_at',
           isLessThanOrEqualTo: Timestamp.fromDate(cutoff),
@@ -100,7 +101,8 @@ class FirestoreSupportConversationCleanupStore
         final updatedAt = snapshot.data()?['updated_at'];
         if (!snapshot.exists ||
             updatedAt is! Timestamp ||
-            updatedAt.toDate().isAfter(cutoff)) {
+            updatedAt.toDate().isAfter(cutoff) ||
+            snapshot.data()?['status'] != 'open') {
           return false;
         }
         transaction.delete(conversation);

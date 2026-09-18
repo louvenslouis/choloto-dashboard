@@ -6,6 +6,45 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/memory_firestore.dart';
 
 void main() {
+  test('treated conversations stay stored but no longer wait for an admin',
+      () async {
+    final db = MemoryFirestore();
+    db.rows['support_conversations/member'] = {
+      'user_uid': 'member',
+      'status': 'open',
+      'last_sender_role': 'user',
+    };
+    final repository = SupportConversationRepository(firestore: db);
+
+    const pending = SupportConversation('member', {
+      'user_uid': 'member',
+      'status': 'open',
+      'last_sender_role': 'user',
+    });
+    const treated = SupportConversation('member', {
+      'user_uid': 'member',
+      'status': 'treated',
+      'last_sender_role': 'user',
+    });
+    expect(pending.waitingForAdmin, isTrue);
+    expect(treated.isTreated, isTrue);
+    expect(treated.waitingForAdmin, isFalse);
+    expect(
+      const SupportConversation('member', {
+        'status': 'deleting',
+        'last_sender_role': 'user',
+      }).waitingForAdmin,
+      isFalse,
+    );
+
+    await repository.markAsTreated('member');
+    expect(
+      db.rows['support_conversations/member']?['status'],
+      'treated',
+    );
+    expect(db.rows, hasLength(1));
+  });
+
   test('admin reply atomically updates summary and appends immutable message',
       () async {
     final db = MemoryFirestore();
@@ -38,6 +77,7 @@ void main() {
     expect(db.rows['support_conversations/member']!['last_message_id'], 'a1');
     expect(
         db.rows['support_conversations/member']!['last_sender_role'], 'admin');
+    expect(db.rows['support_conversations/member']!['status'], 'open');
     expect(
         db.rows['support_conversations/member']!['created_at'], DateTime(2026));
     expect(db.rows['support_conversations/member/messages/a1'], {

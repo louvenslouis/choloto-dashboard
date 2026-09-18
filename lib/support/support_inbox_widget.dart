@@ -30,6 +30,82 @@ class _SupportInboxWidgetState extends State<SupportInboxWidget> {
   final _scaffold = GlobalKey<ScaffoldState>();
   late final SupportConversationRepository _repository =
       widget.repository ?? SupportConversationRepository();
+  final Set<String> _busyConversationIds = {};
+
+  Future<void> _markAsTreated(SupportConversation conversation) async {
+    if (_busyConversationIds.contains(conversation.id) ||
+        conversation.isTreated) {
+      return;
+    }
+    setState(() => _busyConversationIds.add(conversation.id));
+    try {
+      await _repository.markAsTreated(conversation.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Conversation marquée comme traitée.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Impossible de marquer cette conversation comme traitée.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busyConversationIds.remove(conversation.id));
+    }
+  }
+
+  Future<void> _deleteConversation(SupportConversation conversation) async {
+    if (_busyConversationIds.contains(conversation.id)) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Effacer la conversation ?'),
+        content: Text(
+          'La conversation avec ${conversation.memberLabel} et tous ses '
+          'messages seront supprimés définitivement, sans attendre 15 jours.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Effacer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _busyConversationIds.add(conversation.id));
+    try {
+      await _repository.deleteConversation(conversation.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Conversation effacée.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Suppression impossible. Vérifiez la connexion et réessayez.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busyConversationIds.remove(conversation.id));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -89,6 +165,9 @@ class _SupportInboxWidgetState extends State<SupportInboxWidget> {
                           }
                           return SupportConversationList(
                             conversations: snapshot.data!,
+                            busyConversationIds: _busyConversationIds,
+                            onMarkTreated: _markAsTreated,
+                            onDelete: _deleteConversation,
                             onOpen: (conversation) =>
                                 Navigator.of(context).push(
                               MaterialPageRoute<void>(
@@ -118,10 +197,16 @@ class SupportConversationList extends StatelessWidget {
     super.key,
     required this.conversations,
     required this.onOpen,
+    this.onMarkTreated,
+    this.onDelete,
+    this.busyConversationIds = const {},
   });
 
   final List<SupportConversation> conversations;
   final ValueChanged<SupportConversation> onOpen;
+  final ValueChanged<SupportConversation>? onMarkTreated;
+  final ValueChanged<SupportConversation>? onDelete;
+  final Set<String> busyConversationIds;
 
   @override
   Widget build(BuildContext context) {
@@ -141,64 +226,126 @@ class SupportConversationList extends StatelessWidget {
           Padding(
             padding: EdgeInsets.only(bottom: spacing.md),
             child: AdminSurface(
-              borderColor: conversation.waitingForAdmin
-                  ? theme.warning.withValues(alpha: .55)
-                  : null,
-              child: ListTile(
-                key: ValueKey('support-conversation-${conversation.id}'),
-                contentPadding: EdgeInsets.zero,
-                leading: AdminIconTile(
-                  icon: conversation.waitingForAdmin
-                      ? Icons.mark_unread_chat_alt_rounded
-                      : Icons.mark_chat_read_rounded,
-                  color: conversation.waitingForAdmin
-                      ? theme.warning
-                      : theme.success,
-                ),
-                title: Text(conversation.memberLabel, style: theme.titleMedium),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (conversation.userEmail.isNotEmpty &&
-                        conversation.userEmail != conversation.memberLabel)
-                      Text(
-                        conversation.userEmail,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.labelMedium
-                            .override(color: theme.secondaryText),
-                      ),
-                    SizedBox(height: spacing.xs),
-                    Text(
-                      conversation.lastMessage,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.bodyMedium,
+              borderColor: conversation.isDeleting
+                  ? theme.error.withValues(alpha: .55)
+                  : conversation.waitingForAdmin
+                      ? theme.warning.withValues(alpha: .55)
+                      : null,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ListTile(
+                    key: ValueKey('support-conversation-${conversation.id}'),
+                    contentPadding: EdgeInsets.zero,
+                    leading: AdminIconTile(
+                      icon: conversation.isDeleting
+                          ? Icons.delete_sweep_outlined
+                          : conversation.waitingForAdmin
+                              ? Icons.mark_unread_chat_alt_rounded
+                              : Icons.mark_chat_read_rounded,
+                      color: conversation.isDeleting
+                          ? theme.error
+                          : conversation.waitingForAdmin
+                              ? theme.warning
+                              : theme.success,
+                    ),
+                    title: Text(conversation.memberLabel,
+                        style: theme.titleMedium),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (conversation.userEmail.isNotEmpty &&
+                            conversation.userEmail != conversation.memberLabel)
+                          Text(
+                            conversation.userEmail,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.labelMedium
+                                .override(color: theme.secondaryText),
+                          ),
+                        SizedBox(height: spacing.xs),
+                        Text(
+                          conversation.lastMessage,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                    trailing: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        AdminStatusPill(
+                          compact: true,
+                          label: conversation.isDeleting
+                              ? 'Suppression…'
+                              : conversation.isTreated
+                                  ? 'Traité'
+                                  : conversation.waitingForAdmin
+                                      ? 'À répondre'
+                                      : 'Répondu',
+                          color: conversation.isDeleting
+                              ? theme.error
+                              : conversation.waitingForAdmin
+                                  ? theme.warning
+                                  : theme.success,
+                        ),
+                        SizedBox(height: spacing.xs),
+                        Text(
+                          _formatSupportDate(conversation.updatedAt),
+                          style: theme.labelSmall
+                              .override(color: theme.secondaryText),
+                        ),
+                      ],
+                    ),
+                    onTap: () => onOpen(conversation),
+                  ),
+                  if (onMarkTreated != null || onDelete != null) ...[
+                    SizedBox(height: spacing.sm),
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: spacing.sm,
+                      runSpacing: spacing.xs,
+                      children: [
+                        if (onMarkTreated != null)
+                          OutlinedButton.icon(
+                            key: ValueKey(
+                              'support-mark-treated-${conversation.id}',
+                            ),
+                            onPressed:
+                                busyConversationIds.contains(conversation.id) ||
+                                        conversation.isTreated ||
+                                        conversation.isDeleting
+                                    ? null
+                                    : () => onMarkTreated!(conversation),
+                            icon:
+                                const Icon(Icons.check_circle_outline_rounded),
+                            label: Text(conversation.isTreated
+                                ? 'Traité'
+                                : 'Marquer traité'),
+                          ),
+                        if (onDelete != null)
+                          OutlinedButton.icon(
+                            key: ValueKey(
+                              'support-delete-${conversation.id}',
+                            ),
+                            onPressed:
+                                busyConversationIds.contains(conversation.id)
+                                    ? null
+                                    : () => onDelete!(conversation),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: theme.error,
+                            ),
+                            icon: const Icon(Icons.delete_outline_rounded),
+                            label: Text(
+                              conversation.isDeleting ? 'Réessayer' : 'Effacer',
+                            ),
+                          ),
+                      ],
                     ),
                   ],
-                ),
-                trailing: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    AdminStatusPill(
-                      compact: true,
-                      label: conversation.waitingForAdmin
-                          ? 'À répondre'
-                          : 'Répondu',
-                      color: conversation.waitingForAdmin
-                          ? theme.warning
-                          : theme.success,
-                    ),
-                    SizedBox(height: spacing.xs),
-                    Text(
-                      _formatSupportDate(conversation.updatedAt),
-                      style:
-                          theme.labelSmall.override(color: theme.secondaryText),
-                    ),
-                  ],
-                ),
-                onTap: () => onOpen(conversation),
+                ],
               ),
             ),
           ),

@@ -5,10 +5,15 @@ class _MemoryCleanupStore implements SupportConversationCleanupStore {
   _MemoryCleanupStore({
     required this.conversationUpdatedAt,
     required this.messageCreatedAt,
-  });
+    Map<String, String>? conversationStatus,
+  }) : conversationStatus = conversationStatus ??
+            {
+              for (final id in conversationUpdatedAt.keys) id: 'open',
+            };
 
   final Map<String, DateTime> conversationUpdatedAt;
   final Map<String, Map<String, DateTime>> messageCreatedAt;
+  final Map<String, String> conversationStatus;
   final List<String> operations = [];
   DateTime? receivedCutoff;
 
@@ -19,7 +24,9 @@ class _MemoryCleanupStore implements SupportConversationCleanupStore {
   }) async {
     receivedCutoff = cutoff;
     return conversationUpdatedAt.entries
-        .where((entry) => !entry.value.isAfter(cutoff))
+        .where((entry) =>
+            conversationStatus[entry.key] == 'open' &&
+            !entry.value.isAfter(cutoff))
         .take(limit)
         .map((entry) => entry.key)
         .toList();
@@ -55,9 +62,14 @@ class _MemoryCleanupStore implements SupportConversationCleanupStore {
     DateTime cutoff,
   ) async {
     final updatedAt = conversationUpdatedAt[conversationId];
-    if (updatedAt == null || updatedAt.isAfter(cutoff)) return false;
+    if (updatedAt == null ||
+        updatedAt.isAfter(cutoff) ||
+        conversationStatus[conversationId] != 'open') {
+      return false;
+    }
     operations.add('conversation:$conversationId');
     conversationUpdatedAt.remove(conversationId);
+    conversationStatus.remove(conversationId);
     return true;
   }
 }
@@ -117,6 +129,36 @@ void main() {
 
     expect(deleted, 0);
     expect(store.conversationUpdatedAt, contains('reactivated'));
+  });
+
+  test('treated conversations are retained after 15 days', () async {
+    final now = DateTime.utc(2026, 9, 16, 12);
+    final store = _MemoryCleanupStore(
+      conversationUpdatedAt: {
+        'treated': now.subtract(const Duration(days: 90)),
+        'expired-open': now.subtract(const Duration(days: 16)),
+      },
+      messageCreatedAt: {
+        'treated': {
+          'kept': now.subtract(const Duration(days: 90)),
+        },
+        'expired-open': {
+          'deleted': now.subtract(const Duration(days: 16)),
+        },
+      },
+      conversationStatus: {
+        'treated': 'treated',
+        'expired-open': 'open',
+      },
+    );
+
+    final deleted = await SupportConversationRetentionService(store: store)
+        .deleteExpiredConversations(now: now);
+
+    expect(deleted, 1);
+    expect(store.conversationUpdatedAt, contains('treated'));
+    expect(store.messageCreatedAt['treated'], contains('kept'));
+    expect(store.operations, isNot(contains('message:treated/kept')));
   });
 }
 

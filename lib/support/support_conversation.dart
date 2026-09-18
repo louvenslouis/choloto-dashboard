@@ -23,9 +23,13 @@ class SupportConversation {
   String get userDisplayName => data['user_display_name'] as String? ?? '';
   String get lastMessage => data['last_message'] as String? ?? '';
   String get lastSenderRole => data['last_sender_role'] as String? ?? '';
+  String get status => data['status'] as String? ?? 'open';
   DateTime? get createdAt => supportDate(data['created_at']);
   DateTime? get updatedAt => supportDate(data['updated_at']);
-  bool get waitingForAdmin => lastSenderRole == 'user';
+  bool get isTreated => status == 'treated';
+  bool get isDeleting => status == 'deleting';
+  bool get waitingForAdmin =>
+      !isTreated && !isDeleting && lastSenderRole == 'user';
   String get memberLabel => userDisplayName.isNotEmpty
       ? userDisplayName
       : userEmail.isNotEmpty
@@ -54,6 +58,8 @@ class SupportConversationRepository {
 
   final FirebaseFirestore db;
 
+  static const _deletionPageSize = 100;
+
   CollectionReference<Map<String, dynamic>> get conversations =>
       db.collection('support_conversations');
 
@@ -66,6 +72,59 @@ class SupportConversationRepository {
           .toList()
         ..sort((a, b) => (b.updatedAt ?? DateTime(1970))
             .compareTo(a.updatedAt ?? DateTime(1970))));
+
+  Future<void> markAsTreated(String conversationId) async {
+    _validateConversationId(conversationId);
+    final conversationRef = conversations.doc(conversationId);
+    await db.runTransaction((transaction) async {
+      final snapshot = await transaction.get(conversationRef);
+      if (!snapshot.exists || snapshot.data()?['user_uid'] != conversationId) {
+        throw StateError('support-conversation-missing');
+      }
+      if (snapshot.data()?['status'] == 'treated') return;
+      transaction.update(conversationRef, {'status': 'treated'});
+    });
+  }
+
+  Future<void> deleteConversation(String conversationId) async {
+    _validateConversationId(conversationId);
+    final conversationRef = conversations.doc(conversationId);
+
+    await db.runTransaction((transaction) async {
+      final snapshot = await transaction.get(conversationRef);
+      if (!snapshot.exists) return;
+      if (snapshot.data()?['user_uid'] != conversationId) {
+        throw StateError('support-conversation-owner');
+      }
+      if (snapshot.data()?['status'] != 'deleting') {
+        transaction.update(conversationRef, {'status': 'deleting'});
+      }
+    });
+
+    while (true) {
+      final snapshot = await conversationRef
+          .collection('messages')
+          .limit(_deletionPageSize)
+          .get();
+      if (snapshot.docs.isEmpty) break;
+      final batch = db.batch();
+      for (final message in snapshot.docs) {
+        batch.delete(message.reference.collection('attachments').doc('image'));
+        batch.delete(message.reference.collection('attachments').doc('audio'));
+        batch.delete(message.reference);
+      }
+      await batch.commit();
+    }
+    await conversationRef.delete();
+  }
+
+  void _validateConversationId(String conversationId) {
+    if (conversationId.isEmpty ||
+        conversationId.length > 128 ||
+        conversationId.contains('/')) {
+      throw ArgumentError('invalid-support-conversation');
+    }
+  }
 
   Stream<List<SupportMessage>> watchMessages(String userUid) => conversations
       .doc(userUid)

@@ -115,6 +115,8 @@ void main() {
             child: SupportConversationList(
               conversations: [conversation],
               onOpen: (value) => opened = value,
+              onMarkTreated: (_) {},
+              onDelete: (_) {},
             ),
           ),
         ),
@@ -139,6 +141,95 @@ void main() {
       ),
     ));
     expect(find.text('Aucune conversation pour le moment.'), findsOneWidget);
+  });
+
+  testWidgets('support inbox exposes treated and immediate-delete actions',
+      (tester) async {
+    SupportConversation? treated;
+    SupportConversation? deleted;
+    const conversation = SupportConversation('member', {
+      'user_uid': 'member',
+      'user_display_name': 'Marie Exemple',
+      'last_message': 'Pouvez-vous vérifier mon paiement ?',
+      'last_sender_role': 'user',
+      'status': 'open',
+    });
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: SupportConversationList(
+            conversations: const [conversation],
+            onOpen: (_) {},
+            onMarkTreated: (value) => treated = value,
+            onDelete: (value) => deleted = value,
+          ),
+        ),
+      ),
+    ));
+
+    await tester.tap(
+      find.byKey(const ValueKey('support-mark-treated-member')),
+    );
+    expect(treated, same(conversation));
+    await tester.tap(find.byKey(const ValueKey('support-delete-member')));
+    expect(deleted, same(conversation));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('treated support conversation is not presented as pending',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SupportConversationList(
+          conversations: const [
+            SupportConversation('member', {
+              'user_uid': 'member',
+              'last_message': 'Merci',
+              'last_sender_role': 'user',
+              'status': 'treated',
+            }),
+          ],
+          onOpen: (_) {},
+          onMarkTreated: (_) {},
+          onDelete: (_) {},
+        ),
+      ),
+    ));
+
+    expect(find.text('Traité'), findsNWidgets(2));
+    expect(find.text('À répondre'), findsNothing);
+    final button = tester.widget<OutlinedButton>(
+      find.byKey(const ValueKey('support-mark-treated-member')),
+    );
+    expect(button.onPressed, isNull);
+  });
+
+  testWidgets('interrupted deletion stays visible and can be retried',
+      (tester) async {
+    SupportConversation? retried;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SupportConversationList(
+          conversations: const [
+            SupportConversation('member', {
+              'user_uid': 'member',
+              'last_message': 'Message en cours de suppression',
+              'last_sender_role': 'user',
+              'status': 'deleting',
+            }),
+          ],
+          onOpen: (_) {},
+          onMarkTreated: (_) {},
+          onDelete: (value) => retried = value,
+        ),
+      ),
+    ));
+
+    expect(find.text('Suppression…'), findsOneWidget);
+    expect(find.text('À répondre'), findsNothing);
+    expect(find.text('Réessayer'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('support-delete-member')));
+    expect(retried?.id, 'member');
   });
 
   testWidgets('admin conversation displays and enlarges a received image',
