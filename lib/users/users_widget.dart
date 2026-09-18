@@ -395,7 +395,6 @@ class _UsersWidgetState extends State<UsersWidget>
   // ── Helpers pour la vue Utilisateurs ──────────────────────────────────────
 
   Widget _buildUsersTab(BuildContext context) {
-    final theme = FlutterFlowTheme.of(context);
     final compactNavigation = MediaQuery.sizeOf(context).width < 992;
 
     return FutureBuilder<List<UserRecord>>(
@@ -425,31 +424,7 @@ class _UsersWidgetState extends State<UsersWidget>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AnimatedCrossFade(
-                firstChild: AdminSectionHeader(
-                  title: 'Utilisateurs',
-                  icon: Icons.people_alt_rounded,
-                  trailing: IconButton(
-                    tooltip: 'Ajouter un utilisateur',
-                    onPressed: _showAddUserDialog,
-                    icon: const Icon(Icons.add_rounded, size: 23),
-                    style: IconButton.styleFrom(
-                      minimumSize: const Size(44, 44),
-                      backgroundColor: theme.primary,
-                      foregroundColor: theme.info,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                  ),
-                ),
-                secondChild: const SizedBox(width: double.infinity),
-                crossFadeState: _isHeaderCollapsed
-                    ? CrossFadeState.showSecond
-                    : CrossFadeState.showFirst,
-                duration: const Duration(milliseconds: 220),
-                sizeCurve: Curves.easeOutCubic,
-              ),
+              const SizedBox(height: 14),
               _UsersToolbar(
                 controller: _model.textController!,
                 focusNode: _model.textFieldFocusNode!,
@@ -662,34 +637,69 @@ class _UsersWidgetState extends State<UsersWidget>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── En-tête de page + TabBar ──────────────────────────
+                    // ── En-tête de page compact (2 lignes MAX) ────────────
                     Container(
                       color: theme.secondaryBackground,
+                      padding: EdgeInsets.fromLTRB(
+                        compactNavigation ? 16 : 24,
+                        compactNavigation ? 8 : 12,
+                        compactNavigation ? 16 : 24,
+                        0,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Titre de section (desktop uniquement)
+                          // Ligne 1 : Titre + Action contextuelle (desktop)
                           if (!compactNavigation)
-                            const Padding(
-                              padding: EdgeInsets.fromLTRB(24, 20, 24, 0),
-                              child: AdminSectionHeader(
-                                title: 'Membres & Paiements',
-                                icon: Icons.manage_accounts_rounded,
-                                eyebrow: 'GESTION',
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.manage_accounts_rounded,
+                                    size: 20,
+                                    color: theme.primary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Membres & Paiements',
+                                    style: theme.titleMedium.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 16,
+                                      letterSpacing: -.2,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  if (_tabController.index == 0)
+                                    ElevatedButton.icon(
+                                      onPressed: _showAddUserDialog,
+                                      icon: const Icon(Icons.add_rounded, size: 16),
+                                      label: const Text('Ajouter un utilisateur'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: theme.primary,
+                                        foregroundColor: theme.info,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 14,
+                                          vertical: 8,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        elevation: 0,
+                                        textStyle: theme.labelMedium.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
-                          // TabBar
+                          // Ligne 2 : TabBar (3 onglets)
                           TabBar(
                             controller: _tabController,
                             tabs: tabs,
                             isScrollable: true,
                             tabAlignment: TabAlignment.start,
-                            padding: EdgeInsets.fromLTRB(
-                              compactNavigation ? 16 : 24,
-                              compactNavigation ? 12 : 16,
-                              16,
-                              0,
-                            ),
                             labelStyle: theme.labelLarge.copyWith(
                               fontWeight: FontWeight.w700,
                               fontSize: 12.5,

@@ -93,7 +93,6 @@ class _PaymentTransactionsViewState extends State<PaymentTransactionsView>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final theme = FlutterFlowTheme.of(context);
     final compactNavigation = MediaQuery.sizeOf(context).width < 992;
 
     return StreamBuilder<List<PaymentTransactionRecord>>(
@@ -125,25 +124,7 @@ class _PaymentTransactionsViewState extends State<PaymentTransactionsView>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  AdminSectionHeader(
-                    title: 'Paiements clients',
-                    icon: Icons.payments_rounded,
-                    eyebrow: 'SUIVI FINANCIER',
-                    trailing: IconButton(
-                      tooltip: 'Actualiser',
-                      onPressed: _retry,
-                      icon: const Icon(Icons.refresh_rounded),
-                      style: IconButton.styleFrom(
-                        minimumSize: const Size(44, 44),
-                        backgroundColor: theme.secondaryBackground,
-                        foregroundColor: theme.primary,
-                        side: BorderSide(color: theme.alternate),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                    ),
-                  ),
+                  const SizedBox(height: 14),
                   _PaymentSummary(ledger: ledger),
                   const SizedBox(height: 16),
                   _PaymentToolbar(
@@ -162,6 +143,7 @@ class _PaymentTransactionsViewState extends State<PaymentTransactionsView>
                     onMethodChanged: (method) {
                       setState(() => _methodFilter = method);
                     },
+                    onRefresh: _retry,
                   ),
                   const SizedBox(height: 16),
                   Expanded(
@@ -421,6 +403,7 @@ class _PaymentToolbar extends StatelessWidget {
     required this.onClearSearch,
     required this.onStatusChanged,
     required this.onMethodChanged,
+    this.onRefresh,
   });
 
   final TextEditingController searchController;
@@ -431,6 +414,7 @@ class _PaymentToolbar extends StatelessWidget {
   final VoidCallback onClearSearch;
   final ValueChanged<PaymentTransactionStatusFilter> onStatusChanged;
   final ValueChanged<String> onMethodChanged;
+  final VoidCallback? onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -533,7 +517,18 @@ class _PaymentToolbar extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                _ResultCount(count: resultCount),
+                Row(
+                  children: [
+                    _ResultCount(count: resultCount),
+                    const Spacer(),
+                    if (onRefresh != null)
+                      IconButton(
+                        tooltip: 'Actualiser',
+                        onPressed: onRefresh,
+                        icon: const Icon(Icons.refresh_rounded, size: 20),
+                      ),
+                  ],
+                ),
               ],
             );
           }
@@ -546,6 +541,14 @@ class _PaymentToolbar extends StatelessWidget {
               Expanded(flex: 2, child: method),
               const SizedBox(width: 16),
               _ResultCount(count: resultCount),
+              if (onRefresh != null) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Actualiser',
+                  onPressed: onRefresh,
+                  icon: const Icon(Icons.refresh_rounded, size: 20),
+                ),
+              ],
             ],
           );
         },

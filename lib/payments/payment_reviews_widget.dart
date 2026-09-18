@@ -65,63 +65,69 @@ class _PaymentReviewsViewState extends State<PaymentReviewsView>
           child: ListView(
             padding: EdgeInsets.symmetric(vertical: s.md),
             children: [
-              AdminSectionHeader(
-                title: paymentText(context, 'adminTitle'),
-                icon: Icons.receipt_long_outlined,
-                eyebrow: 'VALIDATION DE JUSTIFICATIFS',
-                trailing: IconButton(
-                  tooltip: paymentText(context, 'retry'),
-                  onPressed: () => setState(_refresh),
-                  icon: const Icon(Icons.refresh_rounded),
-                  style: IconButton.styleFrom(
-                    minimumSize: const Size(44, 44),
-                    backgroundColor: t.secondaryBackground,
-                    foregroundColor: t.primary,
-                    side: BorderSide(color: t.alternate),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+              Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 14),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _status ?? 'all',
+                        isExpanded: true,
+                        style: t.bodyLarge,
+                        dropdownColor: t.secondaryBackground,
+                        decoration: InputDecoration(
+                          labelText: 'Filtrer par statut',
+                          labelStyle: t.labelMedium,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          filled: true,
+                          fillColor: t.secondaryBackground,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: t.alternate),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: t.alternate),
+                          ),
+                        ),
+                        items: [
+                          for (final value in [
+                            'pending',
+                            'approved',
+                            'rejected',
+                            'all'
+                          ])
+                            DropdownMenuItem(
+                              value: value,
+                              child: Text(paymentText(context, value)),
+                            )
+                        ],
+                        onChanged: (v) => setState(() {
+                          _status = v == 'all' ? null : v;
+                          _refresh();
+                        }),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 10),
+                    IconButton(
+                      tooltip: paymentText(context, 'retry'),
+                      onPressed: () => setState(_refresh),
+                      icon: const Icon(Icons.refresh_rounded),
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size(48, 48),
+                        backgroundColor: t.secondaryBackground,
+                        foregroundColor: t.primary,
+                        side: BorderSide(color: t.alternate),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: _status ?? 'all',
-                isExpanded: true,
-                style: t.bodyLarge,
-                dropdownColor: t.secondaryBackground,
-                decoration: InputDecoration(
-                  labelText: 'Filtrer par statut',
-                  labelStyle: t.labelMedium,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  filled: true,
-                  fillColor: t.secondaryBackground,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: t.alternate),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: t.alternate),
-                  ),
-                ),
-                items: [
-                  for (final value in [
-                    'pending',
-                    'approved',
-                    'rejected',
-                    'all'
-                  ])
-                    DropdownMenuItem(
-                      value: value,
-                      child: Text(paymentText(context, value)),
-                    )
-                ],
-                onChanged: (v) => setState(() {
-                  _status = v == 'all' ? null : v;
-                  _refresh();
-                }),
               ),
               SizedBox(height: s.lg),
               StreamBuilder<List<PaymentRequest>>(
