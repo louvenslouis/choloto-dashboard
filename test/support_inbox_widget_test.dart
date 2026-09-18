@@ -367,4 +367,162 @@ void main() {
     expect(repository.audio?.durationMs, 1000);
     expect(repository.messageId, 'attachment-1');
   });
+
+  testWidgets('support inbox can filter conversations by search query',
+      (tester) async {
+    final conversations = [
+      const SupportConversation('user1', {
+        'user_uid': 'user1',
+        'user_display_name': 'Alice Martin',
+        'user_email': 'alice@example.test',
+        'last_message': 'Question sur mon abonnement',
+        'last_sender_role': 'user',
+      }),
+      const SupportConversation('user2', {
+        'user_uid': 'user2',
+        'user_display_name': 'Bob Dupont',
+        'user_email': 'bob@example.test',
+        'last_message': 'Paiement envoyé',
+        'last_sender_role': 'user',
+      }),
+    ];
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: SupportConversationList(
+            conversations: conversations,
+            onOpen: (_) {},
+          ),
+        ),
+      ),
+    ));
+
+    expect(find.text('Alice Martin'), findsOneWidget);
+    expect(find.text('Bob Dupont'), findsOneWidget);
+
+    await tester.enterText(
+        find.byType(TextField), 'Alice');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Alice Martin'), findsOneWidget);
+    expect(find.text('Bob Dupont'), findsNothing);
+
+    await tester.enterText(find.byType(TextField), 'Introuvable');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Aucune conversation ne correspond à vos filtres.'),
+        findsOneWidget);
+  });
+
+  testWidgets('support inbox can filter by status chip', (tester) async {
+    final conversations = [
+      const SupportConversation('user1', {
+        'user_uid': 'user1',
+        'user_display_name': 'Alice Martin',
+        'last_message': 'Aide SVP',
+        'last_sender_role': 'user',
+        'status': 'open',
+      }),
+      const SupportConversation('user2', {
+        'user_uid': 'user2',
+        'user_display_name': 'Bob Dupont',
+        'last_message': 'Merci beaucoup',
+        'last_sender_role': 'user',
+        'status': 'treated',
+      }),
+    ];
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: SupportConversationList(
+            conversations: conversations,
+            onOpen: (_) {},
+          ),
+        ),
+      ),
+    ));
+
+    expect(find.text('Alice Martin'), findsOneWidget);
+    expect(find.text('Bob Dupont'), findsOneWidget);
+
+    await tester.tap(find.text('À répondre (1)'));
+    await tester.pumpAndSettle();
+    expect(find.text('Alice Martin'), findsOneWidget);
+    expect(find.text('Bob Dupont'), findsNothing);
+
+    await tester.tap(find.text('Traités (1)'));
+    await tester.pumpAndSettle();
+    expect(find.text('Alice Martin'), findsNothing);
+    expect(find.text('Bob Dupont'), findsOneWidget);
+
+    await tester.tap(find.text('Tous (2)'));
+    await tester.pumpAndSettle();
+    expect(find.text('Alice Martin'), findsOneWidget);
+    expect(find.text('Bob Dupont'), findsOneWidget);
+  });
+
+  testWidgets('canned responses populate reply input', (tester) async {
+    final repository = _ComposerRepository();
+    const conversation = SupportConversation('member', {
+      'user_uid': 'member',
+      'user_display_name': 'Marie Exemple',
+      'last_message': 'Bonjour',
+    });
+
+    await tester.pumpWidget(MaterialApp(
+      home: SupportConversationPage(
+        conversation: conversation,
+        repository: repository,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final cannedChip =
+        find.text('👋 Bonjour ! Comment pouvons-nous vous aider ?');
+    expect(cannedChip, findsOneWidget);
+
+    await tester.tap(cannedChip);
+    await tester.pumpAndSettle();
+
+    final replyField = tester.widget<TextField>(
+      find.byKey(const ValueKey('admin-support-reply-field')),
+    );
+    expect(
+      replyField.controller?.text,
+      '👋 Bonjour ! Comment pouvons-nous vous aider ?',
+    );
+  });
+
+  testWidgets('support inbox renders desktop dual pane when width >= 900',
+      (tester) async {
+    tester.view.physicalSize = const Size(1100, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const conversation = SupportConversation('member', {
+      'user_uid': 'member',
+      'user_display_name': 'Marie Exemple',
+      'user_email': 'marie@example.test',
+      'last_message': 'Bonjour',
+      'last_sender_role': 'user',
+    });
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SupportConversationList(
+          conversations: const [conversation],
+          selectedConversationId: 'member',
+          isEmbedded: true,
+          onOpen: (_) {},
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Marie Exemple'), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget); // search field
+  });
 }
