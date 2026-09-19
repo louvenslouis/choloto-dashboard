@@ -218,6 +218,32 @@ void main() {
     expect(find.text('Aucune conversation pour le moment.'), findsOneWidget);
   });
 
+  testWidgets('anonymous visitor id is replaced by a readable identity',
+      (tester) async {
+    const guestId = '123e4567-e89b-42d3-a456-426614174000';
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: SupportConversationList(
+            conversations: const [
+              SupportConversation(guestId, {
+                'user_uid': guestId,
+                'guest_access': true,
+                'last_message': 'Je souhaite obtenir de l’aide.',
+                'last_sender_role': 'user',
+              }),
+            ],
+            onOpen: (_) {},
+          ),
+        ),
+      ),
+    ));
+
+    expect(find.text('Visiteur anonyme'), findsOneWidget);
+    expect(find.text('Réf. 174000'), findsOneWidget);
+    expect(find.text(guestId), findsNothing);
+  });
+
   testWidgets('support actions are inside the conversation and aligned right',
       (tester) async {
     tester.view.physicalSize = const Size(360, 720);

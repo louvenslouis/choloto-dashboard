@@ -110,8 +110,10 @@ class _PaiementWidgetState extends State<PaiementWidget> {
     setState(() => _downloadingReceipt = true);
     try {
       final transactions = await queryPaymentTransactionRecordOnce(
-        queryBuilder: (query) =>
-            query.where('user_ref', isEqualTo: widget.refUser),
+        queryBuilder: (query) => query
+            .where('user_ref', isEqualTo: widget.refUser)
+            .orderBy('created_at', descending: true),
+        limit: 50,
       );
       if (!mounted) return;
 
@@ -340,8 +342,10 @@ class _PaiementWidgetState extends State<PaiementWidget> {
     setState(() => _cancelling = true);
     try {
       final transactions = await queryPaymentTransactionRecordOnce(
-        queryBuilder: (query) =>
-            query.where('user_ref', isEqualTo: widget.refUser),
+        queryBuilder: (query) => query
+            .where('user_ref', isEqualTo: widget.refUser)
+            .orderBy('created_at', descending: true),
+        limit: 50,
       );
       if (!mounted) return;
 

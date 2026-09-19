@@ -55,13 +55,19 @@ class PaymentRequestRepository {
       db.collection('payment_requests');
   String newId() => requests.doc().id;
 
+  static const listLimit = 20;
+
   Stream<List<PaymentRequest>> watch({String? userUid, String? status}) {
     Query<Map<String, dynamic>> query = requests;
     if (userUid != null) query = query.where('user_uid', isEqualTo: userUid);
     if (status != null) query = query.where('status', isEqualTo: status);
-    // Single-field filters preserve compatibility without composite indexes.
-    return query.snapshots().map((snapshot) =>
-        snapshot.docs.map((doc) => PaymentRequest(doc.id, doc.data())).toList()
+    return query
+        .orderBy('created_at', descending: true)
+        .limit(listLimit)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => PaymentRequest(doc.id, doc.data()))
+            .toList()
           ..sort((a, b) => (b.createdAt ?? DateTime(1970))
               .compareTo(a.createdAt ?? DateTime(1970))));
   }

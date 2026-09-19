@@ -6,8 +6,31 @@ import '/flutter_flow/flutter_flow_util.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
-class PredictionsHistoryWidget extends StatelessWidget {
+class PredictionsHistoryWidget extends StatefulWidget {
   const PredictionsHistoryWidget({super.key});
+
+  @override
+  State<PredictionsHistoryWidget> createState() =>
+      _PredictionsHistoryWidgetState();
+}
+
+class _PredictionsHistoryWidgetState extends State<PredictionsHistoryWidget> {
+  late Future<List<PredictionRecord>> _historyFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _historyFuture = _loadHistory();
+  }
+
+  Future<List<PredictionRecord>> _loadHistory() => queryPredictionRecordOnce(
+        queryBuilder: (records) => records.orderBy('date', descending: true),
+        limit: defaultFirestorePageSize,
+      );
+
+  void _refreshHistory() {
+    setState(() => _historyFuture = _loadHistory());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,11 +42,8 @@ class PredictionsHistoryWidget extends StatelessWidget {
         width: double.infinity,
         constraints: const BoxConstraints(maxWidth: 1120.0),
         padding: const EdgeInsets.fromLTRB(20.0, 18.0, 20.0, 0.0),
-        child: StreamBuilder<List<PredictionRecord>>(
-          stream: queryPredictionRecord(
-            queryBuilder: (records) =>
-                records.orderBy('date', descending: true),
-          ),
+        child: FutureBuilder<List<PredictionRecord>>(
+          future: _historyFuture,
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               return _PredictionHistoryMessage(
@@ -52,7 +72,10 @@ class PredictionsHistoryWidget extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _HistoryHeading(publicationCount: publications.length),
+                _HistoryHeading(
+                  publicationCount: publications.length,
+                  onRefresh: _refreshHistory,
+                ),
                 const SizedBox(height: 14.0),
                 Expanded(
                   child: publications.isEmpty
@@ -81,10 +104,22 @@ class PredictionsHistoryWidget extends StatelessWidget {
                                 final publication = publications[index];
                                 return _PredictionHistoryCard(
                                   publication: publication,
-                                  onEdit: () =>
-                                      _editPublication(context, publication),
-                                  onDelete: () =>
-                                      _deletePublication(context, publication),
+                                  onEdit: () async {
+                                    if (await _editPublication(
+                                      context,
+                                      publication,
+                                    )) {
+                                      _refreshHistory();
+                                    }
+                                  },
+                                  onDelete: () async {
+                                    if (await _deletePublication(
+                                      context,
+                                      publication,
+                                    )) {
+                                      _refreshHistory();
+                                    }
+                                  },
                                 );
                               },
                             );
@@ -99,7 +134,7 @@ class PredictionsHistoryWidget extends StatelessWidget {
     );
   }
 
-  Future<void> _deletePublication(
+  Future<bool> _deletePublication(
     BuildContext context,
     PredictionRecord publication,
   ) async {
@@ -114,20 +149,21 @@ class PredictionsHistoryWidget extends StatelessWidget {
     );
 
     if (!confirmed || !context.mounted) {
-      return;
+      return false;
     }
 
     try {
       await publication.reference.delete();
-      if (!context.mounted) return;
+      if (!context.mounted) return true;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Prédiction supprimée.'),
           backgroundColor: FlutterFlowTheme.of(context).success,
         ),
       );
+      return true;
     } catch (_) {
-      if (!context.mounted) return;
+      if (!context.mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
@@ -136,10 +172,11 @@ class PredictionsHistoryWidget extends StatelessWidget {
           backgroundColor: FlutterFlowTheme.of(context).error,
         ),
       );
+      return false;
     }
   }
 
-  Future<void> _editPublication(
+  Future<bool> _editPublication(
     BuildContext context,
     PredictionRecord publication,
   ) async {
@@ -148,7 +185,7 @@ class PredictionsHistoryWidget extends StatelessWidget {
       context: context,
       publication: publication,
     );
-    if (!saved || !context.mounted) return;
+    if (!saved || !context.mounted) return false;
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -158,17 +195,23 @@ class PredictionsHistoryWidget extends StatelessWidget {
           backgroundColor: FlutterFlowTheme.of(context).success,
         ),
       );
+    return true;
   }
 }
 
 class _HistoryHeading extends StatelessWidget {
-  const _HistoryHeading({required this.publicationCount});
+  const _HistoryHeading({
+    required this.publicationCount,
+    required this.onRefresh,
+  });
 
   final int publicationCount;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
+    final compact = MediaQuery.sizeOf(context).width < 520;
 
     return AdminSurface(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
@@ -203,12 +246,19 @@ class _HistoryHeading extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10.0),
-          AdminStatusPill(
-            label:
-                '$publicationCount publication${publicationCount > 1 ? 's' : ''}',
-            color: theme.primary,
-            compact: true,
+          IconButton(
+            tooltip: 'Actualiser',
+            onPressed: onRefresh,
+            icon: const Icon(Icons.refresh_rounded),
           ),
+          const SizedBox(width: 4.0),
+          if (!compact)
+            AdminStatusPill(
+              label:
+                  '$publicationCount affichée${publicationCount == 1 ? '' : 's'}',
+              color: theme.primary,
+              compact: true,
+            ),
         ],
       ),
     );

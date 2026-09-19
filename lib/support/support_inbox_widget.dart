@@ -318,9 +318,15 @@ class _SupportConversationListState extends State<SupportConversationList> {
             conversation.memberLabel.toLowerCase().contains(query);
         final matchesEmail =
             conversation.userEmail.toLowerCase().contains(query);
+        final matchesReference =
+            conversation.memberReference.toLowerCase().contains(query) ||
+                conversation.userUid.toLowerCase().contains(query);
         final matchesMessage =
             conversation.lastMessage.toLowerCase().contains(query);
-        if (!matchesName && !matchesEmail && !matchesMessage) {
+        if (!matchesName &&
+            !matchesEmail &&
+            !matchesReference &&
+            !matchesMessage) {
           return false;
         }
       }
@@ -519,6 +525,14 @@ class _SupportConversationListState extends State<SupportConversationList> {
                       conversation.userEmail != conversation.memberLabel)
                     Text(
                       conversation.userEmail,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          theme.labelSmall.override(color: theme.secondaryText),
+                    ),
+                  if (conversation.memberReference.isNotEmpty)
+                    Text(
+                      conversation.memberReference,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style:
@@ -1356,9 +1370,12 @@ class _SupportConversationPageState extends State<SupportConversationPage>
                           ),
                         ],
                       ),
-                      if (widget.conversation.userEmail.isNotEmpty)
+                      if (widget.conversation.userEmail.isNotEmpty ||
+                          widget.conversation.memberReference.isNotEmpty)
                         Text(
-                          widget.conversation.userEmail,
+                          widget.conversation.userEmail.isNotEmpty
+                              ? widget.conversation.userEmail
+                              : widget.conversation.memberReference,
                           style: theme.labelSmall
                               .override(color: theme.secondaryText),
                         ),
@@ -1856,9 +1873,12 @@ class _SupportConversationPageState extends State<SupportConversationPage>
                 children: [
                   Text(widget.conversation.memberLabel,
                       style: theme.titleMedium),
-                  if (widget.conversation.userEmail.isNotEmpty)
+                  if (widget.conversation.userEmail.isNotEmpty ||
+                      widget.conversation.memberReference.isNotEmpty)
                     Text(
-                      widget.conversation.userEmail,
+                      widget.conversation.userEmail.isNotEmpty
+                          ? widget.conversation.userEmail
+                          : widget.conversation.memberReference,
                       style:
                           theme.labelSmall.override(color: theme.secondaryText),
                     ),

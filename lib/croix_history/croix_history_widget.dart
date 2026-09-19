@@ -19,6 +19,22 @@ class CroixHistoryWidget extends StatefulWidget {
 
 class _CroixHistoryWidgetState extends State<CroixHistoryWidget> {
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  late Future<List<CroixRecord>> _historyFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _historyFuture = _loadHistory();
+  }
+
+  Future<List<CroixRecord>> _loadHistory() => queryCroixRecordOnce(
+        queryBuilder: (records) => records.orderBy('date', descending: true),
+        limit: defaultFirestorePageSize,
+      );
+
+  void _refreshHistory() {
+    setState(() => _historyFuture = _loadHistory());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,11 +80,8 @@ class _CroixHistoryWidgetState extends State<CroixHistoryWidget> {
                         dense: true,
                       ),
                       Expanded(
-                        child: StreamBuilder<List<CroixRecord>>(
-                          stream: queryCroixRecord(
-                            queryBuilder: (records) =>
-                                records.orderBy('date', descending: true),
-                          ),
+                        child: FutureBuilder<List<CroixRecord>>(
+                          future: _historyFuture,
                           builder: (context, snapshot) {
                             if (snapshot.hasError) {
                               return _HistoryMessage(
@@ -110,8 +123,9 @@ class _CroixHistoryWidgetState extends State<CroixHistoryWidget> {
 
   Widget _buildHistory(List<CroixRecord> publications) {
     final theme = FlutterFlowTheme.of(context);
+    final compact = MediaQuery.sizeOf(context).width < 600;
     final publicationLabel =
-        '${publications.length} publication${publications.length > 1 ? 's' : ''}';
+        '${publications.length} affichée${publications.length == 1 ? '' : 's'}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -126,11 +140,18 @@ class _CroixHistoryWidgetState extends State<CroixHistoryWidget> {
                 label: const Text('Retour à la publication'),
               ),
               const Spacer(),
-              AdminStatusPill(
-                label: publicationLabel,
-                color: theme.primary,
-                compact: true,
+              IconButton(
+                tooltip: 'Actualiser',
+                onPressed: _refreshHistory,
+                icon: const Icon(Icons.refresh_rounded),
               ),
+              const SizedBox(width: 4.0),
+              if (!compact)
+                AdminStatusPill(
+                  label: publicationLabel,
+                  color: theme.primary,
+                  compact: true,
+                ),
             ],
           ),
         ),
@@ -180,6 +201,8 @@ class _CroixHistoryWidgetState extends State<CroixHistoryWidget> {
     );
     if (!saved || !mounted) return;
 
+    _refreshHistory();
+
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -205,6 +228,7 @@ class _CroixHistoryWidgetState extends State<CroixHistoryWidget> {
 
     if (confirmed) {
       await publication.reference.delete();
+      if (mounted) _refreshHistory();
     }
   }
 }

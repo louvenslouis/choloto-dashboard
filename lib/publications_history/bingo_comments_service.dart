@@ -4,6 +4,56 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const bingoAdminReplyMaxLength = 500;
 
+class BingoUserDirectoryCache {
+  const BingoUserDirectoryCache._();
+
+  static const _cacheDuration = Duration(minutes: 10);
+  static final Map<String, _CachedBingoUser> _users = {};
+
+  static Future<Map<String, Map<String, dynamic>>> load(
+    Iterable<String> userIds,
+  ) async {
+    final now = DateTime.now();
+    _users.removeWhere(
+      (_, cached) => now.difference(cached.loadedAt) >= _cacheDuration,
+    );
+
+    final normalizedIds = userIds
+        .map((userId) => userId.trim())
+        .where((userId) => userId.isNotEmpty)
+        .toSet();
+    final missingIds = normalizedIds
+        .where((userId) => !_users.containsKey(userId))
+        .toList(growable: false);
+    final snapshots = await Future.wait(
+      missingIds.map(
+        (userId) =>
+            FirebaseFirestore.instance.collection('user').doc(userId).get(),
+      ),
+    );
+    for (final snapshot in snapshots) {
+      _users[snapshot.id] = _CachedBingoUser(
+        snapshot.data(),
+        now,
+      );
+    }
+
+    final result = <String, Map<String, dynamic>>{};
+    for (final userId in normalizedIds) {
+      final data = _users[userId]?.data;
+      if (data != null) result[userId] = data;
+    }
+    return result;
+  }
+}
+
+class _CachedBingoUser {
+  const _CachedBingoUser(this.data, this.loadedAt);
+
+  final Map<String, dynamic>? data;
+  final DateTime loadedAt;
+}
+
 class BingoActivitySnapshot {
   BingoActivitySnapshot({
     required Iterable<String> commentIds,
@@ -55,7 +105,8 @@ class BingoActivityService {
   const BingoActivityService._();
 
   static const _preferencePrefix = 'choloto_admin_bingo_activity_v1';
-  static const _dashboardPublicationLimit = 20;
+  static const _dashboardPublicationLimit = 10;
+  static const _activityLimitPerType = 50;
 
   static Future<BingoActivitySnapshot> load(
     DocumentReference bingoReference,
@@ -69,9 +120,15 @@ class BingoActivityService {
     SharedPreferences preferences,
   ) async {
     final snapshots = await Future.wait([
-      bingoReference.collection('comments').get(),
-      bingoReference.collection('hiddenComments').get(),
-      bingoReference.collection('bingostats').get(),
+      bingoReference.collection('comments').limit(_activityLimitPerType).get(),
+      bingoReference
+          .collection('hiddenComments')
+          .limit(_activityLimitPerType)
+          .get(),
+      bingoReference
+          .collection('bingostats')
+          .limit(_activityLimitPerType)
+          .get(),
     ]);
 
     final commentIds = {
@@ -240,6 +297,8 @@ BingoCommentEntry? parseBingoCommentEntry({
 class BingoCommentsService {
   const BingoCommentsService._();
 
+  static const _commentListLimit = 20;
+
   static Future<int> count(DocumentReference bingoReference) async {
     final snapshots = await Future.wait([
       bingoReference.collection('comments').count().get(),
@@ -258,10 +317,12 @@ class BingoCommentsService {
       bingoReference
           .collection('comments')
           .orderBy('updatedAt', descending: true)
+          .limit(_commentListLimit)
           .get(),
       bingoReference
           .collection('hiddenComments')
           .orderBy('updatedAt', descending: true)
+          .limit(_commentListLimit)
           .get(),
     ]);
     final commentsSnapshot = snapshots[0];
@@ -277,19 +338,7 @@ class BingoCommentsService {
         .map((stored) => _stringValue(stored.document.data()['user']))
         .where((userId) => userId.isNotEmpty)
         .toSet();
-    final userSnapshots = await Future.wait(
-      userIds.map(
-        (userId) =>
-            FirebaseFirestore.instance.collection('user').doc(userId).get(),
-      ),
-    );
-    final usersById = <String, Map<String, dynamic>>{};
-    for (final snapshot in userSnapshots) {
-      final data = snapshot.data();
-      if (snapshot.exists && data != null) {
-        usersById[snapshot.id] = data;
-      }
-    }
+    final usersById = await BingoUserDirectoryCache.load(userIds);
     final likeCounts = await Future.wait(
       storedComments.map(
         (stored) => bingoReference

@@ -24,6 +24,10 @@ class DashboardWidget extends StatefulWidget {
 }
 
 class _DashboardWidgetState extends State<DashboardWidget> {
+  static const _dashboardCacheDuration = Duration(minutes: 2);
+  static Future<_DashboardData>? _cachedDashboardFuture;
+  static DateTime? _dashboardCachedAt;
+
   late DashboardModel _model;
   final scaffoldKey = GlobalKey<ScaffoldState>();
   late Future<_DashboardData> _dashboardFuture;
@@ -39,11 +43,25 @@ class _DashboardWidgetState extends State<DashboardWidget> {
   }
 
   void _loadData({bool forceAnalytics = false}) {
-    _dashboardFuture = _queryDashboardData();
+    _dashboardFuture = _loadDashboardData(forceRefresh: forceAnalytics);
     _analyticsFuture = AnalyticsOverviewService.load(
       forceRefresh: forceAnalytics,
     );
     _bingoActivityFuture = BingoActivityService.loadOverview();
+  }
+
+  Future<_DashboardData> _loadDashboardData({bool forceRefresh = false}) {
+    final cachedAt = _dashboardCachedAt;
+    final cacheIsFresh = cachedAt != null &&
+        DateTime.now().difference(cachedAt) < _dashboardCacheDuration;
+    if (!forceRefresh && cacheIsFresh && _cachedDashboardFuture != null) {
+      return _cachedDashboardFuture!;
+    }
+
+    final future = _queryDashboardData();
+    _cachedDashboardFuture = future;
+    _dashboardCachedAt = DateTime.now();
+    return future;
   }
 
   Future<_DashboardData> _queryDashboardData() async {
@@ -74,26 +92,32 @@ class _DashboardWidgetState extends State<DashboardWidget> {
       queryPaymentTransactionRecordOnce(
         queryBuilder: (query) => query
             .where('created_at', isGreaterThanOrEqualTo: startOfMonth)
-            .where('created_at', isLessThan: startOfNextMonth),
+            .where('created_at', isLessThan: startOfNextMonth)
+            .orderBy('created_at', descending: true),
+        limit: 50,
       ),
       queryResultatsRecordOnce(
         queryBuilder: (query) => query
             .where('date', isGreaterThanOrEqualTo: startOfToday)
             .where('date', isLessThan: startOfTomorrow),
+        limit: defaultFirestorePageSize,
       ),
       queryPredictionRecordOnce(
         queryBuilder: (query) => query
             .where('date', isGreaterThanOrEqualTo: startOfToday)
             .where('date', isLessThan: startOfTomorrow),
+        limit: 3,
       ),
       queryBingoRecordOnce(
         queryBuilder: (query) =>
             query.where('expiration', isGreaterThanOrEqualTo: now),
+        limit: defaultFirestorePageSize,
       ),
       queryCroixRecordOnce(
         queryBuilder: (query) => query
             .where('date', isGreaterThanOrEqualTo: startOfToday)
             .where('date', isLessThan: startOfTomorrow),
+        limit: defaultFirestorePageSize,
       ),
     ]);
 

@@ -6,6 +6,34 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/memory_firestore.dart';
 
 void main() {
+  test('anonymous conversations use a readable label and short reference', () {
+    const conversation = SupportConversation(
+      '123e4567-e89b-42d3-a456-426614174000',
+      {
+        'user_uid': '123e4567-e89b-42d3-a456-426614174000',
+        'guest_access': true,
+      },
+    );
+
+    expect(conversation.isAnonymous, isTrue);
+    expect(conversation.memberLabel, 'Visiteur anonyme');
+    expect(conversation.memberReference, 'Réf. 174000');
+    expect(conversation.memberLabel, isNot(contains('123e4567')));
+  });
+
+  test('known member identity remains unchanged', () {
+    const conversation = SupportConversation('member-id', {
+      'user_uid': 'member-id',
+      'user_display_name': ' Marie Exemple ',
+      'user_email': ' marie@example.test ',
+    });
+
+    expect(conversation.isAnonymous, isFalse);
+    expect(conversation.memberLabel, 'Marie Exemple');
+    expect(conversation.userEmail, 'marie@example.test');
+    expect(conversation.memberReference, isEmpty);
+  });
+
   test('treated conversations stay stored but no longer wait for an admin',
       () async {
     final db = MemoryFirestore();

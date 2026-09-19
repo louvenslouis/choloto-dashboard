@@ -1,8 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import '../auth/firebase_auth/auth_util.dart';
-
-import '../flutter_flow/flutter_flow_util.dart';
 import 'schema/util/firestore_util.dart';
 
 import 'schema/croix_record.dart';
@@ -28,6 +24,12 @@ export 'schema/bingo_record.dart';
 export 'schema/bingostats_record.dart';
 export 'schema/payment_transaction_record.dart';
 
+/// Maximum number of documents fetched by an ordinary list query.
+///
+/// Larger data sets must use [queryCollectionPage] instead of silently reading
+/// an entire collection.
+const int defaultFirestorePageSize = 20;
+
 /// Functions to query CroixRecords (as a Stream and as a Future).
 Future<int> queryCroixRecordCount({
   Query Function(Query)? queryBuilder,
@@ -41,7 +43,7 @@ Future<int> queryCroixRecordCount({
 
 Stream<List<CroixRecord>> queryCroixRecord({
   Query Function(Query)? queryBuilder,
-  int limit = -1,
+  int limit = defaultFirestorePageSize,
   bool singleRecord = false,
 }) =>
     queryCollection(
@@ -54,7 +56,7 @@ Stream<List<CroixRecord>> queryCroixRecord({
 
 Future<List<CroixRecord>> queryCroixRecordOnce({
   Query Function(Query)? queryBuilder,
-  int limit = -1,
+  int limit = defaultFirestorePageSize,
   bool singleRecord = false,
 }) =>
     queryCollectionOnce(
@@ -78,7 +80,7 @@ Future<int> queryUserRecordCount({
 
 Stream<List<UserRecord>> queryUserRecord({
   Query Function(Query)? queryBuilder,
-  int limit = -1,
+  int limit = defaultFirestorePageSize,
   bool singleRecord = false,
 }) =>
     queryCollection(
@@ -91,7 +93,7 @@ Stream<List<UserRecord>> queryUserRecord({
 
 Future<List<UserRecord>> queryUserRecordOnce({
   Query Function(Query)? queryBuilder,
-  int limit = -1,
+  int limit = defaultFirestorePageSize,
   bool singleRecord = false,
 }) =>
     queryCollectionOnce(
@@ -115,7 +117,7 @@ Future<int> queryPaymentTransactionRecordCount({
 
 Stream<List<PaymentTransactionRecord>> queryPaymentTransactionRecord({
   Query Function(Query)? queryBuilder,
-  int limit = -1,
+  int limit = defaultFirestorePageSize,
   bool singleRecord = false,
 }) =>
     queryCollection(
@@ -128,7 +130,7 @@ Stream<List<PaymentTransactionRecord>> queryPaymentTransactionRecord({
 
 Future<List<PaymentTransactionRecord>> queryPaymentTransactionRecordOnce({
   Query Function(Query)? queryBuilder,
-  int limit = -1,
+  int limit = defaultFirestorePageSize,
   bool singleRecord = false,
 }) =>
     queryCollectionOnce(
@@ -152,7 +154,7 @@ Future<int> queryResultatsRecordCount({
 
 Stream<List<ResultatsRecord>> queryResultatsRecord({
   Query Function(Query)? queryBuilder,
-  int limit = -1,
+  int limit = defaultFirestorePageSize,
   bool singleRecord = false,
 }) =>
     queryCollection(
@@ -165,7 +167,7 @@ Stream<List<ResultatsRecord>> queryResultatsRecord({
 
 Future<List<ResultatsRecord>> queryResultatsRecordOnce({
   Query Function(Query)? queryBuilder,
-  int limit = -1,
+  int limit = defaultFirestorePageSize,
   bool singleRecord = false,
 }) =>
     queryCollectionOnce(
@@ -189,7 +191,7 @@ Future<int> queryPredictionRecordCount({
 
 Stream<List<PredictionRecord>> queryPredictionRecord({
   Query Function(Query)? queryBuilder,
-  int limit = -1,
+  int limit = defaultFirestorePageSize,
   bool singleRecord = false,
 }) =>
     queryCollection(
@@ -202,7 +204,7 @@ Stream<List<PredictionRecord>> queryPredictionRecord({
 
 Future<List<PredictionRecord>> queryPredictionRecordOnce({
   Query Function(Query)? queryBuilder,
-  int limit = -1,
+  int limit = defaultFirestorePageSize,
   bool singleRecord = false,
 }) =>
     queryCollectionOnce(
@@ -226,7 +228,7 @@ Future<int> queryBingoRecordCount({
 
 Stream<List<BingoRecord>> queryBingoRecord({
   Query Function(Query)? queryBuilder,
-  int limit = -1,
+  int limit = defaultFirestorePageSize,
   bool singleRecord = false,
 }) =>
     queryCollection(
@@ -239,7 +241,7 @@ Stream<List<BingoRecord>> queryBingoRecord({
 
 Future<List<BingoRecord>> queryBingoRecordOnce({
   Query Function(Query)? queryBuilder,
-  int limit = -1,
+  int limit = defaultFirestorePageSize,
   bool singleRecord = false,
 }) =>
     queryCollectionOnce(
@@ -265,7 +267,7 @@ Future<int> queryBingostatsRecordCount({
 Stream<List<BingostatsRecord>> queryBingostatsRecord({
   DocumentReference? parent,
   Query Function(Query)? queryBuilder,
-  int limit = -1,
+  int limit = defaultFirestorePageSize,
   bool singleRecord = false,
 }) =>
     queryCollection(
@@ -279,7 +281,7 @@ Stream<List<BingostatsRecord>> queryBingostatsRecord({
 Future<List<BingostatsRecord>> queryBingostatsRecordOnce({
   DocumentReference? parent,
   Query Function(Query)? queryBuilder,
-  int limit = -1,
+  int limit = defaultFirestorePageSize,
   bool singleRecord = false,
 }) =>
     queryCollectionOnce(
@@ -301,9 +303,7 @@ Future<int> queryCollectionCount(
     query = query.limit(limit);
   }
 
-  return query.count().get().catchError((err) {
-    print('Error querying $collection: $err');
-  }).then((value) => value.count!);
+  return query.count().get().then((value) => value.count ?? 0);
 }
 
 Stream<List<T>> queryCollection<T>(
@@ -315,9 +315,9 @@ Stream<List<T>> queryCollection<T>(
 }) {
   final builder = queryBuilder ?? (q) => q;
   var query = builder(collection);
-  if (limit > 0 || singleRecord) {
-    query = query.limit(singleRecord ? 1 : limit);
-  }
+  final effectiveLimit =
+      singleRecord ? 1 : (limit > 0 ? limit : defaultFirestorePageSize);
+  query = query.limit(effectiveLimit);
   return query.snapshots().handleError((err) {
     print('Error querying $collection: $err');
   }).map((s) => s.docs
@@ -341,9 +341,9 @@ Future<List<T>> queryCollectionOnce<T>(
 }) {
   final builder = queryBuilder ?? (q) => q;
   var query = builder(collection);
-  if (limit > 0 || singleRecord) {
-    query = query.limit(singleRecord ? 1 : limit);
-  }
+  final effectiveLimit =
+      singleRecord ? 1 : (limit > 0 ? limit : defaultFirestorePageSize);
+  query = query.limit(effectiveLimit);
   return query.get().then((s) => s.docs
       .map(
         (d) => safeGet(

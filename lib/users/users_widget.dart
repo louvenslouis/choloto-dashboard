@@ -13,7 +13,7 @@ import '/payments/payment_request.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'user_auth_provider_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'user_excel_exporter.dart';
 import 'user_document_creator.dart';
 import 'users_model.dart';
@@ -81,8 +81,14 @@ class UsersWidget extends StatefulWidget {
 
 class _UsersWidgetState extends State<UsersWidget>
     with TickerProviderStateMixin {
+  static const _usersCacheDuration = Duration(days: 7);
+  static const _usersCacheTimestampKey =
+      'users_full_collection_cache_timestamp_v1';
+  static Future<List<UserRecord>>? _cachedUsersFuture;
+  static DateTime? _usersCachedAt;
+
   late UsersModel _model;
-  late Future<List<UserRecord>> _usersFuture;
+  Future<List<UserRecord>>? _usersFuture;
   late TabController _tabController;
   late final Stream<List<PaymentRequest>> _pendingRequestsStream;
 
@@ -91,9 +97,7 @@ class _UsersWidgetState extends State<UsersWidget>
   _UsersViewMode _viewMode = _UsersViewMode.cards;
   UserSortMode _sortMode = UserSortMode.alphabetical;
   bool _isExporting = false;
-  Map<String, List<String>> _authProvidersByUid = const {};
-  bool _authProvidersLoading = true;
-  bool _authProvidersUnavailable = false;
+  bool _isRefreshingUsers = false;
 
   @override
   void initState() {
@@ -104,14 +108,21 @@ class _UsersWidgetState extends State<UsersWidget>
       initialIndex: widget.initialTabIndex.clamp(0, 2),
     );
     _tabController.addListener(() {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      if (_tabController.index == 0 && _usersFuture == null) {
+        _reloadUsers();
+        return;
+      }
+      setState(() {});
     });
     _pendingRequestsStream =
         PaymentRequestRepository().watch(status: 'pending');
     _model = createModel(context, () => UsersModel());
     _model.textController ??= TextEditingController();
     _model.textFieldFocusNode ??= FocusNode();
-    _reloadUsers(notifyListeners: false);
+    if (_tabController.index == 0) {
+      _reloadUsers(notifyListeners: false);
+    }
 
     logFirebaseEvent('screen_view', parameters: {'screen_name': 'users'});
   }
@@ -238,23 +249,95 @@ class _UsersWidgetState extends State<UsersWidget>
         .replaceAll(RegExp('[ýÿ]'), 'y');
   }
 
-  String _userIdentifier(UserRecord user) {
-    final uid = user.uid.trim();
-    return uid.isEmpty ? user.reference.id : uid;
+  Future<List<UserRecord>> _loadUsers({bool forceRefresh = false}) {
+    final cachedAt = _usersCachedAt;
+    final cacheIsFresh = cachedAt != null &&
+        DateTime.now().difference(cachedAt) < _usersCacheDuration;
+    if (!forceRefresh && cacheIsFresh && _cachedUsersFuture != null) {
+      return _cachedUsersFuture!;
+    }
+
+    final future = _loadAllUsers(forceRefresh: forceRefresh);
+    _cachedUsersFuture = future;
+    unawaited(
+      future.then<void>(
+        (_) {
+          if (identical(future, _cachedUsersFuture)) {
+            _usersCachedAt = DateTime.now();
+          }
+        },
+        onError: (_) {
+          if (identical(future, _cachedUsersFuture)) {
+            _cachedUsersFuture = null;
+            _usersCachedAt = null;
+          }
+        },
+      ),
+    );
+    return future;
   }
 
-  List<String>? _authProvidersFor(UserRecord user) {
-    if (_authProvidersLoading) return null;
-    return _authProvidersByUid[_userIdentifier(user)] ?? const [];
+  Future<List<UserRecord>> _loadAllUsers({required bool forceRefresh}) async {
+    final preferences = await SharedPreferences.getInstance();
+    final cachedTimestamp = preferences.getInt(_usersCacheTimestampKey);
+    final persistentCacheIsFresh = !forceRefresh &&
+        cachedTimestamp != null &&
+        DateTime.now().difference(
+              DateTime.fromMillisecondsSinceEpoch(cachedTimestamp),
+            ) <
+            _usersCacheDuration;
+
+    if (persistentCacheIsFresh) {
+      try {
+        final cachedUsers = await _fetchAllUsers(Source.cache);
+        if (cachedUsers.isNotEmpty) return cachedUsers;
+      } catch (_) {
+        // The local Firestore cache may have been cleared by the browser.
+      }
+    }
+
+    try {
+      final users = await _fetchAllUsers(Source.server);
+      await preferences.setInt(
+        _usersCacheTimestampKey,
+        DateTime.now().millisecondsSinceEpoch,
+      );
+      return users;
+    } catch (_) {
+      try {
+        final cachedUsers = await _fetchAllUsers(Source.cache);
+        if (cachedUsers.isNotEmpty) return cachedUsers;
+      } catch (_) {
+        // Preserve the server error if no cached result is available.
+      }
+      rethrow;
+    }
   }
 
-  void _reloadUsers({bool notifyListeners = true}) {
-    final usersFuture = queryUserRecordOnce();
+  Future<List<UserRecord>> _fetchAllUsers(Source source) async {
+    final snapshot =
+        await UserRecord.collection.get(GetOptions(source: source));
+    return snapshot.docs
+        .map(
+          (document) => safeGet(
+            () => UserRecord.fromSnapshot(document),
+            (error) => debugPrint(
+              'Error serializing user ${document.reference.path}: $error',
+            ),
+          ),
+        )
+        .whereType<UserRecord>()
+        .toList();
+  }
+
+  void _reloadUsers({
+    bool notifyListeners = true,
+    bool forceRefresh = false,
+  }) {
+    final usersFuture = _loadUsers(forceRefresh: forceRefresh);
 
     void updateState() {
       _usersFuture = usersFuture;
-      _authProvidersLoading = true;
-      _authProvidersUnavailable = false;
     }
 
     if (notifyListeners) {
@@ -262,31 +345,33 @@ class _UsersWidgetState extends State<UsersWidget>
     } else {
       updateState();
     }
-
-    unawaited(_loadAuthProviders(usersFuture));
   }
 
-  Future<void> _loadAuthProviders(
-    Future<List<UserRecord>> usersFuture,
-  ) async {
+  Future<void> _refreshUsers() async {
+    if (_isRefreshingUsers) return;
+    setState(() => _isRefreshingUsers = true);
+    _reloadUsers(forceRefresh: true);
+    final usersFuture = _usersFuture!;
+
     try {
       final users = await usersFuture;
-      final providers = await UserAuthProviderService.loadForUserIds(
-        users.map(_userIdentifier),
-      );
-      if (!mounted || !identical(usersFuture, _usersFuture)) return;
-      setState(() {
-        _authProvidersByUid = providers;
-        _authProvidersLoading = false;
-        _authProvidersUnavailable = false;
-      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text('${users.length} utilisateurs actualisés.')),
+        );
     } catch (_) {
-      if (!mounted || !identical(usersFuture, _usersFuture)) return;
-      setState(() {
-        _authProvidersByUid = const {};
-        _authProvidersLoading = false;
-        _authProvidersUnavailable = true;
-      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Impossible d’actualiser les utilisateurs.'),
+          ),
+        );
+    } finally {
+      if (mounted) setState(() => _isRefreshingUsers = false);
     }
   }
 
@@ -318,7 +403,7 @@ class _UsersWidgetState extends State<UsersWidget>
 
     if (result == null || !mounted) return;
 
-    _reloadUsers();
+    _reloadUsers(forceRefresh: true);
     logFirebaseEvent('USERS_ADD_MANUAL_SUCCESS');
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -351,7 +436,7 @@ class _UsersWidgetState extends State<UsersWidget>
     );
 
     if (saved == true && mounted) {
-      _reloadUsers();
+      _reloadUsers(forceRefresh: true);
     }
   }
 
@@ -396,12 +481,19 @@ class _UsersWidgetState extends State<UsersWidget>
 
   Widget _buildUsersTab(BuildContext context) {
     final compactNavigation = MediaQuery.sizeOf(context).width < 992;
+    final usersFuture = _usersFuture;
+
+    if (usersFuture == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return FutureBuilder<List<UserRecord>>(
-      future: _usersFuture,
+      future: usersFuture,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return _UsersErrorState(onRetry: _reloadUsers);
+          return _UsersErrorState(
+            onRetry: () => _reloadUsers(forceRefresh: true),
+          );
         }
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
@@ -412,8 +504,7 @@ class _UsersWidgetState extends State<UsersWidget>
         final vipCount = allUsers
             .where(
               (user) =>
-                  user.endSub != null &&
-                  !user.endSub!.isBefore(DateTime.now()),
+                  user.endSub != null && !user.endSub!.isBefore(DateTime.now()),
             )
             .length;
 
@@ -435,6 +526,7 @@ class _UsersWidgetState extends State<UsersWidget>
                 viewMode: _viewMode,
                 sortMode: _sortMode,
                 isExporting: _isExporting,
+                isRefreshing: _isRefreshingUsers,
                 onQueryChanged: (_) => setState(() {}),
                 onClearQuery: () {
                   _model.textController!.clear();
@@ -454,13 +546,15 @@ class _UsersWidgetState extends State<UsersWidget>
                   );
                   setState(() => _sortMode = mode);
                 },
+                onRefresh: _refreshUsers,
                 onExport: users.isEmpty ? null : () => _exportUsers(users),
               ),
               const SizedBox(height: 18),
               Expanded(
                 child: users.isEmpty
                     ? _UsersEmptyState(
-                        hasSearch: _model.textController!.text.trim().isNotEmpty,
+                        hasSearch:
+                            _model.textController!.text.trim().isNotEmpty,
                         onReset: () {
                           _model.textController!.clear();
                           setState(() => _model.filtres = 'Tout');
@@ -476,22 +570,22 @@ class _UsersWidgetState extends State<UsersWidget>
                               ? LayoutBuilder(
                                   key: const ValueKey('users-card-view'),
                                   builder: (context, constraints) {
-                                    final cardWidth =
-                                        constraints.maxWidth < 720
-                                            ? constraints.maxWidth
-                                            : constraints.maxWidth < 1160
-                                                ? 360.0
-                                                : 380.0;
+                                    final cardWidth = constraints.maxWidth < 720
+                                        ? constraints.maxWidth
+                                        : constraints.maxWidth < 1160
+                                            ? 360.0
+                                            : 380.0;
 
                                     return GridView.builder(
-                                      padding: const EdgeInsets.only(bottom: 28),
+                                      padding:
+                                          const EdgeInsets.only(bottom: 28),
                                       keyboardDismissBehavior:
                                           ScrollViewKeyboardDismissBehavior
                                               .onDrag,
                                       gridDelegate:
                                           SliverGridDelegateWithMaxCrossAxisExtent(
                                         maxCrossAxisExtent: cardWidth,
-                                        mainAxisExtent: 388,
+                                        mainAxisExtent: 344,
                                         crossAxisSpacing: 16,
                                         mainAxisSpacing: 16,
                                       ),
@@ -500,10 +594,6 @@ class _UsersWidgetState extends State<UsersWidget>
                                         final user = users[index];
                                         return _UserCard(
                                           user: user,
-                                          authProviderIds:
-                                              _authProvidersFor(user),
-                                          authProvidersUnavailable:
-                                              _authProvidersUnavailable,
                                           onViewProfile: () => _showUser(user),
                                           onAddPayment: () =>
                                               _showPayment(user),
@@ -515,9 +605,6 @@ class _UsersWidgetState extends State<UsersWidget>
                               : _UsersList(
                                   key: const ValueKey('users-list-view'),
                                   users: users,
-                                  authProvidersFor: _authProvidersFor,
-                                  authProvidersUnavailable:
-                                      _authProvidersUnavailable,
                                   onViewProfile: _showUser,
                                   onAddPayment: _showPayment,
                                 ),
@@ -537,7 +624,11 @@ class _UsersWidgetState extends State<UsersWidget>
     final theme = FlutterFlowTheme.of(context);
 
     // Labels des onglets (avec badge « pending » pour les preuves)
-    final tabTitles = ['Utilisateurs', 'Preuves de paiement', 'Paiements clients'];
+    final tabTitles = [
+      'Utilisateurs',
+      'Preuves de paiement',
+      'Paiements clients'
+    ];
     final currentTabTitle = tabTitles[_tabController.index.clamp(0, 2)];
 
     final tabs = <Widget>[
@@ -673,8 +764,10 @@ class _UsersWidgetState extends State<UsersWidget>
                                   if (_tabController.index == 0)
                                     ElevatedButton.icon(
                                       onPressed: _showAddUserDialog,
-                                      icon: const Icon(Icons.add_rounded, size: 16),
-                                      label: const Text('Ajouter un utilisateur'),
+                                      icon: const Icon(Icons.add_rounded,
+                                          size: 16),
+                                      label:
+                                          const Text('Ajouter un utilisateur'),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: theme.primary,
                                         foregroundColor: theme.info,
@@ -683,7 +776,8 @@ class _UsersWidgetState extends State<UsersWidget>
                                           vertical: 8,
                                         ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(10),
+                                          borderRadius:
+                                              BorderRadius.circular(10),
                                         ),
                                         elevation: 0,
                                         textStyle: theme.labelMedium.copyWith(
@@ -948,11 +1042,13 @@ class _UsersToolbar extends StatelessWidget {
     required this.viewMode,
     required this.sortMode,
     required this.isExporting,
+    required this.isRefreshing,
     required this.onQueryChanged,
     required this.onClearQuery,
     required this.onFilterChanged,
     required this.onViewModeChanged,
     required this.onSortModeChanged,
+    required this.onRefresh,
     required this.onExport,
   });
 
@@ -965,11 +1061,13 @@ class _UsersToolbar extends StatelessWidget {
   final _UsersViewMode viewMode;
   final UserSortMode sortMode;
   final bool isExporting;
+  final bool isRefreshing;
   final ValueChanged<String> onQueryChanged;
   final VoidCallback onClearQuery;
   final ValueChanged<String> onFilterChanged;
   final ValueChanged<_UsersViewMode> onViewModeChanged;
   final ValueChanged<UserSortMode> onSortModeChanged;
+  final VoidCallback onRefresh;
   final VoidCallback? onExport;
 
   @override
@@ -1038,12 +1136,37 @@ class _UsersToolbar extends StatelessWidget {
               ],
             ),
           );
+          final refreshButton = IconButton(
+            tooltip: 'Actualiser les utilisateurs',
+            onPressed: isRefreshing ? null : onRefresh,
+            icon: isRefreshing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh_rounded, size: 20),
+            style: IconButton.styleFrom(
+              minimumSize: const Size(44, 44),
+              foregroundColor: theme.primary,
+              backgroundColor: theme.accent1,
+              side: BorderSide(
+                color: theme.secondary.withValues(alpha: .35),
+              ),
+            ),
+          );
 
           if (stacked) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                search,
+                Row(
+                  children: [
+                    Expanded(child: search),
+                    const SizedBox(width: 8),
+                    refreshButton,
+                  ],
+                ),
                 const SizedBox(height: 14),
                 filters,
                 const SizedBox(height: 12),
@@ -1068,6 +1191,8 @@ class _UsersToolbar extends StatelessWidget {
                   Expanded(flex: 3, child: search),
                   const SizedBox(width: 16),
                   Flexible(flex: 2, child: filters),
+                  const SizedBox(width: 8),
+                  refreshButton,
                 ],
               ),
               const SizedBox(height: 12),
@@ -1470,15 +1595,11 @@ class _UsersList extends StatelessWidget {
   const _UsersList({
     super.key,
     required this.users,
-    required this.authProvidersFor,
-    required this.authProvidersUnavailable,
     required this.onViewProfile,
     required this.onAddPayment,
   });
 
   final List<UserRecord> users;
-  final List<String>? Function(UserRecord) authProvidersFor;
-  final bool authProvidersUnavailable;
   final Future<void> Function(UserRecord) onViewProfile;
   final Future<void> Function(UserRecord) onAddPayment;
 
@@ -1505,8 +1626,6 @@ class _UsersList extends StatelessWidget {
                   final user = users[index];
                   return _UserListItem(
                     user: user,
-                    authProviderIds: authProvidersFor(user),
-                    authProvidersUnavailable: authProvidersUnavailable,
                     wide: wide,
                     onViewProfile: () => onViewProfile(user),
                     onAddPayment: () => onAddPayment(user),
@@ -1566,16 +1685,12 @@ class _UserListHeader extends StatelessWidget {
 class _UserListItem extends StatefulWidget {
   const _UserListItem({
     required this.user,
-    required this.authProviderIds,
-    required this.authProvidersUnavailable,
     required this.wide,
     required this.onViewProfile,
     required this.onAddPayment,
   });
 
   final UserRecord user;
-  final List<String>? authProviderIds;
-  final bool authProvidersUnavailable;
   final bool wide;
   final VoidCallback onViewProfile;
   final VoidCallback onAddPayment;
@@ -1626,31 +1741,18 @@ class _UserListItemState extends State<_UserListItem> {
           ),
         ),
         const SizedBox(height: 5),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            AdminStatusPill(
-              label: active ? 'VIP ACTIF' : 'ACCÈS GRATUIT',
-              color: statusColor,
-              compact: true,
-              leading: Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-            if (isNew) const _NewUserBadge(),
-          ],
-        ),
-        const SizedBox(height: 7),
-        UserAuthProviderBadges(
-          providerIds: widget.authProviderIds,
-          unavailable: widget.authProvidersUnavailable,
+        AdminStatusPill(
+          label: active ? 'VIP ACTIF' : 'ACCÈS GRATUIT',
+          color: statusColor,
           compact: true,
+          leading: Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: statusColor,
+              shape: BoxShape.circle,
+            ),
+          ),
         ),
       ],
     );
@@ -1693,6 +1795,7 @@ class _UserListItemState extends State<_UserListItem> {
                       email: email,
                       phone: phone,
                       deadline: deadline,
+                      isNew: isNew,
                     )
                   : _buildCompactRow(
                       context,
@@ -1701,6 +1804,7 @@ class _UserListItemState extends State<_UserListItem> {
                       email: email,
                       phone: phone,
                       deadline: deadline,
+                      isNew: isNew,
                     ),
             ),
           ),
@@ -1716,11 +1820,17 @@ class _UserListItemState extends State<_UserListItem> {
     required String email,
     required String phone,
     required String deadline,
+    required bool isNew,
   }) {
     final theme = FlutterFlowTheme.of(context);
     return Row(
       children: [
-        _UserAvatar(user: widget.user, initial: initial, size: 52),
+        _UserAvatar(
+          user: widget.user,
+          initial: initial,
+          size: 52,
+          isNew: isNew,
+        ),
         const SizedBox(width: 14),
         Expanded(flex: 3, child: identity),
         const SizedBox(width: 16),
@@ -1806,6 +1916,7 @@ class _UserListItemState extends State<_UserListItem> {
     required String email,
     required String phone,
     required String deadline,
+    required bool isNew,
   }) {
     final theme = FlutterFlowTheme.of(context);
     return Column(
@@ -1813,7 +1924,12 @@ class _UserListItemState extends State<_UserListItem> {
       children: [
         Row(
           children: [
-            _UserAvatar(user: widget.user, initial: initial, size: 50),
+            _UserAvatar(
+              user: widget.user,
+              initial: initial,
+              size: 50,
+              isNew: isNew,
+            ),
             const SizedBox(width: 12),
             Expanded(child: identity),
             IconButton(
@@ -2105,15 +2221,11 @@ class _NewUserBadge extends StatelessWidget {
 class _UserCard extends StatefulWidget {
   const _UserCard({
     required this.user,
-    required this.authProviderIds,
-    required this.authProvidersUnavailable,
     required this.onViewProfile,
     required this.onAddPayment,
   });
 
   final UserRecord user;
-  final List<String>? authProviderIds;
-  final bool authProvidersUnavailable;
   final VoidCallback onViewProfile;
   final VoidCallback onAddPayment;
 
@@ -2175,7 +2287,11 @@ class _UserCardState extends State<_UserCard> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _UserAvatar(user: user, initial: initial),
+                      _UserAvatar(
+                        user: user,
+                        initial: initial,
+                        isNew: isNew,
+                      ),
                       const SizedBox(width: 13),
                       Expanded(
                         child: Column(
@@ -2191,31 +2307,18 @@ class _UserCardState extends State<_UserCard> {
                               ),
                             ),
                             const SizedBox(height: 5),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: [
-                                AdminStatusPill(
-                                  label: active ? 'VIP ACTIF' : 'ACCÈS GRATUIT',
-                                  color: statusColor,
-                                  compact: true,
-                                  leading: Container(
-                                    width: 6,
-                                    height: 6,
-                                    decoration: BoxDecoration(
-                                      color: statusColor,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                ),
-                                if (isNew) const _NewUserBadge(),
-                              ],
-                            ),
-                            const SizedBox(height: 7),
-                            UserAuthProviderBadges(
-                              providerIds: widget.authProviderIds,
-                              unavailable: widget.authProvidersUnavailable,
+                            AdminStatusPill(
+                              label: active ? 'VIP ACTIF' : 'ACCÈS GRATUIT',
+                              color: statusColor,
                               compact: true,
+                              leading: Container(
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: statusColor,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -2357,11 +2460,13 @@ class _UserAvatar extends StatelessWidget {
     required this.user,
     required this.initial,
     this.size = 60,
+    this.isNew = false,
   });
 
   final UserRecord user;
   final String initial;
   final double size;
+  final bool isNew;
 
   @override
   Widget build(BuildContext context) {
@@ -2376,30 +2481,45 @@ class _UserAvatar extends StatelessWidget {
       ),
     );
 
-    return Container(
+    return SizedBox(
       width: size,
       height: size,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: theme.accent1,
-        shape: BoxShape.circle,
-        border: Border.all(color: theme.secondary, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: theme.primaryText.withValues(alpha: .10),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: size,
+            height: size,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: theme.accent1,
+              shape: BoxShape.circle,
+              border: Border.all(color: theme.secondary, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: theme.primaryText.withValues(alpha: .10),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: user.photoUrl.trim().isEmpty
+                ? fallback
+                : CachedNetworkImage(
+                    imageUrl: user.photoUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => fallback,
+                    errorWidget: (_, __, ___) => fallback,
+                  ),
           ),
+          if (isNew)
+            const Positioned(
+              bottom: -7,
+              child: _NewUserBadge(),
+            ),
         ],
       ),
-      child: user.photoUrl.trim().isEmpty
-          ? fallback
-          : CachedNetworkImage(
-              imageUrl: user.photoUrl,
-              fit: BoxFit.cover,
-              placeholder: (_, __) => fallback,
-              errorWidget: (_, __, ___) => fallback,
-            ),
     );
   }
 }

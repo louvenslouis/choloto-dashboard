@@ -19,8 +19,9 @@ class SupportConversation {
   final Map<String, dynamic> data;
 
   String get userUid => data['user_uid'] as String? ?? id;
-  String get userEmail => data['user_email'] as String? ?? '';
-  String get userDisplayName => data['user_display_name'] as String? ?? '';
+  String get userEmail => (data['user_email'] as String? ?? '').trim();
+  String get userDisplayName =>
+      (data['user_display_name'] as String? ?? '').trim();
   String get lastMessage => data['last_message'] as String? ?? '';
   String get lastSenderRole => data['last_sender_role'] as String? ?? '';
   String get status => data['status'] as String? ?? 'open';
@@ -30,11 +31,25 @@ class SupportConversation {
   bool get isDeleting => status == 'deleting';
   bool get waitingForAdmin =>
       !isTreated && !isDeleting && lastSenderRole == 'user';
+  bool get isAnonymous =>
+      data['guest_access'] == true ||
+      (userDisplayName.isEmpty && userEmail.isEmpty);
+
   String get memberLabel => userDisplayName.isNotEmpty
       ? userDisplayName
       : userEmail.isNotEmpty
           ? userEmail
-          : userUid;
+          : 'Visiteur anonyme';
+
+  /// A short, stable reference lets administrators distinguish anonymous
+  /// visitors without exposing the complete technical conversation id.
+  String get memberReference {
+    if (!isAnonymous) return '';
+    final compactId = userUid.replaceAll('-', '');
+    if (compactId.isEmpty) return '';
+    final start = compactId.length > 6 ? compactId.length - 6 : 0;
+    return 'Réf. ${compactId.substring(start).toUpperCase()}';
+  }
 }
 
 class SupportMessage {
@@ -60,6 +75,8 @@ class SupportConversationRepository {
   final FirebaseFirestore db;
 
   static const _deletionPageSize = 100;
+  static const _conversationListLimit = 20;
+  static const _messageListLimit = 50;
 
   CollectionReference<Map<String, dynamic>> get conversations =>
       db.collection('support_conversations');
@@ -67,8 +84,11 @@ class SupportConversationRepository {
   String newMessageId(String conversationId) =>
       conversations.doc(conversationId).collection('messages').doc().id;
 
-  Stream<List<SupportConversation>> watchAll() =>
-      conversations.snapshots().map((snapshot) => snapshot.docs
+  Stream<List<SupportConversation>> watchAll() => conversations
+      .orderBy('updated_at', descending: true)
+      .limit(_conversationListLimit)
+      .snapshots()
+      .map((snapshot) => snapshot.docs
           .map((doc) => SupportConversation(doc.id, doc.data()))
           .toList()
         ..sort((a, b) => (b.updatedAt ?? DateTime(1970))
@@ -130,6 +150,8 @@ class SupportConversationRepository {
   Stream<List<SupportMessage>> watchMessages(String userUid) => conversations
       .doc(userUid)
       .collection('messages')
+      .orderBy('created_at', descending: true)
+      .limit(_messageListLimit)
       .snapshots()
       .map((snapshot) => snapshot.docs
           .map((doc) => SupportMessage(doc.id, doc.data()))

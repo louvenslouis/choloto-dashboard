@@ -31,6 +31,8 @@ class _SupportAudioPlayerState extends State<SupportAudioPlayer>
   AudioPlayer? _player;
   SupportAudio? _audio;
   final _subscriptions = <StreamSubscription<dynamic>>[];
+  bool _prepared = false;
+  bool _completed = false;
   bool _loading = false;
   bool _playing = false;
   bool _error = false;
@@ -81,12 +83,13 @@ class _SupportAudioPlayerState extends State<SupportAudioPlayer>
       if (_player == null) {
         final player = _player = widget.playerFactory?.call() ?? AudioPlayer();
         _subscriptions.add(player.onPositionChanged.listen((position) {
-          if (mounted) setState(() => _position = position);
+          if (mounted && !_completed) setState(() => _position = position);
         }));
         _subscriptions.add(player.onPlayerComplete.listen((_) {
           if (mounted) {
             setState(() {
               _playing = false;
+              _completed = true;
               _position = Duration.zero;
             });
           }
@@ -96,20 +99,34 @@ class _SupportAudioPlayerState extends State<SupportAudioPlayer>
           if (mounted) {
             setState(() {
               _playing = false;
+              _prepared = false;
               _error = true;
               _loading = false;
             });
           }
         }));
       }
-      await _player!.play(BytesSource(_audio!.bytes, mimeType: 'audio/wav'),
-          position: _position);
+      if (!_prepared) {
+        // Keep the decoded source for pause/resume and repeated listening.
+        await _player!.setReleaseMode(ReleaseMode.stop);
+        await _player!
+            .setSource(BytesSource(_audio!.bytes, mimeType: 'audio/wav'));
+        _prepared = true;
+      }
+      if (!mounted || SupportAudioPlayer.active.value != this) return;
+      if (_completed) {
+        await _player!.seek(Duration.zero);
+      }
+      if (!mounted || SupportAudioPlayer.active.value != this) return;
+      _completed = false;
+      await _player!.resume();
       if (!mounted || SupportAudioPlayer.active.value != this) {
         await _player?.pause();
         return;
       }
       setState(() => _playing = true);
     } catch (_) {
+      _prepared = false;
       if (mounted) {
         setState(() {
           _error = true;

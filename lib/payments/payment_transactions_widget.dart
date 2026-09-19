@@ -34,7 +34,7 @@ class _PaymentTransactionsViewState extends State<PaymentTransactionsView>
   bool get wantKeepAlive => true;
 
   final _searchController = TextEditingController();
-  late Stream<List<PaymentTransactionRecord>> _transactionsStream;
+  late Future<List<PaymentTransactionRecord>> _transactionsFuture;
   PaymentTransactionStatusFilter _statusFilter =
       PaymentTransactionStatusFilter.all;
   String _methodFilter = 'all';
@@ -43,12 +43,19 @@ class _PaymentTransactionsViewState extends State<PaymentTransactionsView>
   @override
   void initState() {
     super.initState();
-    _transactionsStream = queryPaymentTransactionRecord();
+    _transactionsFuture = _loadTransactions();
     logFirebaseEvent(
       'screen_view',
       parameters: {'screen_name': 'PaymentTransactions'},
     );
   }
+
+  Future<List<PaymentTransactionRecord>> _loadTransactions() =>
+      queryPaymentTransactionRecordOnce(
+        queryBuilder: (records) =>
+            records.orderBy('created_at', descending: true),
+        limit: defaultFirestorePageSize,
+      );
 
   @override
   void dispose() {
@@ -58,7 +65,7 @@ class _PaymentTransactionsViewState extends State<PaymentTransactionsView>
 
   void _retry() {
     setState(() {
-      _transactionsStream = queryPaymentTransactionRecord();
+      _transactionsFuture = _loadTransactions();
     });
   }
 
@@ -95,8 +102,8 @@ class _PaymentTransactionsViewState extends State<PaymentTransactionsView>
     super.build(context);
     final compactNavigation = MediaQuery.sizeOf(context).width < 992;
 
-    return StreamBuilder<List<PaymentTransactionRecord>>(
-      stream: _transactionsStream,
+    return FutureBuilder<List<PaymentTransactionRecord>>(
+      future: _transactionsFuture,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return _PaymentTransactionsError(onRetry: _retry);
@@ -161,8 +168,7 @@ class _PaymentTransactionsViewState extends State<PaymentTransactionsView>
                           )
                         : _PaymentList(
                             payments: visiblePayments,
-                            downloadingTransactionId:
-                                _downloadingTransactionId,
+                            downloadingTransactionId: _downloadingTransactionId,
                             onDownload: _downloadReceipt,
                           ),
                   ),

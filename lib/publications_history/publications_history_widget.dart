@@ -21,6 +21,22 @@ class PublicationsHistoryWidget extends StatefulWidget {
 
 class _PublicationsHistoryWidgetState extends State<PublicationsHistoryWidget> {
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  late Future<List<BingoRecord>> _historyFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _historyFuture = _loadHistory();
+  }
+
+  Future<List<BingoRecord>> _loadHistory() => queryBingoRecordOnce(
+        queryBuilder: (records) => records.orderBy('date', descending: true),
+        limit: defaultFirestorePageSize,
+      );
+
+  void _refreshHistory() {
+    setState(() => _historyFuture = _loadHistory());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,11 +81,8 @@ class _PublicationsHistoryWidgetState extends State<PublicationsHistoryWidget> {
                         dense: true,
                       ),
                       Expanded(
-                        child: StreamBuilder<List<BingoRecord>>(
-                          stream: queryBingoRecord(
-                            queryBuilder: (records) =>
-                                records.orderBy('date', descending: true),
-                          ),
+                        child: FutureBuilder<List<BingoRecord>>(
+                          future: _historyFuture,
                           builder: (context, snapshot) {
                             if (snapshot.hasError) {
                               return _HistoryMessage(
@@ -111,8 +124,9 @@ class _PublicationsHistoryWidgetState extends State<PublicationsHistoryWidget> {
 
   Widget _buildHistory(List<BingoRecord> publications) {
     final theme = FlutterFlowTheme.of(context);
+    final compact = MediaQuery.sizeOf(context).width < 600;
     final publicationLabel =
-        '${publications.length} publication${publications.length > 1 ? 's' : ''}';
+        '${publications.length} affichée${publications.length == 1 ? '' : 's'}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -127,11 +141,18 @@ class _PublicationsHistoryWidgetState extends State<PublicationsHistoryWidget> {
                 label: const Text('Retour aux publications'),
               ),
               const Spacer(),
-              AdminStatusPill(
-                label: publicationLabel,
-                color: theme.primary,
-                compact: true,
+              IconButton(
+                tooltip: 'Actualiser',
+                onPressed: _refreshHistory,
+                icon: const Icon(Icons.refresh_rounded),
               ),
+              const SizedBox(width: 4.0),
+              if (!compact)
+                AdminStatusPill(
+                  label: publicationLabel,
+                  color: theme.primary,
+                  compact: true,
+                ),
             ],
           ),
         ),
@@ -186,6 +207,7 @@ class _PublicationsHistoryWidgetState extends State<PublicationsHistoryWidget> {
 
     if (confirmed) {
       await publication.reference.delete();
+      if (mounted) _refreshHistory();
     }
   }
 
@@ -196,6 +218,8 @@ class _PublicationsHistoryWidgetState extends State<PublicationsHistoryWidget> {
       publication: publication,
     );
     if (!saved || !mounted) return;
+
+    _refreshHistory();
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -1358,15 +1382,14 @@ class _BingoReactionsDialogState extends State<_BingoReactionsDialog> {
         .map((reaction) => reaction.user.trim())
         .where((userId) => userId.isNotEmpty)
         .toSet();
-    final userSnapshots = await Future.wait(
-      userIds.map((userId) => UserRecord.collection.doc(userId).get()),
-    );
-    final usersById = <String, UserRecord>{};
-    for (final snapshot in userSnapshots) {
-      if (snapshot.exists && snapshot.data() != null) {
-        usersById[snapshot.id] = UserRecord.fromSnapshot(snapshot);
-      }
-    }
+    final userDataById = await BingoUserDirectoryCache.load(userIds);
+    final usersById = {
+      for (final entry in userDataById.entries)
+        entry.key: UserRecord.getDocumentFromData(
+          entry.value,
+          UserRecord.collection.doc(entry.key),
+        ),
+    };
 
     final entries = reactionsByUser.values
         .map(

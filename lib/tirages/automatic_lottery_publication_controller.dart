@@ -278,10 +278,14 @@ class AutomaticLotteryPublicationController extends ChangeNotifier
       ),
     );
     final recentHistory = await queryResultatsRecordOnce(
-      queryBuilder: (query) => query.where(
-        'date',
-        isGreaterThanOrEqualTo: oldestDraw.subtract(const Duration(hours: 18)),
-      ),
+      queryBuilder: (query) => query
+          .where(
+            'date',
+            isGreaterThanOrEqualTo:
+                oldestDraw.subtract(const Duration(hours: 18)),
+          )
+          .orderBy('date', descending: true),
+      limit: 50,
     );
 
     final published = <String>{};
@@ -404,11 +408,14 @@ class AutomaticLotteryPublicationController extends ChangeNotifier
     try {
       if (checkExistingHistory) {
         final existingHistory = await queryResultatsRecordOnce(
-          queryBuilder: (query) => query.where(
-            'date',
-            isGreaterThanOrEqualTo:
-                proposal.drawDateTime.subtract(const Duration(hours: 18)),
-          ),
+          queryBuilder: (query) => query
+              .where(
+                'date',
+                isGreaterThanOrEqualTo:
+                    proposal.drawDateTime.subtract(const Duration(hours: 18)),
+              )
+              .orderBy('date', descending: true),
+          limit: 50,
         );
         if (existingHistory
             .any((record) => _matchesProposal(record, proposal))) {
