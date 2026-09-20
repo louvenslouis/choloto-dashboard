@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '/payments/payment_reviews_widget.dart';
 import '/support/support_inbox_widget.dart';
 import '/auth/firebase_auth/auth_util.dart';
@@ -9,6 +11,7 @@ import '/pages/sidenav/sidenav_widget.dart';
 import '/publications_history/bingo_comments_service.dart';
 import '/index.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'analytics_overview_service.dart';
 import 'dashboard_model.dart';
 import 'monthly_bingo_heatmap.dart';
@@ -26,8 +29,16 @@ class DashboardWidget extends StatefulWidget {
 
 class _DashboardWidgetState extends State<DashboardWidget> {
   static const _dashboardCacheDuration = Duration(minutes: 2);
+  static const _chartCacheDuration = Duration(minutes: 30);
+  static const _chartCacheTimestampKeyPrefix =
+      'dashboard_curve_cards_cache_timestamp_v1';
   static Future<_DashboardData>? _cachedDashboardFuture;
   static DateTime? _dashboardCachedAt;
+  static String? _dashboardCacheUserId;
+  static Future<_DashboardChartData>? _cachedChartFuture;
+  static DateTime? _chartCachedAt;
+  static String? _chartCachePeriod;
+  static String? _chartCacheUserId;
 
   late DashboardModel _model;
   final scaffoldKey = GlobalKey<ScaffoldState>();
@@ -52,51 +63,46 @@ class _DashboardWidgetState extends State<DashboardWidget> {
   }
 
   Future<_DashboardData> _loadDashboardData({bool forceRefresh = false}) {
+    final userId = currentUserUid;
     final cachedAt = _dashboardCachedAt;
-    final cacheIsFresh = cachedAt != null &&
+    final cacheIsFresh = _dashboardCacheUserId == userId &&
+        cachedAt != null &&
         DateTime.now().difference(cachedAt) < _dashboardCacheDuration;
     if (!forceRefresh && cacheIsFresh && _cachedDashboardFuture != null) {
       return _cachedDashboardFuture!;
     }
 
-    final future = _queryDashboardData();
+    final future = _queryDashboardData(forceChartRefresh: forceRefresh);
     _cachedDashboardFuture = future;
-    _dashboardCachedAt = DateTime.now();
+    _dashboardCacheUserId = userId;
+    unawaited(
+      future.then<void>(
+        (_) {
+          if (identical(future, _cachedDashboardFuture)) {
+            _dashboardCachedAt = DateTime.now();
+          }
+        },
+        onError: (_) {
+          if (identical(future, _cachedDashboardFuture)) {
+            _cachedDashboardFuture = null;
+            _dashboardCachedAt = null;
+            _dashboardCacheUserId = null;
+          }
+        },
+      ),
+    );
     return future;
   }
 
-  Future<_DashboardData> _queryDashboardData() async {
+  Future<_DashboardData> _queryDashboardData({
+    required bool forceChartRefresh,
+  }) async {
     final now = DateTime.now();
     final startOfToday = DateTime(now.year, now.month, now.day);
     final startOfTomorrow = startOfToday.add(const Duration(days: 1));
-    final endOfRenewalWindow = now.add(const Duration(days: 7));
-    final startOfLast30Days = startOfToday.subtract(const Duration(days: 29));
-    final startOfMonth = DateTime(now.year, now.month);
-    final startOfNextMonth = DateTime(now.year, now.month + 1);
 
     final values = await Future.wait<dynamic>([
-      UserRecord.collection
-          .where('end_sub', isGreaterThanOrEqualTo: now)
-          .get()
-          .then((snapshot) =>
-              snapshot.docs.map(UserRecord.fromSnapshot).toList()),
-      queryUserRecordCount(
-        queryBuilder: (query) => query
-            .where('end_sub', isGreaterThanOrEqualTo: now)
-            .where('end_sub', isLessThanOrEqualTo: endOfRenewalWindow),
-      ),
-      UserRecord.collection
-          .where('created_time', isGreaterThanOrEqualTo: startOfLast30Days)
-          .where('created_time', isLessThanOrEqualTo: now)
-          .get()
-          .then((snapshot) =>
-              snapshot.docs.map(UserRecord.fromSnapshot).toList()),
-      BingoRecord.collection
-          .where('date', isGreaterThanOrEqualTo: startOfMonth)
-          .where('date', isLessThan: startOfNextMonth)
-          .get()
-          .then((snapshot) =>
-              snapshot.docs.map(BingoRecord.fromSnapshot).toList()),
+      _loadChartData(now, forceRefresh: forceChartRefresh),
       queryResultatsRecordOnce(
         queryBuilder: (query) => query
             .where('date', isGreaterThanOrEqualTo: startOfToday)
@@ -122,16 +128,134 @@ class _DashboardWidgetState extends State<DashboardWidget> {
       ),
     ]);
 
+    final chartData = values[0] as _DashboardChartData;
+
     return _DashboardData(
       asOf: now,
-      activeVips: values[0] as List<UserRecord>,
-      expiringVipCount: values[1] as int,
-      newUsers: values[2] as List<UserRecord>,
-      monthlyBingos: values[3] as List<BingoRecord>,
-      todayResults: values[4] as List<ResultatsRecord>,
-      todayPredictions: values[5] as List<PredictionRecord>,
-      activeBingos: values[6] as List<BingoRecord>,
-      todayCrosses: values[7] as List<CroixRecord>,
+      activeVips: chartData.activeVips,
+      expiringVipCount: chartData.expiringVipCount(now),
+      newUsers: chartData.newUsers,
+      monthlyBingos: chartData.monthlyBingos,
+      todayResults: values[1] as List<ResultatsRecord>,
+      todayPredictions: values[2] as List<PredictionRecord>,
+      activeBingos: values[3] as List<BingoRecord>,
+      todayCrosses: values[4] as List<CroixRecord>,
+    );
+  }
+
+  Future<_DashboardChartData> _loadChartData(
+    DateTime now, {
+    required bool forceRefresh,
+  }) {
+    final userId = currentUserUid;
+    final period = '${now.year}-${now.month}-${now.day}';
+    final cacheIsFresh = _chartCacheUserId == userId &&
+        _chartCachePeriod == period &&
+        _chartCachedAt != null &&
+        DateTime.now().difference(_chartCachedAt!) < _chartCacheDuration;
+    if (!forceRefresh && cacheIsFresh && _cachedChartFuture != null) {
+      return _cachedChartFuture!;
+    }
+
+    final future = _loadPersistedChartData(
+      now,
+      userId: userId,
+      forceRefresh: forceRefresh,
+    );
+    _cachedChartFuture = future;
+    _chartCachePeriod = period;
+    _chartCacheUserId = userId;
+    unawaited(
+      future.then<void>(
+        (_) {
+          if (identical(future, _cachedChartFuture)) {
+            _chartCachedAt = DateTime.now();
+          }
+        },
+        onError: (_) {
+          if (identical(future, _cachedChartFuture)) {
+            _cachedChartFuture = null;
+            _chartCachedAt = null;
+            _chartCachePeriod = null;
+            _chartCacheUserId = null;
+          }
+        },
+      ),
+    );
+    return future;
+  }
+
+  Future<_DashboardChartData> _loadPersistedChartData(
+    DateTime now, {
+    required String userId,
+    required bool forceRefresh,
+  }) async {
+    final preferences = await SharedPreferences.getInstance();
+    final timestampKey =
+        '$_chartCacheTimestampKeyPrefix-$userId-${now.year}-${now.month}-${now.day}';
+    final cachedTimestamp = preferences.getInt(timestampKey);
+    final persistentCacheIsFresh = !forceRefresh &&
+        cachedTimestamp != null &&
+        DateTime.now().difference(
+              DateTime.fromMillisecondsSinceEpoch(cachedTimestamp),
+            ) <
+            _chartCacheDuration;
+
+    if (persistentCacheIsFresh) {
+      try {
+        return await _fetchChartData(now, Source.cache);
+      } catch (_) {
+        // The browser or the OS may have evicted Firestore's local cache.
+      }
+    }
+
+    try {
+      final data = await _fetchChartData(now, Source.server);
+      await preferences.setInt(
+        timestampKey,
+        DateTime.now().millisecondsSinceEpoch,
+      );
+      return data;
+    } catch (error, stackTrace) {
+      if (cachedTimestamp == null) {
+        Error.throwWithStackTrace(error, stackTrace);
+      }
+      try {
+        return await _fetchChartData(now, Source.cache);
+      } catch (_) {
+        Error.throwWithStackTrace(error, stackTrace);
+      }
+    }
+  }
+
+  Future<_DashboardChartData> _fetchChartData(
+    DateTime now,
+    Source source,
+  ) async {
+    final startOfToday = DateTime(now.year, now.month, now.day);
+    final startOfLast30Days = startOfToday.subtract(const Duration(days: 29));
+    final startOfMonth = DateTime(now.year, now.month);
+    final startOfNextMonth = DateTime(now.year, now.month + 1);
+    final options = GetOptions(source: source);
+
+    final snapshots = await Future.wait([
+      UserRecord.collection
+          .where('end_sub', isGreaterThanOrEqualTo: now)
+          .get(options),
+      UserRecord.collection
+          .where('created_time', isGreaterThanOrEqualTo: startOfLast30Days)
+          .where('created_time', isLessThanOrEqualTo: now)
+          .get(options),
+      BingoRecord.collection
+          .where('date', isGreaterThanOrEqualTo: startOfMonth)
+          .where('date', isLessThan: startOfNextMonth)
+          .get(options),
+    ]);
+
+    return _DashboardChartData(
+      activeVips: snapshots[0].docs.map(UserRecord.fromSnapshot).toList(),
+      newUsers: snapshots[1].docs.map(UserRecord.fromSnapshot).toList(),
+      monthlyBingos: snapshots[2].docs.map(BingoRecord.fromSnapshot).toList(),
     );
   }
 
@@ -918,6 +1042,26 @@ class _StatChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _StatChartPainter oldDelegate) =>
       oldDelegate.values != values || oldDelegate.color != color;
+}
+
+class _DashboardChartData {
+  const _DashboardChartData({
+    required this.activeVips,
+    required this.newUsers,
+    required this.monthlyBingos,
+  });
+
+  final List<UserRecord> activeVips;
+  final List<UserRecord> newUsers;
+  final List<BingoRecord> monthlyBingos;
+
+  int expiringVipCount(DateTime now) {
+    final endOfRenewalWindow = now.add(const Duration(days: 7));
+    return activeVips.where((user) {
+      final expiration = user.endSub;
+      return expiration != null && !expiration.isAfter(endOfRenewalWindow);
+    }).length;
+  }
 }
 
 class _DashboardData {
