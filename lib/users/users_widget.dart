@@ -2400,7 +2400,10 @@ class _UserAvatar extends StatelessWidget {
             decoration: BoxDecoration(
               color: theme.accent1,
               shape: BoxShape.circle,
-              border: Border.all(color: theme.secondary, width: 2),
+              border: Border.all(
+                color: isVip ? const Color(0xFF7C3AED) : theme.secondary,
+                width: 2,
+              ),
               boxShadow: [
                 BoxShadow(
                   color: theme.primaryText.withValues(alpha: .10),
@@ -2409,14 +2412,20 @@ class _UserAvatar extends StatelessWidget {
                 ),
               ],
             ),
-            child: user.photoUrl.trim().isEmpty
-                ? fallback
-                : CachedNetworkImage(
-                    imageUrl: user.photoUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => fallback,
-                    errorWidget: (_, __, ___) => fallback,
-                  ),
+            child: ClipOval(
+              child: SizedBox.expand(
+                child: user.photoUrl.trim().isEmpty
+                    ? fallback
+                    : CachedNetworkImage(
+                        imageUrl: user.photoUrl,
+                        width: double.infinity,
+                        height: double.infinity,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => fallback,
+                        errorWidget: (_, __, ___) => fallback,
+                      ),
+              ),
+            ),
           ),
           if (isVip)
             Positioned(
@@ -2428,7 +2437,7 @@ class _UserAvatar extends StatelessWidget {
                   width: 23,
                   height: 23,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFE9AE),
+                    color: const Color(0xFF7C3AED),
                     shape: BoxShape.circle,
                     border:
                         Border.all(color: theme.secondaryBackground, width: 2),
@@ -2436,7 +2445,7 @@ class _UserAvatar extends StatelessWidget {
                   child: const Icon(
                     Icons.workspace_premium_rounded,
                     size: 15,
-                    color: Color(0xFF946200),
+                    color: Color(0xFFFFD447),
                     semanticLabel: 'Membre VIP',
                   ),
                 ),
