@@ -481,6 +481,7 @@ class _UsersWidgetState extends State<UsersWidget>
 
   Widget _buildUsersTab(BuildContext context) {
     final compactNavigation = MediaQuery.sizeOf(context).width < 992;
+    final theme = FlutterFlowTheme.of(context);
     final usersFuture = _usersFuture;
 
     if (usersFuture == null) {
@@ -508,109 +509,114 @@ class _UsersWidgetState extends State<UsersWidget>
             )
             .length;
 
-        return Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: compactNavigation ? 16 : 24,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 14),
-              _UsersToolbar(
-                controller: _model.textController!,
-                focusNode: _model.textFieldFocusNode!,
-                selectedFilter: _model.filtres,
-                totalCount: allUsers.length,
-                vipCount: vipCount,
-                viewMode: _viewMode,
-                sortMode: _sortMode,
-                isExporting: _isExporting,
-                isRefreshing: _isRefreshingUsers,
-                onQueryChanged: (_) => setState(() {}),
-                onClearQuery: () {
-                  _model.textController!.clear();
-                  setState(() {});
-                },
-                onFilterChanged: (filter) {
-                  setState(() => _model.filtres = filter);
-                },
-                onViewModeChanged: (mode) {
-                  setState(() => _viewMode = mode);
-                },
-                onSortModeChanged: (mode) {
-                  if (mode == _sortMode) return;
-                  logFirebaseEvent(
-                    'USERS_SORT_CHANGED',
-                    parameters: {'sort': mode.name},
-                  );
-                  setState(() => _sortMode = mode);
-                },
-                onRefresh: _refreshUsers,
-                onExport: users.isEmpty ? null : () => _exportUsers(users),
-              ),
-              const SizedBox(height: 18),
-              Expanded(
-                child: users.isEmpty
-                    ? _UsersEmptyState(
-                        hasSearch:
-                            _model.textController!.text.trim().isNotEmpty,
-                        onReset: () {
-                          _model.textController!.clear();
-                          setState(() => _model.filtres = 'Tout');
-                        },
-                      )
-                    : NotificationListener<ScrollNotification>(
-                        onNotification: _handleUserListScroll,
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 220),
-                          switchInCurve: Curves.easeOutCubic,
-                          switchOutCurve: Curves.easeInCubic,
-                          child: _viewMode == _UsersViewMode.cards
-                              ? LayoutBuilder(
-                                  key: const ValueKey('users-card-view'),
-                                  builder: (context, constraints) {
-                                    final cardWidth = constraints.maxWidth < 720
-                                        ? constraints.maxWidth
-                                        : constraints.maxWidth < 1160
-                                            ? 360.0
-                                            : 380.0;
+        return ColoredBox(
+          color: theme.secondaryBackground,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: compactNavigation ? 16 : 24,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 14),
+                _UsersToolbar(
+                  controller: _model.textController!,
+                  focusNode: _model.textFieldFocusNode!,
+                  selectedFilter: _model.filtres,
+                  totalCount: allUsers.length,
+                  vipCount: vipCount,
+                  viewMode: _viewMode,
+                  sortMode: _sortMode,
+                  isExporting: _isExporting,
+                  isRefreshing: _isRefreshingUsers,
+                  onQueryChanged: (_) => setState(() {}),
+                  onClearQuery: () {
+                    _model.textController!.clear();
+                    setState(() {});
+                  },
+                  onFilterChanged: (filter) {
+                    setState(() => _model.filtres = filter);
+                  },
+                  onViewModeChanged: (mode) {
+                    setState(() => _viewMode = mode);
+                  },
+                  onSortModeChanged: (mode) {
+                    if (mode == _sortMode) return;
+                    logFirebaseEvent(
+                      'USERS_SORT_CHANGED',
+                      parameters: {'sort': mode.name},
+                    );
+                    setState(() => _sortMode = mode);
+                  },
+                  onRefresh: _refreshUsers,
+                  onExport: users.isEmpty ? null : () => _exportUsers(users),
+                ),
+                const SizedBox(height: 18),
+                Expanded(
+                  child: users.isEmpty
+                      ? _UsersEmptyState(
+                          hasSearch:
+                              _model.textController!.text.trim().isNotEmpty,
+                          onReset: () {
+                            _model.textController!.clear();
+                            setState(() => _model.filtres = 'Tout');
+                          },
+                        )
+                      : NotificationListener<ScrollNotification>(
+                          onNotification: _handleUserListScroll,
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 220),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            child: _viewMode == _UsersViewMode.cards
+                                ? LayoutBuilder(
+                                    key: const ValueKey('users-card-view'),
+                                    builder: (context, constraints) {
+                                      final cardWidth =
+                                          constraints.maxWidth < 720
+                                              ? constraints.maxWidth
+                                              : constraints.maxWidth < 1160
+                                                  ? 360.0
+                                                  : 380.0;
 
-                                    return GridView.builder(
-                                      padding:
-                                          const EdgeInsets.only(bottom: 28),
-                                      keyboardDismissBehavior:
-                                          ScrollViewKeyboardDismissBehavior
-                                              .onDrag,
-                                      gridDelegate:
-                                          SliverGridDelegateWithMaxCrossAxisExtent(
-                                        maxCrossAxisExtent: cardWidth,
-                                        mainAxisExtent: 280,
-                                        crossAxisSpacing: 16,
-                                        mainAxisSpacing: 16,
-                                      ),
-                                      itemCount: users.length,
-                                      itemBuilder: (context, index) {
-                                        final user = users[index];
-                                        return _UserCard(
-                                          user: user,
-                                          onViewProfile: () => _showUser(user),
-                                          onAddPayment: () =>
-                                              _showPayment(user),
-                                        );
-                                      },
-                                    );
-                                  },
-                                )
-                              : _UsersList(
-                                  key: const ValueKey('users-list-view'),
-                                  users: users,
-                                  onViewProfile: _showUser,
-                                  onAddPayment: _showPayment,
-                                ),
+                                      return GridView.builder(
+                                        padding:
+                                            const EdgeInsets.only(bottom: 28),
+                                        keyboardDismissBehavior:
+                                            ScrollViewKeyboardDismissBehavior
+                                                .onDrag,
+                                        gridDelegate:
+                                            SliverGridDelegateWithMaxCrossAxisExtent(
+                                          maxCrossAxisExtent: cardWidth,
+                                          mainAxisExtent: 280,
+                                          crossAxisSpacing: 16,
+                                          mainAxisSpacing: 16,
+                                        ),
+                                        itemCount: users.length,
+                                        itemBuilder: (context, index) {
+                                          final user = users[index];
+                                          return _UserCard(
+                                            user: user,
+                                            onViewProfile: () =>
+                                                _showUser(user),
+                                            onAddPayment: () =>
+                                                _showPayment(user),
+                                          );
+                                        },
+                                      );
+                                    },
+                                  )
+                                : _UsersList(
+                                    key: const ValueKey('users-list-view'),
+                                    users: users,
+                                    onViewProfile: _showUser,
+                                    onAddPayment: _showPayment,
+                                  ),
+                          ),
                         ),
-                      ),
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         );
       },
