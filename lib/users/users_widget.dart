@@ -508,6 +508,7 @@ class _UsersWidgetState extends State<UsersWidget>
                   user.endSub != null && !user.endSub!.isBefore(DateTime.now()),
             )
             .length;
+        const toolbarClearance = 104.0;
 
         return ColoredBox(
           color: theme.secondaryBackground,
@@ -515,52 +516,20 @@ class _UsersWidgetState extends State<UsersWidget>
             padding: EdgeInsets.symmetric(
               horizontal: compactNavigation ? 16 : 24,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Stack(
               children: [
-                const SizedBox(height: 14),
-                _UsersToolbar(
-                  controller: _model.textController!,
-                  focusNode: _model.textFieldFocusNode!,
-                  selectedFilter: _model.filtres,
-                  totalCount: allUsers.length,
-                  vipCount: vipCount,
-                  viewMode: _viewMode,
-                  sortMode: _sortMode,
-                  isExporting: _isExporting,
-                  isRefreshing: _isRefreshingUsers,
-                  onQueryChanged: (_) => setState(() {}),
-                  onClearQuery: () {
-                    _model.textController!.clear();
-                    setState(() {});
-                  },
-                  onFilterChanged: (filter) {
-                    setState(() => _model.filtres = filter);
-                  },
-                  onViewModeChanged: (mode) {
-                    setState(() => _viewMode = mode);
-                  },
-                  onSortModeChanged: (mode) {
-                    if (mode == _sortMode) return;
-                    logFirebaseEvent(
-                      'USERS_SORT_CHANGED',
-                      parameters: {'sort': mode.name},
-                    );
-                    setState(() => _sortMode = mode);
-                  },
-                  onRefresh: _refreshUsers,
-                  onExport: users.isEmpty ? null : () => _exportUsers(users),
-                ),
-                const SizedBox(height: 18),
-                Expanded(
+                Positioned.fill(
                   child: users.isEmpty
-                      ? _UsersEmptyState(
-                          hasSearch:
-                              _model.textController!.text.trim().isNotEmpty,
-                          onReset: () {
-                            _model.textController!.clear();
-                            setState(() => _model.filtres = 'Tout');
-                          },
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: toolbarClearance),
+                          child: _UsersEmptyState(
+                            hasSearch:
+                                _model.textController!.text.trim().isNotEmpty,
+                            onReset: () {
+                              _model.textController!.clear();
+                              setState(() => _model.filtres = 'Tout');
+                            },
+                          ),
                         )
                       : NotificationListener<ScrollNotification>(
                           onNotification: _handleUserListScroll,
@@ -580,8 +549,10 @@ class _UsersWidgetState extends State<UsersWidget>
                                                   : 380.0;
 
                                       return GridView.builder(
-                                        padding:
-                                            const EdgeInsets.only(bottom: 28),
+                                        padding: const EdgeInsets.only(
+                                          top: toolbarClearance,
+                                          bottom: 28,
+                                        ),
                                         keyboardDismissBehavior:
                                             ScrollViewKeyboardDismissBehavior
                                                 .onDrag,
@@ -609,11 +580,49 @@ class _UsersWidgetState extends State<UsersWidget>
                                 : _UsersList(
                                     key: const ValueKey('users-list-view'),
                                     users: users,
+                                    topPadding: toolbarClearance,
                                     onViewProfile: _showUser,
                                     onAddPayment: _showPayment,
                                   ),
                           ),
                         ),
+                ),
+                Positioned(
+                  top: 14,
+                  left: 0,
+                  right: 0,
+                  child: _UsersToolbar(
+                    controller: _model.textController!,
+                    focusNode: _model.textFieldFocusNode!,
+                    selectedFilter: _model.filtres,
+                    totalCount: allUsers.length,
+                    vipCount: vipCount,
+                    viewMode: _viewMode,
+                    sortMode: _sortMode,
+                    isExporting: _isExporting,
+                    isRefreshing: _isRefreshingUsers,
+                    onQueryChanged: (_) => setState(() {}),
+                    onClearQuery: () {
+                      _model.textController!.clear();
+                      setState(() {});
+                    },
+                    onFilterChanged: (filter) {
+                      setState(() => _model.filtres = filter);
+                    },
+                    onViewModeChanged: (mode) {
+                      setState(() => _viewMode = mode);
+                    },
+                    onSortModeChanged: (mode) {
+                      if (mode == _sortMode) return;
+                      logFirebaseEvent(
+                        'USERS_SORT_CHANGED',
+                        parameters: {'sort': mode.name},
+                      );
+                      setState(() => _sortMode = mode);
+                    },
+                    onRefresh: _refreshUsers,
+                    onExport: users.isEmpty ? null : () => _exportUsers(users),
+                  ),
                 ),
               ],
             ),
@@ -1507,11 +1516,13 @@ class _UsersList extends StatelessWidget {
   const _UsersList({
     super.key,
     required this.users,
+    required this.topPadding,
     required this.onViewProfile,
     required this.onAddPayment,
   });
 
   final List<UserRecord> users;
+  final double topPadding;
   final Future<void> Function(UserRecord) onViewProfile;
   final Future<void> Function(UserRecord) onAddPayment;
 
@@ -1521,31 +1532,22 @@ class _UsersList extends StatelessWidget {
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 820;
 
-        return Column(
-          children: [
-            if (wide) ...[
-              const _UserListHeader(),
-              const SizedBox(height: 10),
-            ],
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.only(bottom: 28),
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                itemCount: users.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (context, index) {
-                  final user = users[index];
-                  return _UserListItem(
-                    user: user,
-                    wide: wide,
-                    onViewProfile: () => onViewProfile(user),
-                    onAddPayment: () => onAddPayment(user),
-                  );
-                },
-              ),
-            ),
-          ],
+        return ListView.separated(
+          padding: EdgeInsets.only(top: topPadding, bottom: 28),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          itemCount: users.length + (wide ? 1 : 0),
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (context, index) {
+            if (wide && index == 0) return const _UserListHeader();
+
+            final user = users[index - (wide ? 1 : 0)];
+            return _UserListItem(
+              user: user,
+              wide: wide,
+              onViewProfile: () => onViewProfile(user),
+              onAddPayment: () => onAddPayment(user),
+            );
+          },
         );
       },
     );
