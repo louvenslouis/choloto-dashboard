@@ -1076,119 +1076,111 @@ class _UsersToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
+    final search = TextField(
+      controller: controller,
+      focusNode: focusNode,
+      onChanged: onQueryChanged,
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        labelText: 'Rechercher',
+        hintText: 'Nom, e-mail, téléphone ou code',
+        prefixIcon: const Icon(Icons.search_rounded),
+        suffixIcon: controller.text.isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'Effacer la recherche',
+                onPressed: onClearQuery,
+                icon: const Icon(Icons.close_rounded),
+              ),
+        filled: true,
+        fillColor: theme.primaryBackground,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: theme.alternate),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: theme.alternate),
+        ),
+      ),
+    );
 
-    return AdminSurface(
-      padding: const EdgeInsets.all(16),
-      radius: 20,
-      color: theme.secondaryBackground.withValues(alpha: .78),
-      borderColor: theme.alternate.withValues(alpha: .62),
-      showShadow: true,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final search = TextField(
-            controller: controller,
-            focusNode: focusNode,
-            onChanged: onQueryChanged,
-            textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
-              labelText: 'Rechercher',
-              hintText: 'Nom, e-mail, téléphone ou code',
-              prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon: controller.text.isEmpty
-                  ? null
-                  : IconButton(
-                      tooltip: 'Effacer la recherche',
-                      onPressed: onClearQuery,
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-              filled: true,
-              fillColor: theme.primaryBackground,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: theme.alternate),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: theme.alternate),
-              ),
-            ),
-          );
+    final filters = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _FilterChip(
+          label: 'Tous',
+          count: totalCount,
+          selected: selectedFilter == 'Tout',
+          onSelected: () => onFilterChanged('Tout'),
+        ),
+        const SizedBox(width: 8),
+        _FilterChip(
+          label: 'VIP',
+          count: vipCount,
+          selected: selectedFilter == 'VIP',
+          onSelected: () => onFilterChanged('VIP'),
+        ),
+        const SizedBox(width: 8),
+        _FilterChip(
+          label: 'Gratuit',
+          count: totalCount - vipCount,
+          selected: selectedFilter == 'Gratuit',
+          onSelected: () => onFilterChanged('Gratuit'),
+        ),
+      ],
+    );
 
-          final filters = SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _FilterChip(
-                  label: 'Tous',
-                  count: totalCount,
-                  selected: selectedFilter == 'Tout',
-                  onSelected: () => onFilterChanged('Tout'),
-                ),
-                const SizedBox(width: 8),
-                _FilterChip(
-                  label: 'VIP',
-                  count: vipCount,
-                  selected: selectedFilter == 'VIP',
-                  onSelected: () => onFilterChanged('VIP'),
-                ),
-                const SizedBox(width: 8),
-                _FilterChip(
-                  label: 'Gratuit',
-                  count: totalCount - vipCount,
-                  selected: selectedFilter == 'Gratuit',
-                  onSelected: () => onFilterChanged('Gratuit'),
-                ),
-              ],
-            ),
-          );
-          final refreshButton = IconButton(
-            tooltip: 'Actualiser les utilisateurs',
-            onPressed: isRefreshing ? null : onRefresh,
-            icon: isRefreshing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.refresh_rounded, size: 20),
-            style: IconButton.styleFrom(
-              minimumSize: const Size(44, 44),
-              foregroundColor: theme.primary,
-              backgroundColor: theme.accent1,
-              side: BorderSide(
-                color: theme.secondary.withValues(alpha: .35),
-              ),
-            ),
-          );
+    final refreshButton = IconButton(
+      tooltip: 'Actualiser les utilisateurs',
+      onPressed: isRefreshing ? null : onRefresh,
+      icon: isRefreshing
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.refresh_rounded, size: 20),
+      style: IconButton.styleFrom(
+        minimumSize: const Size(44, 44),
+        foregroundColor: theme.primary,
+        backgroundColor: theme.accent1,
+        side: BorderSide(
+          color: theme.secondary.withValues(alpha: .35),
+        ),
+      ),
+    );
 
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minWidth: constraints.maxWidth),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  SizedBox(width: 220, child: search),
-                  const SizedBox(width: 12),
-                  filters,
-                  const SizedBox(width: 12),
-                  refreshButton,
-                  const SizedBox(width: 8),
-                  _UsersViewActions(
-                    viewMode: viewMode,
-                    sortMode: sortMode,
-                    isExporting: isExporting,
-                    onViewModeChanged: onViewModeChanged,
-                    onSortModeChanged: onSortModeChanged,
-                    onExport: onExport,
-                  ),
-                ],
-              ),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      clipBehavior: Clip.none,
+      child: AdminSurface(
+        padding: const EdgeInsets.all(12),
+        radius: 20,
+        color: theme.secondaryBackground.withValues(alpha: .78),
+        borderColor: theme.alternate.withValues(alpha: .62),
+        showShadow: true,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(width: 220, child: search),
+            const SizedBox(width: 12),
+            filters,
+            const SizedBox(width: 12),
+            refreshButton,
+            const SizedBox(width: 8),
+            _UsersViewActions(
+              viewMode: viewMode,
+              sortMode: sortMode,
+              isExporting: isExporting,
+              onViewModeChanged: onViewModeChanged,
+              onSortModeChanged: onSortModeChanged,
+              onExport: onExport,
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
