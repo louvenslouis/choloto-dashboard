@@ -791,7 +791,7 @@ class _StatCard extends StatelessWidget {
                   ]),
                   const SizedBox(height: 22),
                   SizedBox(
-                    height: 152,
+                    height: stat.month != null && !loading ? null : 152,
                     width: double.infinity,
                     child: loading
                         ? Center(

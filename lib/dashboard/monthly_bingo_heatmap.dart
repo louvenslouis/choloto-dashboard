@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// A calendar with weekdays on the vertical axis and weeks horizontally.
+/// A full-width calendar with weekdays horizontally and weeks vertically.
 class MonthlyBingoHeatmap extends StatelessWidget {
   const MonthlyBingoHeatmap({
     super.key,
@@ -35,82 +35,82 @@ class MonthlyBingoHeatmap extends StatelessWidget {
     final maximum = dailyCounts.fold<double>(1, math.max);
 
     return LayoutBuilder(builder: (context, constraints) {
-      const gap = 3.0;
-      const axisWidth = 27.0;
-      final cell = math.min(
-        14.0,
-        (constraints.maxWidth - axisWidth - (weeks - 1) * gap) / weeks,
-      );
-      final step = cell + gap;
+      const gap = 5.0;
+      const axisWidth = 25.0;
+      final cell = (constraints.maxWidth - axisWidth - 6 * gap) / 7;
 
-      return Align(
-        alignment: Alignment.centerLeft,
-        child: SizedBox(
-          width: axisWidth + weeks * step - gap,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                const SizedBox(width: axisWidth),
-                for (var week = 0; week < weeks; week++)
-                  SizedBox(
-                    width: week == weeks - 1 ? cell : step,
-                    child: Text(
-                      '${math.max(1, week * 7 - offset + 1)}',
-                      style: _axisStyle,
-                      textAlign: TextAlign.center,
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const SizedBox(width: axisWidth),
+            for (var weekday = 0; weekday < 7; weekday++)
+              Padding(
+                padding: EdgeInsets.only(right: weekday == 6 ? 0 : gap),
+                child: SizedBox(
+                  width: cell,
+                  child: Text(
+                    const [
+                      'Lun',
+                      'Mar',
+                      'Mer',
+                      'Jeu',
+                      'Ven',
+                      'Sam',
+                      'Dim'
+                    ][weekday],
+                    style: _axisStyle,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ]),
+          const SizedBox(height: 7),
+          for (var week = 0; week < weeks; week++)
+            Padding(
+              padding: EdgeInsets.only(bottom: week == weeks - 1 ? 0 : gap),
+              child: Row(children: [
+                SizedBox(
+                  width: axisWidth,
+                  height: cell,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('S${week + 1}', style: _axisStyle),
+                  ),
+                ),
+                for (var weekday = 0; weekday < 7; weekday++)
+                  Padding(
+                    padding: EdgeInsets.only(right: weekday == 6 ? 0 : gap),
+                    child: _dayCell(
+                      week * 7 + weekday - offset + 1,
+                      days,
+                      cell,
+                      maximum,
                     ),
                   ),
               ]),
-              const SizedBox(height: 5),
-              for (var weekday = 0; weekday < 7; weekday++)
-                Padding(
-                  padding: EdgeInsets.only(bottom: weekday == 6 ? 0 : gap),
-                  child: Row(children: [
-                    SizedBox(
-                      width: axisWidth,
-                      height: cell,
-                      child: Text(
-                        const ['Lun', '', 'Mer', '', 'Ven', '', 'Dim'][weekday],
-                        style: _axisStyle,
-                      ),
-                    ),
-                    for (var week = 0; week < weeks; week++)
-                      Padding(
-                        padding:
-                            EdgeInsets.only(right: week == weeks - 1 ? 0 : gap),
-                        child: _dayCell(
-                          week * 7 + weekday - offset + 1,
-                          days,
-                          cell,
-                          maximum,
-                        ),
-                      ),
-                  ]),
+            ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('0', style: _axisStyle),
+              const SizedBox(width: 5),
+              for (final color in _colors)
+                Container(
+                  width: 8,
+                  height: 8,
+                  margin: const EdgeInsets.only(right: 3),
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('0', style: _axisStyle),
-                  const SizedBox(width: 5),
-                  for (final color in _colors)
-                    Container(
-                      width: 8,
-                      height: 8,
-                      margin: const EdgeInsets.only(right: 3),
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  Text('${maximum.toInt()}', style: _axisStyle),
-                ],
-              ),
+              Text('${maximum.toInt()}', style: _axisStyle),
             ],
           ),
-        ),
+        ],
       );
     });
   }
