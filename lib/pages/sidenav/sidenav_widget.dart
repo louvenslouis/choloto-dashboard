@@ -1,10 +1,7 @@
 import '/payments/payment_reviews_widget.dart';
-import '/auth/firebase_auth/auth_util.dart';
-import '/components/admin_ui.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
-import '/main.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'sidenav_model.dart';
@@ -59,25 +56,6 @@ class _SidenavWidgetState extends State<SidenavWidget> {
     super.dispose();
   }
 
-  Future<void> _signOut() async {
-    final confirmed = await showAdminConfirmDialog(
-      context: context,
-      title: 'Se déconnecter ?',
-      message: 'Votre session administrateur sera fermée sur cet appareil.',
-      confirmLabel: 'Déconnecter',
-      icon: Icons.logout_rounded,
-      destructive: true,
-    );
-    if (!confirmed || !mounted) return;
-
-    GoRouter.of(context).prepareAuthEvent();
-    await authManager.signOut();
-    if (mounted) {
-      GoRouter.of(context).clearRedirectLocation();
-      context.goNamedAuth(ConnexionWidget.routeName, context.mounted);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     context.watch<FFAppState>();
@@ -91,9 +69,6 @@ class _SidenavWidgetState extends State<SidenavWidget> {
     final currentRoute = getCurrentRoute(context);
 
     if (!showNavigation) return const SizedBox.shrink();
-
-    final email =
-        currentUserEmail.isEmpty ? 'Administrateur' : currentUserEmail;
 
     return Material(
       color: const Color(0xFF10243A),
@@ -219,99 +194,26 @@ class _SidenavWidgetState extends State<SidenavWidget> {
                             const SizedBox(height: 18),
                             if (!isCollapsed) ...[
                               const _NavGroupLabel('OUTILS'),
-                              const SizedBox(height: 3),
+                              const SizedBox(height: 7),
                             ],
                             _NavTile(
-                              label: 'Messagerie',
-                              icon: Icons.alternate_email_rounded,
-                              selected: false,
+                              label: 'Paramètres',
+                              icon: Icons.settings_rounded,
+                              selected:
+                                  currentRoute == SettingsWidget.routePath ||
+                                      currentRoute.startsWith(
+                                        '${SettingsWidget.routePath}/',
+                                      ),
                               collapsed: isCollapsed,
-                              onTap: () =>
-                                  launchURL('https://email.choloto.com'),
+                              onTap: () {
+                                if (inModal) Navigator.of(context).pop();
+                                context.goNamed(SettingsWidget.routeName);
+                              },
                             ),
                           ],
                         ),
                       ),
                     ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: .055),
-                      borderRadius: BorderRadius.circular(15),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: .07),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: isCollapsed
-                          ? MainAxisAlignment.center
-                          : MainAxisAlignment.start,
-                      children: [
-                        CircleAvatar(
-                          radius: 17,
-                          backgroundColor: theme.secondary,
-                          child: Text(
-                            email.characters.first.toUpperCase(),
-                            style: theme.labelLarge.copyWith(
-                              color: const Color(0xFF10243A),
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        if (!isCollapsed) ...[
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Session active',
-                                  style: theme.labelSmall.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 1),
-                                Text(
-                                  email,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.labelSmall.copyWith(
-                                    color: Colors.white.withValues(alpha: .48),
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _NavTile(
-                    label: Theme.of(context).brightness == Brightness.dark
-                        ? 'Mode clair'
-                        : 'Mode sombre',
-                    icon: Theme.of(context).brightness == Brightness.dark
-                        ? Icons.light_mode_rounded
-                        : Icons.dark_mode_rounded,
-                    selected: false,
-                    collapsed: isCollapsed,
-                    onTap: () => MyApp.of(context).setThemeMode(
-                      Theme.of(context).brightness == Brightness.dark
-                          ? ThemeMode.light
-                          : ThemeMode.dark,
-                    ),
-                  ),
-                  _NavTile(
-                    label: 'Déconnexion',
-                    icon: Icons.logout_rounded,
-                    selected: false,
-                    collapsed: isCollapsed,
-                    destructive: true,
-                    onTap: _signOut,
                   ),
                 ],
               ),
@@ -488,7 +390,6 @@ class _NavTile extends StatelessWidget {
     required this.selected,
     required this.onTap,
     required this.collapsed,
-    this.destructive = false,
   });
 
   final String label;
@@ -496,16 +397,12 @@ class _NavTile extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final bool collapsed;
-  final bool destructive;
 
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
-    final foreground = destructive
-        ? const Color(0xFFFF8A92)
-        : selected
-            ? Colors.white
-            : Colors.white.withValues(alpha: .67);
+    final foreground =
+        selected ? Colors.white : Colors.white.withValues(alpha: .67);
 
     final tile = Semantics(
       selected: selected,

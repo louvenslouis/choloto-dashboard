@@ -162,7 +162,7 @@ class _SupportInboxWidgetState extends State<SupportInboxWidget> {
                                     ),
                                     SizedBox(height: spacing.xs),
                                     Text(
-                                      'Messagerie et assistance en direct',
+                                      'Assistance client en direct',
                                       style: theme.bodySmall.override(
                                         color: theme.secondaryText,
                                       ),

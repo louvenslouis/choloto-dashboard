@@ -121,6 +121,12 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           builder: (context, params) => const DashboardWidget(),
         ),
         FFRoute(
+          name: SettingsWidget.routeName,
+          path: SettingsWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => const SettingsWidget(),
+        ),
+        FFRoute(
           name: UsersWidget.routeName,
           path: UsersWidget.routePath,
           requireAuth: true,
