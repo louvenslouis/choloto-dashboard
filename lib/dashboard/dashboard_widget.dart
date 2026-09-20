@@ -11,6 +11,7 @@ import '/index.dart';
 import 'package:flutter/material.dart';
 import 'analytics_overview_service.dart';
 import 'dashboard_model.dart';
+import 'monthly_bingo_heatmap.dart';
 export 'dashboard_model.dart';
 
 class DashboardWidget extends StatefulWidget {
@@ -90,13 +91,12 @@ class _DashboardWidgetState extends State<DashboardWidget> {
           .get()
           .then((snapshot) =>
               snapshot.docs.map(UserRecord.fromSnapshot).toList()),
-      PaymentTransactionRecord.collection
-          .where('created_at', isGreaterThanOrEqualTo: startOfMonth)
-          .where('created_at', isLessThan: startOfNextMonth)
+      BingoRecord.collection
+          .where('date', isGreaterThanOrEqualTo: startOfMonth)
+          .where('date', isLessThan: startOfNextMonth)
           .get()
-          .then((snapshot) => snapshot.docs
-              .map(PaymentTransactionRecord.fromSnapshot)
-              .toList()),
+          .then((snapshot) =>
+              snapshot.docs.map(BingoRecord.fromSnapshot).toList()),
       queryResultatsRecordOnce(
         queryBuilder: (query) => query
             .where('date', isGreaterThanOrEqualTo: startOfToday)
@@ -127,7 +127,7 @@ class _DashboardWidgetState extends State<DashboardWidget> {
       activeVips: values[0] as List<UserRecord>,
       expiringVipCount: values[1] as int,
       newUsers: values[2] as List<UserRecord>,
-      monthlyPayments: values[3] as List<PaymentTransactionRecord>,
+      monthlyBingos: values[3] as List<BingoRecord>,
       todayResults: values[4] as List<ResultatsRecord>,
       todayPredictions: values[5] as List<PredictionRecord>,
       activeBingos: values[6] as List<BingoRecord>,
@@ -251,18 +251,18 @@ class _DashboardWidgetState extends State<DashboardWidget> {
                                         detail: 'inscriptions sur 30 jours',
                                       ),
                                       _StatData(
-                                        'Paiements ce mois',
-                                        data?.monthlyPaymentCount.toString(),
-                                        Icons.payments_rounded,
-                                        const Color(0xFF6D5BD0),
-                                        UsersWidget.routeName,
-                                        series:
-                                            data?.paymentsSeries ?? const [],
-                                        period: data?.paymentsPeriod ??
-                                            'Mois en cours',
-                                        chartLabel: 'Paiements par jour',
-                                        detail: data?.paymentAmountLabel ??
-                                            'montants enregistrés',
+                                        'Bingo mensuel',
+                                        data?.monthlyBingoCount.toString(),
+                                        Icons.grid_view_rounded,
+                                        const Color(0xFF4AC77D),
+                                        PublicationsHistoryWidget.routeName,
+                                        series: data?.bingoSeries ?? const [],
+                                        month: data?.asOf ?? DateTime.now(),
+                                        period: DateFormat('MMMM yyyy', 'fr')
+                                            .format(
+                                                data?.asOf ?? DateTime.now()),
+                                        chartLabel: 'Bingo validés par jour',
+                                        detail: 'validés ce mois',
                                       ),
                                     ],
                                   ),
@@ -711,7 +711,9 @@ class _StatsGrid extends StatelessWidget {
           runSpacing: gap,
           children: stats
               .map((stat) => SizedBox(
-                    width: width,
+                    width: stat.month != null && constraints.maxWidth < 560
+                        ? constraints.maxWidth
+                        : width,
                     child: _StatCard(stat: stat, loading: loading),
                   ))
               .toList(),
@@ -729,11 +731,13 @@ class _StatData {
     this.color,
     this.route, {
     this.detail,
+    this.month,
     required this.series,
     required this.period,
     required this.chartLabel,
   });
 
+  final DateTime? month;
   final List<double> series;
   final String period;
   final String chartLabel;
@@ -787,7 +791,7 @@ class _StatCard extends StatelessWidget {
                   ]),
                   const SizedBox(height: 22),
                   SizedBox(
-                    height: 88,
+                    height: 152,
                     width: double.infinity,
                     child: loading
                         ? Center(
@@ -796,12 +800,18 @@ class _StatCard extends StatelessWidget {
                                 height: 20,
                                 child: CircularProgressIndicator(
                                     strokeWidth: 2, color: stat.color)))
-                        : Semantics(
-                            label: stat.chartLabel,
-                            child: CustomPaint(
-                                painter: _StatChartPainter(
-                                    values: stat.series, color: stat.color)),
-                          ),
+                        : stat.month != null
+                            ? MonthlyBingoHeatmap(
+                                asOf: stat.month!,
+                                dailyCounts: stat.series,
+                              )
+                            : Semantics(
+                                label: stat.chartLabel,
+                                child: CustomPaint(
+                                    painter: _StatChartPainter(
+                                        values: stat.series,
+                                        color: stat.color)),
+                              ),
                   ),
                   const SizedBox(height: 12),
                   Text(loading ? '—' : stat.value ?? '0',
@@ -898,7 +908,7 @@ class _DashboardData {
     required this.activeVips,
     required this.expiringVipCount,
     required this.newUsers,
-    required this.monthlyPayments,
+    required this.monthlyBingos,
     required this.todayResults,
     required this.todayPredictions,
     required this.activeBingos,
@@ -918,7 +928,6 @@ class _DashboardData {
       _range(today, DateTime(today.year, today.month, today.day + 7));
   String get newUsersPeriod =>
       _range(DateTime(today.year, today.month, today.day - 29), today);
-  String get paymentsPeriod => _range(DateTime(asOf.year, asOf.month), today);
 
   List<double> get vipSeries => List.generate(8, (day) {
         final date = DateTime(asOf.year, asOf.month, asOf.day + day, asOf.hour,
@@ -947,38 +956,20 @@ class _DashboardData {
       newUsers.map((user) => user.createdTime),
       DateTime(today.year, today.month, today.day - 29),
       30);
-  List<double> get paymentsSeries => _dailyCounts(
-      recordedMonthlyPayments.map((payment) => payment.createdAt),
+  List<double> get bingoSeries => _dailyCounts(
+      monthlyBingos.map((bingo) => bingo.date),
       DateTime(asOf.year, asOf.month),
-      asOf.day);
+      DateTime(asOf.year, asOf.month + 1, 0).day);
+
+  int get monthlyBingoCount =>
+      bingoSeries.fold(0, (total, dailyTotal) => total + dailyTotal.toInt());
 
   final int expiringVipCount;
-  final List<PaymentTransactionRecord> monthlyPayments;
+  final List<BingoRecord> monthlyBingos;
   final List<ResultatsRecord> todayResults;
   final List<PredictionRecord> todayPredictions;
   final List<BingoRecord> activeBingos;
   final List<CroixRecord> todayCrosses;
-
-  List<PaymentTransactionRecord> get recordedMonthlyPayments {
-    final cancelledPaymentPaths = monthlyPayments
-        .where(
-          (transaction) =>
-              transaction.isCancellation &&
-              transaction.paymentCancelled &&
-              transaction.relatedTransactionRef != null,
-        )
-        .map((transaction) => transaction.relatedTransactionRef!.path)
-        .toSet();
-    return monthlyPayments
-        .where(
-          (transaction) =>
-              !transaction.isCancellation &&
-              !cancelledPaymentPaths.contains(transaction.reference.path),
-        )
-        .toList();
-  }
-
-  int get monthlyPaymentCount => recordedMonthlyPayments.length;
 
   static const expectedPredictionPeriods = ['Matin', 'Midi', 'Soir'];
 
@@ -1022,39 +1013,6 @@ class _DashboardData {
       return candidateDate.isBefore(currentDate) ? candidate : current;
     });
   }
-
-  String get paymentAmountLabel {
-    final payments = recordedMonthlyPayments;
-    if (payments.isEmpty) return 'aucun paiement enregistré';
-
-    final totals = <String, double>{};
-    for (final payment in payments) {
-      final currency = payment.currency.trim().toUpperCase();
-      if (currency.isEmpty || payment.amount == 0) continue;
-      totals.update(
-        currency,
-        (current) => current + payment.amount,
-        ifAbsent: () => payment.amount,
-      );
-    }
-    if (totals.isEmpty) return 'montants non renseignés';
-
-    final currencies = totals.keys.toList()
-      ..sort((first, second) {
-        if (first == 'GDS') return -1;
-        if (second == 'GDS') return 1;
-        return first.compareTo(second);
-      });
-    return currencies
-        .map((currency) =>
-            '${_formatDashboardAmount(totals[currency]!)} $currency')
-        .join(' • ');
-  }
-}
-
-String _formatDashboardAmount(double amount) {
-  final format = amount == amount.roundToDouble() ? '#,##0' : '#,##0.00';
-  return NumberFormat(format, 'fr').format(amount);
 }
 
 class _OperationalPanels extends StatelessWidget {
