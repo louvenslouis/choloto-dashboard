@@ -74,28 +74,29 @@ class _DashboardWidgetState extends State<DashboardWidget> {
     final startOfNextMonth = DateTime(now.year, now.month + 1);
 
     final values = await Future.wait<dynamic>([
-      queryUserRecordCount(
-        queryBuilder: (query) =>
-            query.where('end_sub', isGreaterThanOrEqualTo: now),
-      ),
+      UserRecord.collection
+          .where('end_sub', isGreaterThanOrEqualTo: now)
+          .get()
+          .then((snapshot) =>
+              snapshot.docs.map(UserRecord.fromSnapshot).toList()),
       queryUserRecordCount(
         queryBuilder: (query) => query
             .where('end_sub', isGreaterThanOrEqualTo: now)
             .where('end_sub', isLessThanOrEqualTo: endOfRenewalWindow),
       ),
-      queryUserRecordCount(
-        queryBuilder: (query) => query.where(
-          'created_time',
-          isGreaterThanOrEqualTo: startOfLast30Days,
-        ),
-      ),
-      queryPaymentTransactionRecordOnce(
-        queryBuilder: (query) => query
-            .where('created_at', isGreaterThanOrEqualTo: startOfMonth)
-            .where('created_at', isLessThan: startOfNextMonth)
-            .orderBy('created_at', descending: true),
-        limit: 50,
-      ),
+      UserRecord.collection
+          .where('created_time', isGreaterThanOrEqualTo: startOfLast30Days)
+          .where('created_time', isLessThanOrEqualTo: now)
+          .get()
+          .then((snapshot) =>
+              snapshot.docs.map(UserRecord.fromSnapshot).toList()),
+      PaymentTransactionRecord.collection
+          .where('created_at', isGreaterThanOrEqualTo: startOfMonth)
+          .where('created_at', isLessThan: startOfNextMonth)
+          .get()
+          .then((snapshot) => snapshot.docs
+              .map(PaymentTransactionRecord.fromSnapshot)
+              .toList()),
       queryResultatsRecordOnce(
         queryBuilder: (query) => query
             .where('date', isGreaterThanOrEqualTo: startOfToday)
@@ -122,9 +123,10 @@ class _DashboardWidgetState extends State<DashboardWidget> {
     ]);
 
     return _DashboardData(
-      activeVipCount: values[0] as int,
+      asOf: now,
+      activeVips: values[0] as List<UserRecord>,
       expiringVipCount: values[1] as int,
-      newUsersCount: values[2] as int,
+      newUsers: values[2] as List<UserRecord>,
       monthlyPayments: values[3] as List<PaymentTransactionRecord>,
       todayResults: values[4] as List<ResultatsRecord>,
       todayPredictions: values[5] as List<PredictionRecord>,
@@ -226,6 +228,11 @@ class _DashboardWidgetState extends State<DashboardWidget> {
                                         Icons.workspace_premium_rounded,
                                         theme.success,
                                         UsersWidget.routeName,
+                                        series: data?.vipSeries ?? const [],
+                                        period: data?.vipPeriod ??
+                                            'Aujourd’hui → dans 7 jours',
+                                        chartLabel:
+                                            'Validité prévue • hors renouvellements',
                                         detail: data == null
                                             ? 'abonnements en cours'
                                             : '${data.expiringVipCount} à renouveler sous 7 jours',
@@ -236,7 +243,12 @@ class _DashboardWidgetState extends State<DashboardWidget> {
                                         Icons.person_add_alt_1_rounded,
                                         const Color(0xFF3A7CA5),
                                         UsersWidget.routeName,
-                                        detail: 'sur les 30 derniers jours',
+                                        series:
+                                            data?.newUsersSeries ?? const [],
+                                        period: data?.newUsersPeriod ??
+                                            '30 derniers jours',
+                                        chartLabel: 'Inscriptions par jour',
+                                        detail: 'inscriptions sur 30 jours',
                                       ),
                                       _StatData(
                                         'Paiements ce mois',
@@ -244,6 +256,11 @@ class _DashboardWidgetState extends State<DashboardWidget> {
                                         Icons.payments_rounded,
                                         const Color(0xFF6D5BD0),
                                         UsersWidget.routeName,
+                                        series:
+                                            data?.paymentsSeries ?? const [],
+                                        period: data?.paymentsPeriod ??
+                                            'Mois en cours',
+                                        chartLabel: 'Paiements par jour',
                                         detail: data?.paymentAmountLabel ??
                                             'montants enregistrés',
                                       ),
@@ -689,14 +706,12 @@ class _StatsGrid extends StatelessWidget {
                     : 1;
         const gap = 14.0;
         final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
-        final compactCards = width < 230;
         return Wrap(
           spacing: gap,
           runSpacing: gap,
           children: stats
               .map((stat) => SizedBox(
                     width: width,
-                    height: compactCards ? 128 : null,
                     child: _StatCard(stat: stat, loading: loading),
                   ))
               .toList(),
@@ -714,8 +729,14 @@ class _StatData {
     this.color,
     this.route, {
     this.detail,
+    required this.series,
+    required this.period,
+    required this.chartLabel,
   });
 
+  final List<double> series;
+  final String period;
+  final String chartLabel;
   final String label;
   final String? value;
   final IconData icon;
@@ -732,113 +753,151 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 230;
-        return Material(
-          color: theme.secondaryBackground,
-          borderRadius: BorderRadius.circular(18),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Material(
+          color: const Color(0xFF1C2229),
+          borderRadius: BorderRadius.circular(24),
+          clipBehavior: Clip.antiAlias,
           child: InkWell(
-            borderRadius: BorderRadius.circular(18),
             onTap: () => context.goNamed(stat.route),
-            child: Container(
-              padding: EdgeInsets.all(compact ? 14 : 18),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                border:
-                    Border.all(color: theme.alternate.withValues(alpha: .75)),
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.primaryText.withValues(alpha: .035),
-                    blurRadius: 18,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Row(
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: compact ? 40 : 46,
-                    height: compact ? 40 : 46,
-                    decoration: BoxDecoration(
-                      color: stat.color.withValues(alpha: .12),
-                      borderRadius: BorderRadius.circular(14),
+                  Row(children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: stat.color.withValues(alpha: .18),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(stat.icon, color: stat.color, size: 20),
                     ),
-                    child: Icon(stat.icon, color: stat.color, size: 22),
-                  ),
-                  SizedBox(width: compact ? 10 : 14),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 180),
-                          child: loading
-                              ? Container(
-                                  key: const ValueKey('loading'),
-                                  width: 42,
-                                  height: 20,
-                                  decoration: BoxDecoration(
-                                    color: theme.alternate,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                )
-                              : Text(
-                                  stat.value ?? '0',
-                                  key: ValueKey(stat.value),
-                                  style: (compact
-                                          ? theme.titleLarge
-                                          : theme.headlineMedium)
-                                      .copyWith(fontWeight: FontWeight.w800),
-                                ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          stat.label,
-                          maxLines: compact ? 2 : 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.bodySmall.copyWith(
-                            color: theme.secondaryText,
-                            height: 1.15,
+                    const SizedBox(width: 9),
+                    Expanded(
+                        child: Text(
+                      stat.label,
+                      maxLines: 2,
+                      style: theme.bodyMedium.copyWith(
+                          color: Colors.white, fontWeight: FontWeight.w600),
+                    )),
+                  ]),
+                  const SizedBox(height: 22),
+                  SizedBox(
+                    height: 88,
+                    width: double.infinity,
+                    child: loading
+                        ? Center(
+                            child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: stat.color)))
+                        : Semantics(
+                            label: stat.chartLabel,
+                            child: CustomPaint(
+                                painter: _StatChartPainter(
+                                    values: stat.series, color: stat.color)),
                           ),
-                        ),
-                        if (stat.detail?.isNotEmpty ?? false) ...[
-                          const SizedBox(height: 3),
-                          Text(
-                            stat.detail!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.labelSmall.copyWith(
-                              color: stat.color,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
                   ),
-                  if (!compact)
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: theme.secondaryText,
-                      size: 20,
-                    ),
+                  const SizedBox(height: 12),
+                  Text(loading ? '—' : stat.value ?? '0',
+                      style: theme.headlineLarge.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -1)),
+                  const SizedBox(height: 4),
+                  Text(stat.detail ?? '',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.bodySmall.copyWith(color: stat.color)),
                 ],
               ),
             ),
           ),
-        );
-      },
+        ),
+        const SizedBox(height: 10),
+        Text(stat.period,
+            style: theme.bodySmall.copyWith(
+                color: theme.primaryText, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 3),
+        Text(stat.chartLabel,
+            style: theme.labelSmall.copyWith(color: theme.secondaryText)),
+      ],
     );
   }
 }
 
+class _StatChartPainter extends CustomPainter {
+  const _StatChartPainter({required this.values, required this.color});
+  final List<double> values;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) return;
+    final points = values.length == 1 ? [values.first, values.first] : values;
+    final maximum = points.fold<double>(1, (a, b) => a > b ? a : b);
+    final offsets = List.generate(
+        points.length,
+        (i) => Offset(5 + i * (size.width - 10) / (points.length - 1),
+            size.height - 6 - points[i] / maximum * (size.height - 16)));
+    final line = Path()..moveTo(offsets.first.dx, offsets.first.dy);
+    for (var i = 1; i < offsets.length; i++) {
+      final previous = offsets[i - 1];
+      final current = offsets[i];
+      final middle = (previous.dx + current.dx) / 2;
+      line.cubicTo(
+          middle, previous.dy, middle, current.dy, current.dx, current.dy);
+    }
+    final area = Path.from(line)
+      ..lineTo(offsets.last.dx, size.height)
+      ..lineTo(offsets.first.dx, size.height)
+      ..close();
+    canvas.drawPath(
+        area,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              color.withValues(alpha: .28),
+              color.withValues(alpha: .01)
+            ],
+          ).createShader(Offset.zero & size));
+    canvas.drawPath(
+        line,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5
+          ..strokeCap = StrokeCap.round);
+    canvas.drawCircle(
+        offsets.last, 7, Paint()..color = color.withValues(alpha: .2));
+    canvas.drawCircle(offsets.last, 4, Paint()..color = color);
+    canvas.drawCircle(
+        offsets.last,
+        4,
+        Paint()
+          ..color = Colors.white70
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5);
+  }
+
+  @override
+  bool shouldRepaint(covariant _StatChartPainter oldDelegate) =>
+      oldDelegate.values != values || oldDelegate.color != color;
+}
+
 class _DashboardData {
   const _DashboardData({
-    required this.activeVipCount,
+    required this.asOf,
+    required this.activeVips,
     required this.expiringVipCount,
-    required this.newUsersCount,
+    required this.newUsers,
     required this.monthlyPayments,
     required this.todayResults,
     required this.todayPredictions,
@@ -846,9 +905,54 @@ class _DashboardData {
     required this.todayCrosses,
   });
 
-  final int activeVipCount;
+  final DateTime asOf;
+  final List<UserRecord> activeVips;
+  final List<UserRecord> newUsers;
+  int get activeVipCount => activeVips.length;
+  int get newUsersCount => newUsers.length;
+
+  DateTime get today => DateTime(asOf.year, asOf.month, asOf.day);
+  String _range(DateTime start, DateTime end) =>
+      '${DateFormat('dd/MM/yyyy').format(start)} – ${DateFormat('dd/MM/yyyy').format(end)}';
+  String get vipPeriod =>
+      _range(today, DateTime(today.year, today.month, today.day + 7));
+  String get newUsersPeriod =>
+      _range(DateTime(today.year, today.month, today.day - 29), today);
+  String get paymentsPeriod => _range(DateTime(asOf.year, asOf.month), today);
+
+  List<double> get vipSeries => List.generate(8, (day) {
+        final date = DateTime(asOf.year, asOf.month, asOf.day + day, asOf.hour,
+            asOf.minute, asOf.second, asOf.millisecond, asOf.microsecond);
+        return activeVips
+            .where(
+                (user) => user.endSub != null && !user.endSub!.isBefore(date))
+            .length
+            .toDouble();
+      });
+
+  List<double> _dailyCounts(
+      Iterable<DateTime?> dates, DateTime start, int days) {
+    final counts = List<double>.filled(days, 0);
+    for (final date in dates) {
+      if (date == null || date.isAfter(asOf)) continue;
+      final index = DateTime.utc(date.year, date.month, date.day)
+          .difference(DateTime.utc(start.year, start.month, start.day))
+          .inDays;
+      if (index >= 0 && index < days) counts[index]++;
+    }
+    return counts;
+  }
+
+  List<double> get newUsersSeries => _dailyCounts(
+      newUsers.map((user) => user.createdTime),
+      DateTime(today.year, today.month, today.day - 29),
+      30);
+  List<double> get paymentsSeries => _dailyCounts(
+      recordedMonthlyPayments.map((payment) => payment.createdAt),
+      DateTime(asOf.year, asOf.month),
+      asOf.day);
+
   final int expiringVipCount;
-  final int newUsersCount;
   final List<PaymentTransactionRecord> monthlyPayments;
   final List<ResultatsRecord> todayResults;
   final List<PredictionRecord> todayPredictions;
