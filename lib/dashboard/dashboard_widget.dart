@@ -788,8 +788,22 @@ class _StatCard extends StatelessWidget {
                       style: theme.bodyMedium.copyWith(
                           color: Colors.white, fontWeight: FontWeight.w600),
                     )),
+                    if (stat.month != null) ...[
+                      const SizedBox(width: 8),
+                      Tooltip(
+                        message:
+                            '${stat.value ?? '0'} Bingo validés • ${stat.period}',
+                        child: Text(
+                          loading ? '—' : stat.value ?? '0',
+                          style: theme.titleLarge.copyWith(
+                            color: stat.color,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
                   ]),
-                  const SizedBox(height: 22),
+                  SizedBox(height: stat.month != null ? 12 : 22),
                   SizedBox(
                     height: stat.month != null && !loading ? null : 152,
                     width: double.infinity,
@@ -813,29 +827,33 @@ class _StatCard extends StatelessWidget {
                                         color: stat.color)),
                               ),
                   ),
-                  const SizedBox(height: 12),
-                  Text(loading ? '—' : stat.value ?? '0',
-                      style: theme.headlineLarge.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -1)),
-                  const SizedBox(height: 4),
-                  Text(stat.detail ?? '',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.bodySmall.copyWith(color: stat.color)),
+                  if (stat.month == null) ...[
+                    const SizedBox(height: 12),
+                    Text(loading ? '—' : stat.value ?? '0',
+                        style: theme.headlineLarge.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -1)),
+                    const SizedBox(height: 4),
+                    Text(stat.detail ?? '',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.bodySmall.copyWith(color: stat.color)),
+                  ],
                 ],
               ),
             ),
           ),
         ),
-        const SizedBox(height: 10),
-        Text(stat.period,
-            style: theme.bodySmall.copyWith(
-                color: theme.primaryText, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 3),
-        Text(stat.chartLabel,
-            style: theme.labelSmall.copyWith(color: theme.secondaryText)),
+        if (stat.month == null) ...[
+          const SizedBox(height: 10),
+          Text(stat.period,
+              style: theme.bodySmall.copyWith(
+                  color: theme.primaryText, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 3),
+          Text(stat.chartLabel,
+              style: theme.labelSmall.copyWith(color: theme.secondaryText)),
+        ],
       ],
     );
   }

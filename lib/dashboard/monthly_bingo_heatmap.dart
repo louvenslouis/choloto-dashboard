@@ -91,25 +91,6 @@ class MonthlyBingoHeatmap extends StatelessWidget {
                   ),
               ]),
             ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('0', style: _axisStyle),
-              const SizedBox(width: 5),
-              for (final color in _colors)
-                Container(
-                  width: 8,
-                  height: 8,
-                  margin: const EdgeInsets.only(right: 3),
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              Text('${maximum.toInt()}', style: _axisStyle),
-            ],
-          ),
         ],
       );
     });

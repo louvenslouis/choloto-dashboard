@@ -1074,6 +1074,9 @@ class _UsersToolbar extends StatelessWidget {
     return AdminSurface(
       padding: const EdgeInsets.all(16),
       radius: 20,
+      color: theme.secondaryBackground.withValues(alpha: .78),
+      borderColor: theme.alternate.withValues(alpha: .62),
+      showShadow: true,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final search = TextField(
@@ -1458,27 +1461,35 @@ class _FilterChip extends StatelessWidget {
       selected: selected,
       onSelected: (_) => onSelected(),
       showCheckmark: false,
-      avatar: Container(
-        // Keep enough room for three-digit totals such as 100 or 245.
-        width: 28,
-        height: 28,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected
-              ? theme.secondary.withValues(alpha: .24)
-              : theme.primaryBackground,
-          shape: BoxShape.circle,
-        ),
-        child: Text(
-          '$count',
-          style: theme.labelSmall.copyWith(
-            color: selected ? theme.secondary : theme.secondaryText,
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label),
+          const SizedBox(width: 7),
+          Container(
+            constraints: const BoxConstraints(minWidth: 28),
+            height: 24,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 5),
+            decoration: BoxDecoration(
+              color: selected
+                  ? theme.secondary.withValues(alpha: .24)
+                  : theme.primaryBackground,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '$count',
+              maxLines: 1,
+              softWrap: false,
+              style: theme.labelSmall.copyWith(
+                color: selected ? theme.secondary : theme.secondaryText,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
           ),
-        ),
+        ],
       ),
-      label: Text(label),
       labelStyle: theme.labelMedium.copyWith(
         color: selected ? theme.info : theme.secondaryText,
         fontWeight: FontWeight.w800,
