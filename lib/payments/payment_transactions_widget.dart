@@ -8,6 +8,14 @@ import 'package:flutter/material.dart';
 
 enum PaymentTransactionStatusFilter { all, active, cancelled }
 
+enum PaymentTransactionPeriod {
+  sevenDays,
+  thirtyDays,
+  currentMonth,
+  currentYear,
+  custom,
+}
+
 class PaymentTransactionsWidget extends StatelessWidget {
   const PaymentTransactionsWidget({super.key});
 
@@ -34,9 +42,11 @@ class _PaymentTransactionsViewState extends State<PaymentTransactionsView>
   bool get wantKeepAlive => true;
 
   final _searchController = TextEditingController();
-  late Future<List<PaymentTransactionRecord>> _transactionsFuture;
+  late Future<_PaymentTransactionsData> _transactionsFuture;
   PaymentTransactionStatusFilter _statusFilter =
       PaymentTransactionStatusFilter.all;
+  PaymentTransactionPeriod _period = PaymentTransactionPeriod.currentMonth;
+  DateTimeRange? _customPeriod;
   String _methodFilter = 'all';
   String? _downloadingTransactionId;
 
@@ -50,12 +60,77 @@ class _PaymentTransactionsViewState extends State<PaymentTransactionsView>
     );
   }
 
-  Future<List<PaymentTransactionRecord>> _loadTransactions() =>
-      queryPaymentTransactionRecordOnce(
-        queryBuilder: (records) =>
-            records.orderBy('created_at', descending: true),
-        limit: defaultFirestorePageSize,
+  Future<_PaymentTransactionsData> _loadTransactions() async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final (start, end, label) = switch (_period) {
+      PaymentTransactionPeriod.sevenDays => (
+          today.subtract(const Duration(days: 6)),
+          today,
+          '7 derniers jours',
+        ),
+      PaymentTransactionPeriod.thirtyDays => (
+          today.subtract(const Duration(days: 29)),
+          today,
+          '30 derniers jours',
+        ),
+      PaymentTransactionPeriod.currentMonth => (
+          DateTime(now.year, now.month),
+          today,
+          'Mois en cours',
+        ),
+      PaymentTransactionPeriod.currentYear => (
+          DateTime(now.year),
+          today,
+          'Année en cours',
+        ),
+      PaymentTransactionPeriod.custom => (
+          _customPeriod?.start ?? DateTime(now.year, now.month),
+          _customPeriod?.end ?? today,
+          'Période personnalisée',
+        ),
+    };
+    final endExclusive = DateTime(end.year, end.month, end.day + 1);
+    final snapshot = await PaymentTransactionRecord.collection
+        .where('created_at', isGreaterThanOrEqualTo: start)
+        .where('created_at', isLessThan: endExclusive)
+        .orderBy('created_at', descending: true)
+        .get();
+    return _PaymentTransactionsData(
+      records:
+          snapshot.docs.map(PaymentTransactionRecord.fromSnapshot).toList(),
+      start: start,
+      end: end,
+      label: label,
+    );
+  }
+
+  Future<void> _changePeriod(PaymentTransactionPeriod period) async {
+    DateTimeRange? selectedRange;
+    if (period == PaymentTransactionPeriod.custom) {
+      final now = DateTime.now();
+      selectedRange = await showDateRangePicker(
+        context: context,
+        firstDate: DateTime(2020),
+        lastDate: DateTime(now.year, now.month, now.day),
+        initialDateRange: _customPeriod ??
+            DateTimeRange(
+              start: DateTime(now.year, now.month),
+              end: DateTime(now.year, now.month, now.day),
+            ),
+        helpText: 'Choisir une période',
+        cancelText: 'Annuler',
+        confirmText: 'Afficher',
+        saveText: 'Afficher',
       );
+      if (selectedRange == null || !mounted) return;
+    }
+    setState(() {
+      _period = period;
+      if (selectedRange != null) _customPeriod = selectedRange;
+      _transactionsFuture = _loadTransactions();
+    });
+  }
 
   @override
   void dispose() {
@@ -102,7 +177,7 @@ class _PaymentTransactionsViewState extends State<PaymentTransactionsView>
     super.build(context);
     final compactNavigation = MediaQuery.sizeOf(context).width < 992;
 
-    return FutureBuilder<List<PaymentTransactionRecord>>(
+    return FutureBuilder<_PaymentTransactionsData>(
       future: _transactionsFuture,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -112,9 +187,8 @@ class _PaymentTransactionsViewState extends State<PaymentTransactionsView>
           return const Center(child: CircularProgressIndicator());
         }
 
-        final ledger = PaymentTransactionLedger.fromRecords(
-          snapshot.data!,
-        );
+        final data = snapshot.data!;
+        final ledger = PaymentTransactionLedger.fromRecords(data.records);
         final visiblePayments = ledger.filtered(
           query: _searchController.text,
           status: _statusFilter,
@@ -134,9 +208,15 @@ class _PaymentTransactionsViewState extends State<PaymentTransactionsView>
                   const SizedBox(height: 14),
                   _PaymentSummary(ledger: ledger),
                   const SizedBox(height: 16),
+                  _PaymentTrendCard(
+                    ledger: ledger,
+                    period: data,
+                  ),
+                  const SizedBox(height: 16),
                   _PaymentToolbar(
                     searchController: _searchController,
                     statusFilter: _statusFilter,
+                    period: _period,
                     methodFilter: _methodFilter,
                     resultCount: visiblePayments.length,
                     onSearchChanged: (_) => setState(() {}),
@@ -147,6 +227,7 @@ class _PaymentTransactionsViewState extends State<PaymentTransactionsView>
                     onStatusChanged: (status) {
                       setState(() => _statusFilter = status);
                     },
+                    onPeriodChanged: _changePeriod,
                     onMethodChanged: (method) {
                       setState(() => _methodFilter = method);
                     },
@@ -192,6 +273,23 @@ class ClientPaymentEntry {
   final PaymentTransactionRecord transaction;
   final bool cancelled;
   final PaymentTransactionRecord? cancellation;
+}
+
+class _PaymentTransactionsData {
+  const _PaymentTransactionsData({
+    required this.records,
+    required this.start,
+    required this.end,
+    required this.label,
+  });
+
+  final List<PaymentTransactionRecord> records;
+  final DateTime start;
+  final DateTime end;
+  final String label;
+
+  String get dateRange =>
+      '${DateFormat('dd/MM/yyyy').format(start)} – ${DateFormat('dd/MM/yyyy').format(end)}';
 }
 
 class PaymentTransactionLedger {
@@ -301,6 +399,242 @@ int _comparePaymentEntriesByMostRecent(
       .compareTo(first.transaction.reference.id);
 }
 
+class _PaymentTrendCard extends StatelessWidget {
+  const _PaymentTrendCard({required this.ledger, required this.period});
+
+  static const _accent = Color(0xFF8B7CF6);
+
+  final PaymentTransactionLedger ledger;
+  final _PaymentTransactionsData period;
+
+  List<double> get _dailyPayments {
+    final dayCount =
+        DateTime.utc(period.end.year, period.end.month, period.end.day)
+                .difference(
+                  DateTime.utc(
+                    period.start.year,
+                    period.start.month,
+                    period.start.day,
+                  ),
+                )
+                .inDays +
+            1;
+    final values = List<double>.filled(dayCount, 0);
+    for (final entry in ledger.payments) {
+      if (entry.cancelled) continue;
+      final date = entry.transaction.createdAt;
+      if (date == null) continue;
+      final index = DateTime.utc(date.year, date.month, date.day)
+          .difference(
+            DateTime.utc(
+              period.start.year,
+              period.start.month,
+              period.start.day,
+            ),
+          )
+          .inDays;
+      if (index >= 0 && index < values.length) values[index]++;
+    }
+    return values;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    final totals = _formatTotals(ledger.activeTotals);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1C2229),
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: .08),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 620;
+              final details = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: _accent.withValues(alpha: .18),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.payments_rounded,
+                          color: _accent,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Paiements · ${period.label}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.bodyMedium.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    '${ledger.activeCount}',
+                    style: theme.headlineLarge.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -1,
+                    ),
+                  ),
+                  Text(
+                    totals == '—' ? 'Aucun montant encaissé' : totals,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.bodySmall.copyWith(
+                      color: _accent,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              );
+              final chart = Semantics(
+                label:
+                    'Courbe des paiements encaissés par jour, ${period.label}',
+                child: SizedBox(
+                  height: compact ? 82 : 118,
+                  child: CustomPaint(
+                    painter: _PaymentTrendPainter(
+                      values: _dailyPayments,
+                      color: _accent,
+                    ),
+                    size: Size.infinite,
+                  ),
+                ),
+              );
+
+              if (compact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    details,
+                    const SizedBox(height: 14),
+                    chart,
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  SizedBox(width: 230, child: details),
+                  const SizedBox(width: 24),
+                  Expanded(child: chart),
+                ],
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 9),
+        Text(
+          period.dateRange,
+          style: theme.bodySmall.copyWith(
+            color: theme.primaryText,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'Paiements encaissés par jour',
+          style: theme.labelSmall.copyWith(color: theme.secondaryText),
+        ),
+      ],
+    );
+  }
+}
+
+class _PaymentTrendPainter extends CustomPainter {
+  const _PaymentTrendPainter({required this.values, required this.color});
+
+  final List<double> values;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty || size.isEmpty) return;
+    final points = values.length == 1 ? [values.first, values.first] : values;
+    final maximum = points.fold<double>(1, (a, b) => a > b ? a : b);
+    final offsets = List.generate(
+      points.length,
+      (index) => Offset(
+        5 + index * (size.width - 10) / (points.length - 1),
+        size.height - 6 - points[index] / maximum * (size.height - 16),
+      ),
+    );
+    final line = Path()..moveTo(offsets.first.dx, offsets.first.dy);
+    for (var index = 1; index < offsets.length; index++) {
+      final previous = offsets[index - 1];
+      final current = offsets[index];
+      final middle = (previous.dx + current.dx) / 2;
+      line.cubicTo(
+        middle,
+        previous.dy,
+        middle,
+        current.dy,
+        current.dx,
+        current.dy,
+      );
+    }
+    final area = Path.from(line)
+      ..lineTo(offsets.last.dx, size.height)
+      ..lineTo(offsets.first.dx, size.height)
+      ..close();
+    canvas.drawPath(
+      area,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            color.withValues(alpha: .3),
+            color.withValues(alpha: .01),
+          ],
+        ).createShader(Offset.zero & size),
+    );
+    canvas.drawPath(
+      line,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.7
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawCircle(
+      offsets.last,
+      7,
+      Paint()..color = color.withValues(alpha: .22),
+    );
+    canvas.drawCircle(offsets.last, 4, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PaymentTrendPainter oldDelegate) =>
+      oldDelegate.values != values || oldDelegate.color != color;
+}
+
 class _PaymentSummary extends StatelessWidget {
   const _PaymentSummary({required this.ledger});
 
@@ -403,22 +737,26 @@ class _PaymentToolbar extends StatelessWidget {
   const _PaymentToolbar({
     required this.searchController,
     required this.statusFilter,
+    required this.period,
     required this.methodFilter,
     required this.resultCount,
     required this.onSearchChanged,
     required this.onClearSearch,
     required this.onStatusChanged,
+    required this.onPeriodChanged,
     required this.onMethodChanged,
     this.onRefresh,
   });
 
   final TextEditingController searchController;
   final PaymentTransactionStatusFilter statusFilter;
+  final PaymentTransactionPeriod period;
   final String methodFilter;
   final int resultCount;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onClearSearch;
   final ValueChanged<PaymentTransactionStatusFilter> onStatusChanged;
+  final ValueChanged<PaymentTransactionPeriod> onPeriodChanged;
   final ValueChanged<String> onMethodChanged;
   final VoidCallback? onRefresh;
 
@@ -480,6 +818,41 @@ class _PaymentToolbar extends StatelessWidget {
       },
     );
 
+    final periodSelector = DropdownButtonFormField<PaymentTransactionPeriod>(
+      key: ValueKey(period),
+      initialValue: period,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Période',
+        prefixIcon: Icon(Icons.date_range_rounded),
+      ),
+      items: const [
+        DropdownMenuItem(
+          value: PaymentTransactionPeriod.sevenDays,
+          child: Text('7 derniers jours'),
+        ),
+        DropdownMenuItem(
+          value: PaymentTransactionPeriod.thirtyDays,
+          child: Text('30 derniers jours'),
+        ),
+        DropdownMenuItem(
+          value: PaymentTransactionPeriod.currentMonth,
+          child: Text('Mois en cours'),
+        ),
+        DropdownMenuItem(
+          value: PaymentTransactionPeriod.currentYear,
+          child: Text('Année en cours'),
+        ),
+        DropdownMenuItem(
+          value: PaymentTransactionPeriod.custom,
+          child: Text('Personnalisée…'),
+        ),
+      ],
+      onChanged: (value) {
+        if (value != null) onPeriodChanged(value);
+      },
+    );
+
     final method = DropdownButtonFormField<String>(
       key: ValueKey(methodFilter),
       initialValue: methodFilter,
@@ -515,6 +888,8 @@ class _PaymentToolbar extends StatelessWidget {
               children: [
                 search,
                 const SizedBox(height: 12),
+                periodSelector,
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(child: status),
@@ -541,6 +916,8 @@ class _PaymentToolbar extends StatelessWidget {
           return Row(
             children: [
               Expanded(flex: 4, child: search),
+              const SizedBox(width: 12),
+              Expanded(flex: 2, child: periodSelector),
               const SizedBox(width: 12),
               Expanded(flex: 2, child: status),
               const SizedBox(width: 12),
