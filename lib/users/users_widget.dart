@@ -1459,8 +1459,9 @@ class _FilterChip extends StatelessWidget {
       onSelected: (_) => onSelected(),
       showCheckmark: false,
       avatar: Container(
-        width: 21,
-        height: 21,
+        // Keep enough room for three-digit totals such as 100 or 245.
+        width: 28,
+        height: 28,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected
