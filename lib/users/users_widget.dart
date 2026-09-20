@@ -522,7 +522,6 @@ class _UsersWidgetState extends State<UsersWidget>
                 selectedFilter: _model.filtres,
                 totalCount: allUsers.length,
                 vipCount: vipCount,
-                resultCount: users.length,
                 viewMode: _viewMode,
                 sortMode: _sortMode,
                 isExporting: _isExporting,
@@ -585,7 +584,7 @@ class _UsersWidgetState extends State<UsersWidget>
                                       gridDelegate:
                                           SliverGridDelegateWithMaxCrossAxisExtent(
                                         maxCrossAxisExtent: cardWidth,
-                                        mainAxisExtent: 344,
+                                        mainAxisExtent: 280,
                                         crossAxisSpacing: 16,
                                         mainAxisSpacing: 16,
                                       ),
@@ -1038,7 +1037,6 @@ class _UsersToolbar extends StatelessWidget {
     required this.selectedFilter,
     required this.totalCount,
     required this.vipCount,
-    required this.resultCount,
     required this.viewMode,
     required this.sortMode,
     required this.isExporting,
@@ -1057,7 +1055,6 @@ class _UsersToolbar extends StatelessWidget {
   final String selectedFilter;
   final int totalCount;
   final int vipCount;
-  final int resultCount;
   final _UsersViewMode viewMode;
   final UserSortMode sortMode;
   final bool isExporting;
@@ -1079,14 +1076,15 @@ class _UsersToolbar extends StatelessWidget {
       radius: 20,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final stacked = constraints.maxWidth < 720;
           final search = TextField(
             controller: controller,
             focusNode: focusNode,
             onChanged: onQueryChanged,
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
-              labelText: 'Rechercher un utilisateur',
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              labelText: 'Rechercher',
               hintText: 'Nom, e-mail, téléphone ou code',
               prefixIcon: const Icon(Icons.search_rounded),
               suffixIcon: controller.text.isEmpty
@@ -1156,56 +1154,30 @@ class _UsersToolbar extends StatelessWidget {
             ),
           );
 
-          if (stacked) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Expanded(child: search),
-                    const SizedBox(width: 8),
-                    refreshButton,
-                  ],
-                ),
-                const SizedBox(height: 14),
-                filters,
-                const SizedBox(height: 12),
-                _ResultsAndViewMode(
-                  count: resultCount,
-                  viewMode: viewMode,
-                  sortMode: sortMode,
-                  isExporting: isExporting,
-                  onViewModeChanged: onViewModeChanged,
-                  onSortModeChanged: onSortModeChanged,
-                  onExport: onExport,
-                ),
-              ],
-            );
-          }
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(flex: 3, child: search),
-                  const SizedBox(width: 16),
-                  Flexible(flex: 2, child: filters),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 220, child: search),
+                  const SizedBox(width: 12),
+                  filters,
+                  const SizedBox(width: 12),
                   refreshButton,
+                  const SizedBox(width: 8),
+                  _UsersViewActions(
+                    viewMode: viewMode,
+                    sortMode: sortMode,
+                    isExporting: isExporting,
+                    onViewModeChanged: onViewModeChanged,
+                    onSortModeChanged: onSortModeChanged,
+                    onExport: onExport,
+                  ),
                 ],
               ),
-              const SizedBox(height: 12),
-              _ResultsAndViewMode(
-                count: resultCount,
-                viewMode: viewMode,
-                sortMode: sortMode,
-                isExporting: isExporting,
-                onViewModeChanged: onViewModeChanged,
-                onSortModeChanged: onSortModeChanged,
-                onExport: onExport,
-              ),
-            ],
+            ),
           );
         },
       ),
@@ -1213,9 +1185,8 @@ class _UsersToolbar extends StatelessWidget {
   }
 }
 
-class _ResultsAndViewMode extends StatelessWidget {
-  const _ResultsAndViewMode({
-    required this.count,
+class _UsersViewActions extends StatelessWidget {
+  const _UsersViewActions({
     required this.viewMode,
     required this.sortMode,
     required this.isExporting,
@@ -1224,7 +1195,6 @@ class _ResultsAndViewMode extends StatelessWidget {
     required this.onExport,
   });
 
-  final int count;
   final _UsersViewMode viewMode;
   final UserSortMode sortMode;
   final bool isExporting;
@@ -1237,69 +1207,22 @@ class _ResultsAndViewMode extends StatelessWidget {
     final theme = FlutterFlowTheme.of(context);
     return Row(
       children: [
-        Icon(
-          viewMode == _UsersViewMode.cards
-              ? Icons.grid_view_rounded
-              : Icons.view_list_rounded,
-          size: 16,
-          color: theme.secondaryText,
-        ),
-        const SizedBox(width: 7),
-        Expanded(
-          child: Text(
-            '$count ${count > 1 ? 'utilisateurs affichés' : 'utilisateur affiché'}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.labelMedium.copyWith(
-              color: theme.secondaryText,
-              fontWeight: FontWeight.w700,
-            ),
+        IconButton(
+          tooltip: 'Exporter vers Excel',
+          onPressed: isExporting ? null : onExport,
+          icon: isExporting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.file_download_outlined, size: 20),
+          style: IconButton.styleFrom(
+            minimumSize: const Size(44, 44),
+            foregroundColor: theme.primary,
+            backgroundColor: theme.accent1,
+            side: BorderSide(color: theme.secondary.withValues(alpha: .35)),
           ),
-        ),
-        const SizedBox(width: 10),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = MediaQuery.sizeOf(context).width < 560;
-            if (compact) {
-              return IconButton(
-                tooltip: 'Exporter vers Excel',
-                onPressed: isExporting ? null : onExport,
-                icon: isExporting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.file_download_outlined, size: 20),
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(44, 44),
-                  foregroundColor: theme.primary,
-                  backgroundColor: theme.accent1,
-                  side: BorderSide(
-                    color: theme.secondary.withValues(alpha: .35),
-                  ),
-                ),
-              );
-            }
-            return OutlinedButton.icon(
-              onPressed: isExporting ? null : onExport,
-              icon: isExporting
-                  ? const SizedBox(
-                      width: 17,
-                      height: 17,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.file_download_outlined, size: 19),
-              label: Text(isExporting ? 'Export…' : 'Exporter Excel'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(0, 44),
-                foregroundColor: theme.primary,
-                side: BorderSide(
-                  color: theme.secondary.withValues(alpha: .55),
-                ),
-              ),
-            );
-          },
         ),
         const SizedBox(width: 10),
         UserSortControl(
@@ -1329,7 +1252,6 @@ class UserSortControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
-    final compact = MediaQuery.sizeOf(context).width < 560;
     final label = switch (value) {
       UserSortMode.alphabetical => 'Alphabétique',
       UserSortMode.lastModified => 'Modifiés récemment',
@@ -1347,7 +1269,7 @@ class UserSortControl extends StatelessWidget {
       button: true,
       label: 'Trier les utilisateurs : $label',
       child: Tooltip(
-        message: 'Trier les utilisateurs',
+        message: 'Trier : $label',
         child: PopupMenuButton<UserSortMode>(
           initialValue: value,
           tooltip: '',
@@ -1380,35 +1302,15 @@ class UserSortControl extends StatelessWidget {
             ),
           ],
           child: Container(
+            width: 44,
             height: 44,
-            padding: EdgeInsets.symmetric(horizontal: compact ? 11 : 14),
+            alignment: Alignment.center,
             decoration: BoxDecoration(
               color: theme.primaryBackground,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: theme.alternate),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 20, color: theme.primary),
-                if (!compact) ...[
-                  const SizedBox(width: 8),
-                  Text(
-                    label,
-                    style: theme.labelMedium.copyWith(
-                      color: theme.primaryText,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(width: 5),
-                  Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    size: 18,
-                    color: theme.secondaryText,
-                  ),
-                ],
-              ],
-            ),
+            child: Icon(icon, size: 20, color: theme.primary),
           ),
         ),
       ),
@@ -1717,7 +1619,6 @@ class _UserListItemState extends State<_UserListItem> {
     final now = DateTime.now();
     final active = user.endSub != null && !user.endSub!.isBefore(now);
     final isNew = isNewUser(user.createdTime, now);
-    final statusColor = active ? theme.success : theme.error;
     final initial = name.characters.first.toUpperCase();
     final deadline = user.endSub == null
         ? 'Non définie'
@@ -1741,17 +1642,15 @@ class _UserListItemState extends State<_UserListItem> {
           ),
         ),
         const SizedBox(height: 5),
-        AdminStatusPill(
-          label: active ? 'VIP ACTIF' : 'ACCÈS GRATUIT',
-          color: statusColor,
-          compact: true,
-          leading: Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              color: statusColor,
-              shape: BoxShape.circle,
-            ),
+        Text(
+          user.phoneNumber.trim().isEmpty
+              ? 'Téléphone non renseigné'
+              : user.phoneNumber.trim(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.bodySmall.copyWith(
+            color: theme.secondaryText,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
@@ -1796,6 +1695,7 @@ class _UserListItemState extends State<_UserListItem> {
                       phone: phone,
                       deadline: deadline,
                       isNew: isNew,
+                      isVip: active,
                     )
                   : _buildCompactRow(
                       context,
@@ -1805,6 +1705,7 @@ class _UserListItemState extends State<_UserListItem> {
                       phone: phone,
                       deadline: deadline,
                       isNew: isNew,
+                      isVip: active,
                     ),
             ),
           ),
@@ -1821,6 +1722,7 @@ class _UserListItemState extends State<_UserListItem> {
     required String phone,
     required String deadline,
     required bool isNew,
+    required bool isVip,
   }) {
     final theme = FlutterFlowTheme.of(context);
     return Row(
@@ -1830,6 +1732,7 @@ class _UserListItemState extends State<_UserListItem> {
           initial: initial,
           size: 52,
           isNew: isNew,
+          isVip: isVip,
         ),
         const SizedBox(width: 14),
         Expanded(flex: 3, child: identity),
@@ -1847,8 +1750,6 @@ class _UserListItemState extends State<_UserListItem> {
                     ? null
                     : _CopyEmailButton(email: widget.user.email),
               ),
-              const SizedBox(height: 7),
-              _ContactRow(icon: Icons.phone_outlined, value: phone),
             ],
           ),
         ),
@@ -1917,6 +1818,7 @@ class _UserListItemState extends State<_UserListItem> {
     required String phone,
     required String deadline,
     required bool isNew,
+    required bool isVip,
   }) {
     final theme = FlutterFlowTheme.of(context);
     return Column(
@@ -1929,6 +1831,7 @@ class _UserListItemState extends State<_UserListItem> {
               initial: initial,
               size: 50,
               isNew: isNew,
+              isVip: isVip,
             ),
             const SizedBox(width: 12),
             Expanded(child: identity),
@@ -1951,8 +1854,6 @@ class _UserListItemState extends State<_UserListItem> {
               ? null
               : _CopyEmailButton(email: widget.user.email),
         ),
-        const SizedBox(height: 7),
-        _ContactRow(icon: Icons.phone_outlined, value: phone),
         const SizedBox(height: 13),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -2210,10 +2111,22 @@ class _NewUserBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
-    return AdminStatusPill(
-      label: 'NOUVEAU',
-      color: theme.primary,
-      compact: true,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: theme.secondaryBackground,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.alternate),
+      ),
+      child: Text(
+        'Nouveau',
+        style: theme.labelSmall.copyWith(
+          color: theme.secondaryText,
+          fontSize: 9,
+          fontWeight: FontWeight.w500,
+          letterSpacing: .1,
+        ),
+      ),
     );
   }
 }
@@ -2248,7 +2161,6 @@ class _UserCardState extends State<_UserCard> {
     final now = DateTime.now();
     final active = user.endSub != null && !user.endSub!.isBefore(now);
     final isNew = isNewUser(user.createdTime, now);
-    final statusColor = active ? theme.success : theme.error;
     final initial = name.characters.first.toUpperCase();
 
     return MouseRegion(
@@ -2260,7 +2172,7 @@ class _UserCardState extends State<_UserCard> {
         transform: Matrix4.translationValues(0, _hovered ? -3 : 0, 0),
         decoration: BoxDecoration(
           color: theme.secondaryBackground,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: _hovered
                 ? theme.primary.withValues(alpha: .28)
@@ -2280,7 +2192,7 @@ class _UserCardState extends State<_UserCard> {
           child: InkWell(
             onTap: widget.onViewProfile,
             child: Padding(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -2290,7 +2202,9 @@ class _UserCardState extends State<_UserCard> {
                       _UserAvatar(
                         user: user,
                         initial: initial,
+                        size: 52,
                         isNew: isNew,
+                        isVip: active,
                       ),
                       const SizedBox(width: 13),
                       Expanded(
@@ -2301,23 +2215,21 @@ class _UserCardState extends State<_UserCard> {
                               name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: theme.titleMedium.copyWith(
-                                fontWeight: FontWeight.w800,
+                              style: theme.titleSmall.copyWith(
+                                fontWeight: FontWeight.w600,
                                 letterSpacing: -.2,
                               ),
                             ),
                             const SizedBox(height: 5),
-                            AdminStatusPill(
-                              label: active ? 'VIP ACTIF' : 'ACCÈS GRATUIT',
-                              color: statusColor,
-                              compact: true,
-                              leading: Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: statusColor,
-                                  shape: BoxShape.circle,
-                                ),
+                            Text(
+                              user.phoneNumber.trim().isEmpty
+                                  ? 'Téléphone non renseigné'
+                                  : user.phoneNumber.trim(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.bodySmall.copyWith(
+                                color: theme.secondaryText,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
@@ -2334,7 +2246,7 @@ class _UserCardState extends State<_UserCard> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
                   _ContactRow(
                     icon: Icons.mail_outline_rounded,
                     value: email,
@@ -2360,14 +2272,7 @@ class _UserCardState extends State<_UserCard> {
                             visualDensity: VisualDensity.compact,
                           ),
                   ),
-                  const SizedBox(height: 8),
-                  _ContactRow(
-                    icon: Icons.phone_outlined,
-                    value: user.phoneNumber.trim().isEmpty
-                        ? 'Téléphone non renseigné'
-                        : user.phoneNumber.trim(),
-                  ),
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 10),
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.all(13),
@@ -2380,7 +2285,6 @@ class _UserCardState extends State<_UserCard> {
                         children: [
                           Expanded(
                             child: _UserMetric(
-                              icon: Icons.event_available_rounded,
                               label: 'Échéance',
                               value: user.endSub == null
                                   ? 'Non définie'
@@ -2394,12 +2298,11 @@ class _UserCardState extends State<_UserCard> {
                           ),
                           Container(
                             width: 1,
-                            height: 48,
+                            height: 30,
                             color: theme.alternate,
                           ),
                           Expanded(
                             child: _UserMetric(
-                              icon: Icons.workspace_premium_outlined,
                               label: 'Mois actifs',
                               value: '${user.memberTime}',
                             ),
@@ -2408,7 +2311,7 @@ class _UserCardState extends State<_UserCard> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
@@ -2461,12 +2364,14 @@ class _UserAvatar extends StatelessWidget {
     required this.initial,
     this.size = 60,
     this.isNew = false,
+    this.isVip = false,
   });
 
   final UserRecord user;
   final String initial;
   final double size;
   final bool isNew;
+  final bool isVip;
 
   @override
   Widget build(BuildContext context) {
@@ -2513,6 +2418,30 @@ class _UserAvatar extends StatelessWidget {
                     errorWidget: (_, __, ___) => fallback,
                   ),
           ),
+          if (isVip)
+            Positioned(
+              top: -3,
+              right: -3,
+              child: Tooltip(
+                message: 'Membre VIP',
+                child: Container(
+                  width: 23,
+                  height: 23,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFE9AE),
+                    shape: BoxShape.circle,
+                    border:
+                        Border.all(color: theme.secondaryBackground, width: 2),
+                  ),
+                  child: const Icon(
+                    Icons.workspace_premium_rounded,
+                    size: 15,
+                    color: Color(0xFF946200),
+                    semanticLabel: 'Membre VIP',
+                  ),
+                ),
+              ),
+            ),
           if (isNew)
             const Positioned(
               bottom: -7,
@@ -2588,12 +2517,10 @@ class _ContactRow extends StatelessWidget {
 
 class _UserMetric extends StatelessWidget {
   const _UserMetric({
-    required this.icon,
     required this.label,
     required this.value,
   });
 
-  final IconData icon;
   final String label;
   final String value;
 
@@ -2603,8 +2530,6 @@ class _UserMetric extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(icon, size: 19, color: theme.primary),
-        const SizedBox(height: 5),
         Text(
           label,
           style: theme.labelSmall.copyWith(

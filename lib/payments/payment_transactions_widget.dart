@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import '/backend/backend.dart';
 import '/components/admin_ui.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -206,8 +207,6 @@ class _PaymentTransactionsViewState extends State<PaymentTransactionsView>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 14),
-                  _PaymentSummary(ledger: ledger),
-                  const SizedBox(height: 16),
                   _PaymentTrendCard(
                     ledger: ledger,
                     period: data,
@@ -482,7 +481,8 @@ class _PaymentTrendCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      Text(
+                      Expanded(
+                          child: Text(
                         'Paiements · ${period.label}',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -490,7 +490,7 @@ class _PaymentTrendCard extends StatelessWidget {
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
                         ),
-                      ),
+                      )),
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -517,11 +517,12 @@ class _PaymentTrendCard extends StatelessWidget {
                 label:
                     'Courbe des paiements encaissés par jour, ${period.label}',
                 child: SizedBox(
-                  height: compact ? 82 : 118,
+                  height: compact ? 150 : 180,
                   child: CustomPaint(
                     painter: _PaymentTrendPainter(
                       values: _dailyPayments,
                       color: _accent,
+                      start: period.start,
                     ),
                     size: Size.infinite,
                   ),
@@ -567,21 +568,63 @@ class _PaymentTrendCard extends StatelessWidget {
 }
 
 class _PaymentTrendPainter extends CustomPainter {
-  const _PaymentTrendPainter({required this.values, required this.color});
+  const _PaymentTrendPainter(
+      {required this.values, required this.color, required this.start});
 
   final List<double> values;
   final Color color;
+  final DateTime start;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (values.isEmpty || size.isEmpty) return;
     final points = values.length == 1 ? [values.first, values.first] : values;
-    final maximum = points.fold<double>(1, (a, b) => a > b ? a : b);
+    final peak = points.fold<double>(1, (a, b) => a > b ? a : b);
+    final step = (peak / 3).ceil();
+    final maximum = step * 3;
+    final labelStyle =
+        TextStyle(color: Colors.white.withValues(alpha: .55), fontSize: 10);
+    TextPainter label(String text) => TextPainter(
+          text: TextSpan(text: text, style: labelStyle),
+          textDirection: ui.TextDirection.ltr,
+        )..layout();
+    final widest = label('$maximum').width;
+    final plot =
+        Rect.fromLTRB(widest + 12, 20, size.width - 8, size.height - 26);
+    final grid = Paint()
+      ..color = Colors.white.withValues(alpha: .07)
+      ..strokeWidth = 1;
+    label('Paiements / jour').paint(canvas, const Offset(0, 0));
+    for (var tick = 0; tick <= 3; tick++) {
+      final y = plot.bottom - plot.height * tick / 3;
+      canvas.drawLine(Offset(plot.left, y), Offset(plot.right, y), grid);
+      final text = label('${tick * step}');
+      text.paint(
+          canvas, Offset(plot.left - text.width - 9, y - text.height / 2));
+    }
+    canvas.drawLine(plot.topLeft, plot.bottomLeft, grid);
+    final tickCount = values.length == 1
+        ? 1
+        : (plot.width < 260 ? 3 : 5).clamp(2, values.length);
+    for (var tick = 0; tick < tickCount; tick++) {
+      final index = tickCount == 1
+          ? 0
+          : ((values.length - 1) * tick / (tickCount - 1)).round();
+      final date = DateTime(start.year, start.month, start.day + index);
+      final text = label(DateFormat('dd/MM').format(date));
+      final x = values.length == 1
+          ? plot.center.dx
+          : plot.left + plot.width * index / (values.length - 1);
+      text.paint(
+          canvas,
+          Offset((x - text.width / 2).clamp(plot.left, size.width - text.width),
+              plot.bottom + 9));
+    }
     final offsets = List.generate(
       points.length,
       (index) => Offset(
-        5 + index * (size.width - 10) / (points.length - 1),
-        size.height - 6 - points[index] / maximum * (size.height - 16),
+        plot.left + index * plot.width / (points.length - 1),
+        plot.bottom - points[index] / maximum * plot.height,
       ),
     );
     final line = Path()..moveTo(offsets.first.dx, offsets.first.dy);
@@ -599,8 +642,8 @@ class _PaymentTrendPainter extends CustomPainter {
       );
     }
     final area = Path.from(line)
-      ..lineTo(offsets.last.dx, size.height)
-      ..lineTo(offsets.first.dx, size.height)
+      ..lineTo(offsets.last.dx, plot.bottom)
+      ..lineTo(offsets.first.dx, plot.bottom)
       ..close();
     canvas.drawPath(
       area,
@@ -612,7 +655,7 @@ class _PaymentTrendPainter extends CustomPainter {
             color.withValues(alpha: .3),
             color.withValues(alpha: .01),
           ],
-        ).createShader(Offset.zero & size),
+        ).createShader(plot),
     );
     canvas.drawPath(
       line,
@@ -632,105 +675,9 @@ class _PaymentTrendPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _PaymentTrendPainter oldDelegate) =>
-      oldDelegate.values != values || oldDelegate.color != color;
-}
-
-class _PaymentSummary extends StatelessWidget {
-  const _PaymentSummary({required this.ledger});
-
-  final PaymentTransactionLedger ledger;
-
-  @override
-  Widget build(BuildContext context) {
-    final totals = ledger.activeTotals;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final cardWidth = constraints.maxWidth < 700
-            ? (constraints.maxWidth - 12) / 2
-            : (constraints.maxWidth - 32) / 3;
-        return Wrap(
-          spacing: 16,
-          runSpacing: 12,
-          children: [
-            SizedBox(
-              width: cardWidth,
-              child: _SummaryCard(
-                label: 'Paiements encaissés',
-                value: '${ledger.activeCount}',
-                icon: Icons.check_circle_outline_rounded,
-                color: FlutterFlowTheme.of(context).success,
-              ),
-            ),
-            SizedBox(
-              width: cardWidth,
-              child: _SummaryCard(
-                label: 'Montants actifs',
-                value: _formatTotals(totals),
-                icon: Icons.account_balance_wallet_outlined,
-                color: FlutterFlowTheme.of(context).primary,
-              ),
-            ),
-            SizedBox(
-              width: cardWidth,
-              child: _SummaryCard(
-                label: 'Paiements annulés',
-                value: '${ledger.cancelledCount}',
-                icon: Icons.cancel_outlined,
-                color: FlutterFlowTheme.of(context).error,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = FlutterFlowTheme.of(context);
-    return AdminSurface(
-      padding: const EdgeInsets.all(16),
-      radius: 18,
-      child: Row(
-        children: [
-          AdminIconTile(icon: icon, color: color, size: 42, iconSize: 21),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.titleLarge.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  style: theme.bodySmall.copyWith(color: theme.secondaryText),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+      oldDelegate.values != values ||
+      oldDelegate.color != color ||
+      oldDelegate.start != start;
 }
 
 class _PaymentToolbar extends StatelessWidget {
