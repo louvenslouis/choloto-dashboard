@@ -120,10 +120,11 @@ class _CroixWidgetState extends State<CroixWidget> {
                       mainAxisSize: MainAxisSize.max,
                       mainAxisAlignment: MainAxisAlignment.start,
                       children: [
-                        const AdminSectionHeader(
-                          title: 'Croix de la chance',
-                          icon: Icons.brightness_7_rounded,
-                        ),
+                        if (MediaQuery.sizeOf(context).width >= 992)
+                          const AdminSectionHeader(
+                            title: 'Croix de la chance',
+                            icon: Icons.brightness_7_rounded,
+                          ),
                         _buildUpdatePanel(),
                         const SizedBox(height: 16.0),
                         _buildHistoryShortcut(),

@@ -92,7 +92,7 @@ void main() {
 
     expect(find.text('Accueil'), findsOneWidget);
     expect(find.text('Tirages'), findsOneWidget);
-    expect(find.text('Prévisions'), findsOneWidget);
+    expect(find.text('Prédictions'), findsOneWidget);
     expect(find.text('Membres'), findsOneWidget);
 
     await tester.tap(find.text('Menu'));
@@ -135,7 +135,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Alphabétique'), findsOneWidget);
+    expect(find.byTooltip('Trier : Alphabétique'), findsOneWidget);
     await tester.tap(find.byType(UserSortControl));
     await tester.pumpAndSettle();
 
@@ -148,7 +148,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(selectedMode, UserSortMode.newestUsers);
-    expect(find.text('Nouveaux utilisateurs'), findsOneWidget);
+    expect(find.byTooltip('Trier : Nouveaux utilisateurs'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -283,7 +283,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the payment dialog fits a narrow phone without scrolling',
+  testWidgets('the payment dialog keeps its action visible on a narrow phone',
       (tester) async {
     tester.view.physicalSize = const Size(340, 720);
     tester.view.devicePixelRatio = 1;
@@ -303,6 +303,7 @@ void main() {
         home: Scaffold(
           body: AdminDialogFrame(
             maxWidth: 760,
+            fullscreenOnMobile: true,
             scrollable: false,
             child: PaiementWidget(refUser: null),
           ),
@@ -348,9 +349,9 @@ void main() {
     expect(find.text('Enregistrer et générer le reçu'), findsOneWidget);
     expect(
       find.text('La transaction sera archivée et son reçu PDF téléchargé.'),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.byType(SingleChildScrollView), findsNothing);
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -374,6 +375,7 @@ void main() {
         home: Scaffold(
           body: AdminDialogFrame(
             maxWidth: 760,
+            fullscreenOnMobile: true,
             scrollable: false,
             child: PaiementWidget(
               refUser: null,
@@ -398,7 +400,7 @@ void main() {
     expect(find.text('Annuler'), findsOneWidget);
     expect(find.byIcon(Icons.cancel_outlined), findsOneWidget);
     expect(find.text('Montant (optionnel)'), findsNothing);
-    expect(find.byType(SingleChildScrollView), findsNothing);
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.text('Modifier'));

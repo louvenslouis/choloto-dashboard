@@ -273,10 +273,11 @@ class _TiragesWidgetState extends State<TiragesWidget> {
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
                       physics: const AlwaysScrollableScrollPhysics(),
                       children: [
-                        const AdminSectionHeader(
-                          title: 'Gestion des tirages',
-                          icon: Icons.confirmation_number_rounded,
-                        ),
+                        if (MediaQuery.sizeOf(context).width >= 992)
+                          const AdminSectionHeader(
+                            title: 'Gestion des tirages',
+                            icon: Icons.confirmation_number_rounded,
+                          ),
                         _OfficialResultsPanel(
                           loading: officialController.loadingOfficialResults,
                           lastChecked: officialController.lastOfficialCheck,

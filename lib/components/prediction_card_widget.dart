@@ -57,7 +57,7 @@ class _PredictionCardWidgetState extends State<PredictionCardWidget> {
     return AdminSurface(
       padding: EdgeInsets.zero,
       radius: 20,
-      showShadow: true,
+      showShadow: false,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 520;
@@ -94,20 +94,8 @@ class _PredictionCardWidgetState extends State<PredictionCardWidget> {
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Saisissez les 4 valeurs',
-                            style: theme.bodySmall.copyWith(
-                              color: theme.secondaryText,
-                            ),
-                          ),
                         ],
                       ),
-                    ),
-                    AdminStatusPill(
-                      label: '4 NUMÉROS',
-                      color: theme.secondaryText,
-                      compact: true,
                     ),
                   ],
                 ),
@@ -250,14 +238,15 @@ class _PredictionInput extends StatelessWidget {
           floatingLabelAlignment: FloatingLabelAlignment.center,
           contentPadding: const EdgeInsets.fromLTRB(10, 18, 10, 14),
           suffixIconConstraints: const BoxConstraints(
-            minWidth: 34,
-            minHeight: 34,
+            minWidth: 48,
+            minHeight: 48,
           ),
           suffixIcon: controller.text.isEmpty
               ? null
               : IconButton(
                   tooltip: 'Effacer',
-                  visualDensity: VisualDensity.compact,
+                  constraints:
+                      const BoxConstraints(minWidth: 48, minHeight: 48),
                   padding: EdgeInsets.zero,
                   onPressed: () {
                     controller.clear();

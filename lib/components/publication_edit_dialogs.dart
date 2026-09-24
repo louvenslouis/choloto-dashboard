@@ -128,10 +128,15 @@ class _BingoEditDialogState extends State<_BingoEditDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = FlutterFlowTheme.of(context);
     final canAdd = _results.length < _maximumResults;
 
     return AdminDialogFrame(
+      fullscreenOnMobile: true,
+      footer: _EditDialogActions(
+        saving: _saving,
+        onCancel: () => Navigator.pop(context),
+        onSave: _save,
+      ),
       maxWidth: 720.0,
       child: Padding(
         padding: const EdgeInsets.all(22.0),
@@ -143,8 +148,6 @@ class _BingoEditDialogState extends State<_BingoEditDialog> {
             children: [
               AdminDialogHeader(
                 title: 'Modifier le BINGO',
-                subtitle:
-                    'Modifiez les BINGO existants ou ajoutez-en jusqu’à six.',
                 icon: Icons.edit_rounded,
                 onClose: _saving ? () {} : () => Navigator.pop(context),
               ),
@@ -176,18 +179,7 @@ class _BingoEditDialogState extends State<_BingoEditDialog> {
                 _EditErrorMessage(message: _errorMessage!),
               ],
               const SizedBox(height: 22.0),
-              _EditDialogActions(
-                saving: _saving,
-                onCancel: () => Navigator.pop(context),
-                onSave: _save,
-              ),
               const SizedBox(height: 2.0),
-              Text(
-                'L’ancienne publication sera remplacée par une nouvelle afin '
-                'de réafficher le pop-up BINGO dans l’application.',
-                textAlign: TextAlign.center,
-                style: theme.labelSmall.copyWith(color: theme.secondaryText),
-              ),
             ],
           ),
         ),
@@ -393,6 +385,12 @@ class _CroixEditDialogState extends State<_CroixEditDialog> {
     final theme = FlutterFlowTheme.of(context);
 
     return AdminDialogFrame(
+      fullscreenOnMobile: true,
+      footer: _EditDialogActions(
+        saving: _saving,
+        onCancel: () => Navigator.pop(context),
+        onSave: _save,
+      ),
       maxWidth: 620.0,
       child: Padding(
         padding: const EdgeInsets.all(22.0),
@@ -404,7 +402,6 @@ class _CroixEditDialogState extends State<_CroixEditDialog> {
             children: [
               AdminDialogHeader(
                 title: 'Modifier la Croix de la Chance',
-                subtitle: 'Les numéros de cette entrée sont déjà préremplis.',
                 icon: Icons.edit_rounded,
                 onClose: _saving ? () {} : () => Navigator.pop(context),
               ),
@@ -455,17 +452,7 @@ class _CroixEditDialogState extends State<_CroixEditDialog> {
                 _EditErrorMessage(message: _errorMessage!),
               ],
               const SizedBox(height: 22.0),
-              _EditDialogActions(
-                saving: _saving,
-                onCancel: () => Navigator.pop(context),
-                onSave: _save,
-              ),
               const SizedBox(height: 2.0),
-              Text(
-                'La date d’origine sera conservée.',
-                textAlign: TextAlign.center,
-                style: theme.labelSmall.copyWith(color: theme.secondaryText),
-              ),
             ],
           ),
         ),
@@ -556,7 +543,6 @@ class _PredictionEditDialogState extends State<_PredictionEditDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = FlutterFlowTheme.of(context);
     final periodOptions = <String>{
       if (_period != null) _period!,
       'Matin',
@@ -565,6 +551,12 @@ class _PredictionEditDialogState extends State<_PredictionEditDialog> {
     }.toList();
 
     return AdminDialogFrame(
+      fullscreenOnMobile: true,
+      footer: _EditDialogActions(
+        saving: _saving,
+        onCancel: () => Navigator.pop(context),
+        onSave: _save,
+      ),
       maxWidth: 720.0,
       child: Padding(
         padding: const EdgeInsets.all(22.0),
@@ -576,7 +568,6 @@ class _PredictionEditDialogState extends State<_PredictionEditDialog> {
             children: [
               AdminDialogHeader(
                 title: 'Modifier les prédictions',
-                subtitle: 'Les anciennes sélections sont déjà préremplies.',
                 icon: Icons.edit_rounded,
                 onClose: _saving ? () {} : () => Navigator.pop(context),
               ),
@@ -642,17 +633,7 @@ class _PredictionEditDialogState extends State<_PredictionEditDialog> {
                 _EditErrorMessage(message: _errorMessage!),
               ],
               const SizedBox(height: 22.0),
-              _EditDialogActions(
-                saving: _saving,
-                onCancel: () => Navigator.pop(context),
-                onSave: _save,
-              ),
               const SizedBox(height: 2.0),
-              Text(
-                'Séparez les numéros par une virgule. La date d’origine sera conservée.',
-                textAlign: TextAlign.center,
-                style: theme.labelSmall.copyWith(color: theme.secondaryText),
-              ),
             ],
           ),
         ),
@@ -735,6 +716,7 @@ class _EditTextField extends StatelessWidget {
       child: TextFormField(
         controller: controller,
         keyboardType: keyboardType,
+        textInputAction: TextInputAction.next,
         textAlign: textAlign,
         decoration: _inputDecoration(context, label: label, hint: hint),
         validator: validator ??
@@ -765,11 +747,14 @@ class _EditDialogActions extends StatelessWidget {
       builder: (context, constraints) {
         final stack = constraints.maxWidth < 360.0;
         final cancel = OutlinedButton.icon(
+          style:
+              OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
           onPressed: saving ? null : onCancel,
           icon: const Icon(Icons.close_rounded, size: 18.0),
           label: const Text('Annuler'),
         );
         final save = FilledButton.icon(
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
           onPressed: saving ? null : onSave,
           icon: saving
               ? const SizedBox(

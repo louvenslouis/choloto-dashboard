@@ -42,6 +42,8 @@ class _DashboardWidgetState extends State<DashboardWidget> {
 
   late DashboardModel _model;
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _showStatistics = false;
+  _VipChartPeriod _vipChartPeriod = _VipChartPeriod.thirtyDays;
   late Future<_DashboardData> _dashboardFuture;
   late Future<AnalyticsOverview> _analyticsFuture;
   late Future<BingoActivityOverview> _bingoActivityFuture;
@@ -318,6 +320,24 @@ class _DashboardWidgetState extends State<DashboardWidget> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
                     SliverToBoxAdapter(child: _Header(onRefresh: _refresh)),
+                    if (!isDesktop)
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        sliver: SliverToBoxAdapter(
+                          child: SegmentedButton<bool>(
+                            segments: const [
+                              ButtonSegment(
+                                  value: false, label: Text('À traiter')),
+                              ButtonSegment(
+                                  value: true, label: Text('Statistiques')),
+                            ],
+                            showSelectedIcon: false,
+                            selected: {_showStatistics},
+                            onSelectionChanged: (value) =>
+                                setState(() => _showStatistics = value.first),
+                          ),
+                        ),
+                      ),
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(
                         isDesktop ? 36 : 16,
@@ -327,10 +347,11 @@ class _DashboardWidgetState extends State<DashboardWidget> {
                       ),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
-                          _DashboardNotificationCards(
-                            bingoActivityFuture: _bingoActivityFuture,
-                            onRetry: _refresh,
-                          ),
+                          if (isDesktop || !_showStatistics)
+                            _DashboardNotificationCards(
+                              bingoActivityFuture: _bingoActivityFuture,
+                              onRetry: _refresh,
+                            ),
                           const SizedBox(height: 20),
                           FutureBuilder<_DashboardData>(
                             future: _dashboardFuture,
@@ -343,82 +364,113 @@ class _DashboardWidgetState extends State<DashboardWidget> {
                               }
                               return Column(
                                 children: [
-                                  _StatsGrid(
-                                    loading: loading,
-                                    stats: [
-                                      _StatData(
-                                        'VIP actifs',
-                                        data?.activeVipCount.toString(),
-                                        Icons.workspace_premium_rounded,
-                                        theme.success,
-                                        UsersWidget.routeName,
-                                        series: data?.vipSeries ?? const [],
-                                        period: data?.vipPeriod ??
-                                            'Aujourd’hui → dans 7 jours',
-                                        chartLabel:
-                                            'Validité prévue • hors renouvellements',
-                                        detail: data == null
-                                            ? 'abonnements en cours'
-                                            : '${data.expiringVipCount} à renouveler sous 7 jours',
-                                      ),
-                                      _StatData(
-                                        'Nouveaux membres',
-                                        data?.newUsersCount.toString(),
-                                        Icons.person_add_alt_1_rounded,
-                                        const Color(0xFF3A7CA5),
-                                        UsersWidget.routeName,
-                                        series:
-                                            data?.newUsersSeries ?? const [],
-                                        period: data?.newUsersPeriod ??
-                                            '30 derniers jours',
-                                        chartLabel: 'Inscriptions par jour',
-                                        detail: 'inscriptions sur 30 jours',
-                                      ),
-                                      _StatData(
-                                        'Bingo mensuel',
-                                        data?.monthlyBingoCount.toString(),
-                                        Icons.grid_view_rounded,
-                                        const Color(0xFF4AC77D),
-                                        PublicationsHistoryWidget.routeName,
-                                        series: data?.bingoSeries ?? const [],
-                                        month: data?.asOf ?? DateTime.now(),
-                                        period: DateFormat('MMMM yyyy', 'fr')
-                                            .format(
-                                                data?.asOf ?? DateTime.now()),
-                                        chartLabel: 'Bingo validés par jour',
-                                        detail: 'validés ce mois',
-                                      ),
-                                    ],
-                                  ),
+                                  if (isDesktop || _showStatistics)
+                                    _StatsGrid(
+                                      loading: loading,
+                                      stats: [
+                                        _StatData(
+                                          'VIP actifs',
+                                          data?.activeVipCount.toString(),
+                                          Icons.workspace_premium_rounded,
+                                          theme.success,
+                                          UsersWidget.routeName,
+                                          series: data?.vipSeries(
+                                                  _vipChartPeriod) ??
+                                              const [],
+                                          period: data?.vipPeriod(
+                                                  _vipChartPeriod) ??
+                                              _vipChartPeriod.label,
+                                          periodSelector:
+                                              DropdownButtonHideUnderline(
+                                            child:
+                                                DropdownButton<_VipChartPeriod>(
+                                              value: _vipChartPeriod,
+                                              isExpanded: true,
+                                              style: theme.bodySmall.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                              items: _VipChartPeriod.values
+                                                  .map((period) =>
+                                                      DropdownMenuItem(
+                                                        value: period,
+                                                        child:
+                                                            Text(period.label),
+                                                      ))
+                                                  .toList(),
+                                              onChanged: (period) {
+                                                if (period == null) return;
+                                                setState(() =>
+                                                    _vipChartPeriod = period);
+                                              },
+                                            ),
+                                          ),
+                                          chartLabel:
+                                              'Validité prévue • hors renouvellements',
+                                          detail: data == null
+                                              ? 'abonnements en cours'
+                                              : '${data.expiringVipCount} à renouveler sous 7 jours',
+                                        ),
+                                        _StatData(
+                                          'Nouveaux membres',
+                                          data?.newUsersCount.toString(),
+                                          Icons.person_add_alt_1_rounded,
+                                          const Color(0xFF3A7CA5),
+                                          UsersWidget.routeName,
+                                          series:
+                                              data?.newUsersSeries ?? const [],
+                                          period: data?.newUsersPeriod ??
+                                              '30 derniers jours',
+                                          chartLabel: 'Inscriptions par jour',
+                                          detail: 'inscriptions sur 30 jours',
+                                        ),
+                                        _StatData(
+                                          'Bingo mensuel',
+                                          data?.monthlyBingoCount.toString(),
+                                          Icons.grid_view_rounded,
+                                          const Color(0xFF4AC77D),
+                                          PublicationsHistoryWidget.routeName,
+                                          series: data?.bingoSeries ?? const [],
+                                          month: data?.asOf ?? DateTime.now(),
+                                          period: DateFormat('MMMM yyyy', 'fr')
+                                              .format(
+                                                  data?.asOf ?? DateTime.now()),
+                                          chartLabel: 'Bingo validés par jour',
+                                          detail: 'validés ce mois',
+                                        ),
+                                      ],
+                                    ),
                                   const SizedBox(height: 20),
-                                  if (data == null)
-                                    const _OperationalPanelsLoading()
-                                  else
-                                    _OperationalPanels(data: data),
+                                  if (isDesktop || !_showStatistics)
+                                    if (data == null)
+                                      const _OperationalPanelsLoading()
+                                    else
+                                      _OperationalPanels(data: data),
                                 ],
                               );
                             },
                           ),
                           const SizedBox(height: 20),
-                          FutureBuilder<AnalyticsOverview>(
-                            future: _analyticsFuture,
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return const _AnalyticsPanelLoading();
-                              }
-                              if (snapshot.hasError || snapshot.data == null) {
-                                return _AnalyticsPanelError(
-                                  error: snapshot.error,
-                                  onRetry: _refreshAnalytics,
-                                  onAuthorize: _authorizeAnalytics,
+                          if (isDesktop || _showStatistics)
+                            FutureBuilder<AnalyticsOverview>(
+                              future: _analyticsFuture,
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const _AnalyticsPanelLoading();
+                                }
+                                if (snapshot.hasError ||
+                                    snapshot.data == null) {
+                                  return _AnalyticsPanelError(
+                                    error: snapshot.error,
+                                    onRetry: _refreshAnalytics,
+                                    onAuthorize: _authorizeAnalytics,
+                                  );
+                                }
+                                return _AnalyticsAudiencePanel(
+                                  overview: snapshot.data!,
                                 );
-                              }
-                              return _AnalyticsAudiencePanel(
-                                overview: snapshot.data!,
-                              );
-                            },
-                          ),
+                              },
+                            ),
                         ]),
                       ),
                     ),
@@ -515,30 +567,16 @@ class _DashboardNotificationCards extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const gap = 14.0;
-    const cardHeight = 118.0;
-    const minimumRowCardWidth = 205.0;
-    const scrollingCardWidth = 260.0;
-
-    Widget buildCard(Widget child) => SizedBox(
-          height: cardHeight,
-          child: child,
-        );
-
-    final cards = <Widget>[
-      buildCard(
-        const PendingSupportConversationsTile(
-          compact: true,
-          showBottomSpacing: false,
-        ),
-      ),
-      buildCard(
+    return AdminTaskList(
+      children: [
         const PendingPaymentRequestsTile(
           compact: true,
           showBottomSpacing: false,
         ),
-      ),
-      buildCard(
+        const PendingSupportConversationsTile(
+          compact: true,
+          showBottomSpacing: false,
+        ),
         FutureBuilder<BingoActivityOverview>(
           future: bingoActivityFuture,
           builder: (context, snapshot) => _BingoActivityOverviewCard(
@@ -549,38 +587,7 @@ class _DashboardNotificationCards extends StatelessWidget {
             compact: true,
           ),
         ),
-      ),
-    ];
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableCardWidth =
-            (constraints.maxWidth - (gap * (cards.length - 1))) / cards.length;
-
-        if (availableCardWidth >= minimumRowCardWidth) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var index = 0; index < cards.length; index++) ...[
-                if (index > 0) const SizedBox(width: gap),
-                Expanded(child: cards[index]),
-              ],
-            ],
-          );
-        }
-
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (var index = 0; index < cards.length; index++) ...[
-                if (index > 0) const SizedBox(width: gap),
-                SizedBox(width: scrollingCardWidth, child: cards[index]),
-              ],
-            ],
-          ),
-        );
-      },
+      ],
     );
   }
 }
@@ -618,26 +625,31 @@ class _BingoActivityOverviewCard extends StatelessWidget {
         child: Ink(
           padding: EdgeInsets.all(compact ? 14 : 18),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                accent.withValues(alpha: hasNewActivity ? .15 : .07),
-                theme.secondaryBackground,
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            gradient: compact
+                ? null
+                : LinearGradient(
+                    colors: [
+                      accent.withValues(alpha: hasNewActivity ? .15 : .07),
+                      theme.secondaryBackground,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: accent.withValues(alpha: hasNewActivity ? .48 : .22),
               width: hasNewActivity ? 1.5 : 1,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: accent.withValues(alpha: hasNewActivity ? .10 : .035),
-                blurRadius: 22,
-                offset: const Offset(0, 7),
-              ),
-            ],
+            boxShadow: compact
+                ? null
+                : [
+                    BoxShadow(
+                      color:
+                          accent.withValues(alpha: hasNewActivity ? .10 : .035),
+                      blurRadius: 22,
+                      offset: const Offset(0, 7),
+                    ),
+                  ],
           ),
           child: Row(
             children: [
@@ -847,6 +859,27 @@ class _StatsGrid extends StatelessWidget {
   }
 }
 
+enum _VipChartPeriod {
+  thirtyDays('30 jours'),
+  threeMonths('3 mois'),
+  sixMonths('6 mois');
+
+  const _VipChartPeriod(this.label);
+  final String label;
+
+  DateTime endDate(DateTime start) {
+    if (this == thirtyDays) {
+      return DateTime(start.year, start.month, start.day + 30);
+    }
+    final months = this == threeMonths ? 3 : 6;
+    final targetMonth = DateTime(start.year, start.month + months);
+    final lastDay =
+        DateUtils.getDaysInMonth(targetMonth.year, targetMonth.month);
+    return DateTime(targetMonth.year, targetMonth.month,
+        start.day > lastDay ? lastDay : start.day);
+  }
+}
+
 class _StatData {
   const _StatData(
     this.label,
@@ -856,12 +889,14 @@ class _StatData {
     this.route, {
     this.detail,
     this.month,
+    this.periodSelector,
     required this.series,
     required this.period,
     required this.chartLabel,
   });
 
   final DateTime? month;
+  final Widget? periodSelector;
   final List<double> series;
   final String period;
   final String chartLabel;
@@ -884,93 +919,99 @@ class _StatCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Material(
-          color: const Color(0xFF1C2229),
-          borderRadius: BorderRadius.circular(24),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: () => context.goNamed(stat.route),
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: stat.color.withValues(alpha: .18),
-                        shape: BoxShape.circle,
+        ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: stat.month != null ? 350 : 0,
+          ),
+          child: Material(
+            color: const Color(0xFF1C2229),
+            borderRadius: BorderRadius.circular(24),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => context.goNamed(stat.route),
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: stat.color.withValues(alpha: .18),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(stat.icon, color: stat.color, size: 20),
                       ),
-                      child: Icon(stat.icon, color: stat.color, size: 20),
-                    ),
-                    const SizedBox(width: 9),
-                    Expanded(
-                        child: Text(
-                      stat.label,
-                      maxLines: 2,
-                      style: theme.bodyMedium.copyWith(
-                          color: Colors.white, fontWeight: FontWeight.w600),
-                    )),
-                    if (stat.month != null) ...[
-                      const SizedBox(width: 8),
-                      Tooltip(
-                        message:
-                            '${stat.value ?? '0'} Bingo validés • ${stat.period}',
-                        child: Text(
-                          loading ? '—' : stat.value ?? '0',
-                          style: theme.titleLarge.copyWith(
-                            color: stat.color,
-                            fontWeight: FontWeight.w700,
+                      const SizedBox(width: 9),
+                      Expanded(
+                          child: Text(
+                        stat.label,
+                        maxLines: 2,
+                        style: theme.bodyMedium.copyWith(
+                            color: Colors.white, fontWeight: FontWeight.w600),
+                      )),
+                      if (stat.month != null) ...[
+                        const SizedBox(width: 8),
+                        Tooltip(
+                          message:
+                              '${stat.value ?? '0'} Bingo validés • ${stat.period}',
+                          child: Text(
+                            loading ? '—' : stat.value ?? '0',
+                            style: theme.titleLarge.copyWith(
+                              color: stat.color,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
+                    ]),
+                    SizedBox(height: stat.month != null ? 12 : 22),
+                    SizedBox(
+                      height: stat.month != null && !loading ? null : 152,
+                      width: double.infinity,
+                      child: loading
+                          ? Center(
+                              child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: stat.color)))
+                          : stat.month != null
+                              ? MonthlyBingoHeatmap(
+                                  asOf: stat.month!,
+                                  dailyCounts: stat.series,
+                                )
+                              : Semantics(
+                                  label: stat.chartLabel,
+                                  child: CustomPaint(
+                                      painter: _StatChartPainter(
+                                          values: stat.series,
+                                          color: stat.color)),
+                                ),
+                    ),
+                    if (stat.month == null) ...[
+                      const SizedBox(height: 12),
+                      Text(loading ? '—' : stat.value ?? '0',
+                          style: theme.headlineLarge.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -1)),
+                      const SizedBox(height: 4),
+                      Text(stat.detail ?? '',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.bodySmall.copyWith(color: stat.color)),
                     ],
-                  ]),
-                  SizedBox(height: stat.month != null ? 12 : 22),
-                  SizedBox(
-                    height: stat.month != null && !loading ? null : 152,
-                    width: double.infinity,
-                    child: loading
-                        ? Center(
-                            child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: stat.color)))
-                        : stat.month != null
-                            ? MonthlyBingoHeatmap(
-                                asOf: stat.month!,
-                                dailyCounts: stat.series,
-                              )
-                            : Semantics(
-                                label: stat.chartLabel,
-                                child: CustomPaint(
-                                    painter: _StatChartPainter(
-                                        values: stat.series,
-                                        color: stat.color)),
-                              ),
-                  ),
-                  if (stat.month == null) ...[
-                    const SizedBox(height: 12),
-                    Text(loading ? '—' : stat.value ?? '0',
-                        style: theme.headlineLarge.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -1)),
-                    const SizedBox(height: 4),
-                    Text(stat.detail ?? '',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.bodySmall.copyWith(color: stat.color)),
                   ],
-                ],
+                ),
               ),
             ),
           ),
         ),
         if (stat.month == null) ...[
           const SizedBox(height: 10),
+          if (stat.periodSelector != null) stat.periodSelector!,
           Text(stat.period,
               style: theme.bodySmall.copyWith(
                   color: theme.primaryText, fontWeight: FontWeight.w600)),
@@ -1086,20 +1127,25 @@ class _DashboardData {
   DateTime get today => DateTime(asOf.year, asOf.month, asOf.day);
   String _range(DateTime start, DateTime end) =>
       '${DateFormat('dd/MM/yyyy').format(start)} – ${DateFormat('dd/MM/yyyy').format(end)}';
-  String get vipPeriod =>
-      _range(today, DateTime(today.year, today.month, today.day + 7));
+  String vipPeriod(_VipChartPeriod period) =>
+      _range(today, period.endDate(today));
   String get newUsersPeriod =>
       _range(DateTime(today.year, today.month, today.day - 29), today);
 
-  List<double> get vipSeries => List.generate(8, (day) {
-        final date = DateTime(asOf.year, asOf.month, asOf.day + day, asOf.hour,
-            asOf.minute, asOf.second, asOf.millisecond, asOf.microsecond);
-        return activeVips
-            .where(
-                (user) => user.endSub != null && !user.endSub!.isBefore(date))
-            .length
-            .toDouble();
-      });
+  List<double> vipSeries(_VipChartPeriod period) {
+    final end = period.endDate(today);
+    final days = DateTime.utc(end.year, end.month, end.day)
+        .difference(DateTime.utc(today.year, today.month, today.day))
+        .inDays;
+    return List.generate(days + 1, (day) {
+      final date = DateTime(asOf.year, asOf.month, asOf.day + day, asOf.hour,
+          asOf.minute, asOf.second, asOf.millisecond, asOf.microsecond);
+      return activeVips
+          .where((user) => user.endSub != null && !user.endSub!.isBefore(date))
+          .length
+          .toDouble();
+    });
+  }
 
   List<double> _dailyCounts(
       Iterable<DateTime?> dates, DateTime start, int days) {

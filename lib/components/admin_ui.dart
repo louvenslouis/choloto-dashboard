@@ -154,7 +154,7 @@ class AdminMobileAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
 
   @override
-  Size get preferredSize => const Size.fromHeight(68);
+  Size get preferredSize => const Size.fromHeight(56);
 
   @override
   Widget build(BuildContext context) {
@@ -277,6 +277,9 @@ class AdminMobileBottomBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
     final selectedIndex = activeDestination.index;
+    if (MediaQuery.viewInsetsOf(context).bottom > 0) {
+      return const SizedBox.shrink();
+    }
 
     return Material(
       color: theme.secondaryBackground,
@@ -302,7 +305,7 @@ class AdminMobileBottomBar extends StatelessWidget {
                 return theme.labelSmall.copyWith(
                   color: selected ? theme.primaryText : theme.secondaryText,
                   fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                  fontSize: 10.5,
+                  fontSize: 12,
                 );
               }),
               iconTheme: WidgetStateProperty.resolveWith((states) {
@@ -358,7 +361,7 @@ class AdminMobileBottomBar extends StatelessWidget {
                   tooltip: 'Gérer les prédictions',
                   icon: Icon(Icons.auto_graph_outlined),
                   selectedIcon: Icon(Icons.auto_graph_rounded),
-                  label: 'Prévisions',
+                  label: 'Prédictions',
                 ),
                 NavigationDestination(
                   tooltip: 'Gérer les membres',
@@ -386,55 +389,121 @@ class AdminDialogFrame extends StatelessWidget {
     required this.child,
     this.maxWidth = 520,
     this.scrollable = true,
+    this.fullscreenOnMobile = false,
+    this.footer,
   });
 
   final Widget child;
   final double maxWidth;
   final bool scrollable;
+  final bool fullscreenOnMobile;
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final mobile = size.width < 600;
 
+    final fullscreen = mobile && fullscreenOnMobile;
+    final content = scrollable
+        ? SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: child,
+          )
+        : child;
+    final body = footer == null
+        ? content
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Flexible(
+                  fit: fullscreen ? FlexFit.tight : FlexFit.loose,
+                  child: content),
+              AdminActionBar(child: footer!),
+            ],
+          );
+
     return Dialog(
       elevation: 0,
-      insetPadding: EdgeInsets.symmetric(
-        horizontal: mobile ? 12 : 28,
-        vertical: mobile ? 16 : 28,
-      ),
+      insetPadding: fullscreen
+          ? EdgeInsets.zero
+          : EdgeInsets.symmetric(horizontal: mobile ? 12 : 28, vertical: 16),
       backgroundColor: Colors.transparent,
       child: SafeArea(
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxWidth: maxWidth,
-            maxHeight: size.height * .9,
+            maxWidth: fullscreen ? double.infinity : maxWidth,
+            maxHeight: fullscreen
+                ? double.infinity
+                : (size.height - MediaQuery.viewInsetsOf(context).bottom) * .9,
           ),
           child: Material(
             color: FlutterFlowTheme.of(context).secondaryBackground,
             surfaceTintColor: Colors.transparent,
-            elevation: 12,
-            shadowColor:
-                FlutterFlowTheme.of(context).primaryText.withValues(alpha: .14),
             clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(mobile ? 24 : 28),
-              side: BorderSide(
-                color: FlutterFlowTheme.of(context).alternate,
-              ),
+              borderRadius: BorderRadius.circular(fullscreen ? 0 : 24),
             ),
-            child: scrollable
-                ? SingleChildScrollView(
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    child: child,
-                  )
-                : child,
+            child: fullscreen ? SizedBox.expand(child: body) : body,
           ),
         ),
       ),
     );
   }
+}
+
+class AdminActionBar extends StatelessWidget {
+  const AdminActionBar({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.secondaryBackground,
+        border: Border(top: BorderSide(color: theme.alternate)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(padding: const EdgeInsets.all(16), child: child),
+      ),
+    );
+  }
+}
+
+class AdminTaskList extends StatelessWidget {
+  const AdminTaskList({super.key, required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 700) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var index = 0; index < children.length; index++) ...[
+                  if (index > 0) const SizedBox(height: 10),
+                  children[index],
+                ],
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var index = 0; index < children.length; index++) ...[
+                if (index > 0) const SizedBox(width: 14),
+                Expanded(child: children[index]),
+              ],
+            ],
+          );
+        },
+      );
 }
 
 class AdminDialogHeader extends StatelessWidget {
@@ -738,6 +807,79 @@ class AdminSectionHeader extends StatelessWidget {
               trailing!,
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class AdminMemberRow extends StatelessWidget {
+  const AdminMemberRow({
+    super.key,
+    required this.name,
+    required this.status,
+    required this.active,
+    required this.avatar,
+    required this.onOpen,
+    required this.onPayment,
+    this.deadline,
+  });
+
+  final String name;
+  final String status;
+  final String? deadline;
+  final bool active;
+  final Widget avatar;
+  final VoidCallback onOpen;
+  final VoidCallback onPayment;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    return Material(
+      color: theme.secondaryBackground,
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onOpen,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 88),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: Row(
+              children: [
+                avatar,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.bodyLarge
+                              .copyWith(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 4),
+                      Text(
+                          [status, if (deadline != null) deadline!].join(' · '),
+                          style: theme.bodySmall.copyWith(
+                            fontSize: 13,
+                            color: active ? theme.success : theme.secondaryText,
+                          )),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  tooltip: 'Paiement',
+                  onPressed: onPayment,
+                  style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
+                  icon: Icon(Icons.add_card_rounded, color: theme.primary),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

@@ -463,6 +463,7 @@ class _PaiementWidgetState extends State<PaiementWidget> {
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
     final viewport = MediaQuery.sizeOf(context);
+    final mobile = viewport.width < 600;
     final compactWidth = viewport.width < 390;
     final compactHeight = viewport.height < 760;
     final selectedDate = _model.calendarSelectedDay?.end;
@@ -514,9 +515,11 @@ class _PaiementWidgetState extends State<PaiementWidget> {
                   _buildDeadlineSummary(theme, selectedDate, compactHeight),
                 ],
                 SizedBox(height: gap),
-                _buildSaveButton(theme, compactHeight),
-                SizedBox(height: compactHeight ? 5 : 8),
-                _buildCounterNote(theme),
+                if (!mobile) ...[
+                  _buildSaveButton(theme, compactHeight),
+                  SizedBox(height: compactHeight ? 5 : 8),
+                  _buildCounterNote(theme),
+                ],
               ],
             ],
           );
@@ -527,24 +530,26 @@ class _PaiementWidgetState extends State<PaiementWidget> {
             children: [
               AdminDialogHeader(
                 title: _dialogTitle,
-                subtitle: _dialogSubtitle,
+                subtitle: mobile ? null : _dialogSubtitle,
                 icon: Icons.workspace_premium_rounded,
                 iconColor: theme.secondary,
-                onClose: () => Navigator.pop(context),
+                onClose: () {
+                  if (!_saving && !_cancelling) Navigator.pop(context);
+                },
               ),
               SizedBox(height: compactHeight ? 12 : 18),
-              if (_hasActiveMembership && !_showEditor)
-                _buildCurrentPlan(theme, compact: compactWidth)
-              else if (_hasActiveMembership && compactHeight)
-                Flexible(
-                  child: SingleChildScrollView(
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    child: editorBody,
-                  ),
-                )
-              else
-                editorBody,
+              Flexible(
+                fit: mobile ? FlexFit.tight : FlexFit.loose,
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  child: _hasActiveMembership && !_showEditor
+                      ? _buildCurrentPlan(theme, compact: compactWidth)
+                      : editorBody,
+                ),
+              ),
+              if (mobile && _showEditor)
+                AdminActionBar(child: _buildSaveButton(theme, false)),
             ],
           );
         },

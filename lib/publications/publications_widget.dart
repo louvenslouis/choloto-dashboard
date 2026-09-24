@@ -179,11 +179,12 @@ class _PublicationsWidgetState extends State<PublicationsWidget> {
                     padding: const EdgeInsets.symmetric(horizontal: 20.0),
                     child: Column(
                       children: [
-                        const AdminSectionHeader(
-                          title: 'Publications BINGO',
-                          icon: Icons.newspaper_rounded,
-                          dense: true,
-                        ),
+                        if (MediaQuery.sizeOf(context).width >= 992)
+                          const AdminSectionHeader(
+                            title: 'Publications BINGO',
+                            icon: Icons.newspaper_rounded,
+                            dense: true,
+                          ),
                         Expanded(
                           child: SingleChildScrollView(
                             padding: const EdgeInsets.only(

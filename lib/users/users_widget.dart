@@ -425,6 +425,7 @@ class _UsersWidgetState extends State<UsersWidget>
       context: context,
       builder: (_) => AdminDialogFrame(
         maxWidth: 760,
+        fullscreenOnMobile: true,
         scrollable: false,
         child: PaiementWidget(
           refUser: user.reference,
@@ -537,7 +538,8 @@ class _UsersWidgetState extends State<UsersWidget>
                             duration: const Duration(milliseconds: 220),
                             switchInCurve: Curves.easeOutCubic,
                             switchOutCurve: Curves.easeInCubic,
-                            child: _viewMode == _UsersViewMode.cards
+                            child: !compactNavigation &&
+                                    _viewMode == _UsersViewMode.cards
                                 ? LayoutBuilder(
                                     key: const ValueKey('users-card-view'),
                                     builder: (context, constraints) {
@@ -646,13 +648,15 @@ class _UsersWidgetState extends State<UsersWidget>
     final currentTabTitle = tabTitles[_tabController.index.clamp(0, 2)];
 
     final tabs = <Widget>[
-      const Tab(
+      Tab(
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.people_alt_rounded, size: 18),
-            SizedBox(width: 8),
-            Text('Utilisateurs'),
+            if (!compactNavigation) ...[
+              const Icon(Icons.people_alt_rounded, size: 18),
+              const SizedBox(width: 8),
+            ],
+            Text(compactNavigation ? 'Membres' : 'Utilisateurs'),
           ],
         ),
       ),
@@ -664,9 +668,11 @@ class _UsersWidgetState extends State<UsersWidget>
             return Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.receipt_long_outlined, size: 18),
-                const SizedBox(width: 8),
-                const Text('Preuves de paiement'),
+                if (!compactNavigation) ...[
+                  const Icon(Icons.receipt_long_outlined, size: 18),
+                  const SizedBox(width: 8),
+                ],
+                Text(compactNavigation ? 'Preuves' : 'Preuves de paiement'),
                 if (pendingCount > 0) ...[
                   const SizedBox(width: 8),
                   Container(
@@ -693,13 +699,15 @@ class _UsersWidgetState extends State<UsersWidget>
           },
         ),
       ),
-      const Tab(
+      Tab(
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.payments_outlined, size: 18),
-            SizedBox(width: 8),
-            Text('Paiements clients'),
+            if (!compactNavigation) ...[
+              const Icon(Icons.payments_outlined, size: 18),
+              const SizedBox(width: 8),
+            ],
+            Text(compactNavigation ? 'Paiements' : 'Paiements clients'),
           ],
         ),
       ),
@@ -806,8 +814,12 @@ class _UsersWidgetState extends State<UsersWidget>
                           TabBar(
                             controller: _tabController,
                             tabs: tabs,
-                            isScrollable: true,
-                            tabAlignment: TabAlignment.start,
+                            isScrollable: !compactNavigation,
+                            tabAlignment: compactNavigation
+                                ? TabAlignment.fill
+                                : TabAlignment.start,
+                            labelPadding:
+                                const EdgeInsets.symmetric(horizontal: 4),
                             labelStyle: theme.labelLarge.copyWith(
                               fontWeight: FontWeight.w700,
                               fontSize: 12.5,
@@ -1162,6 +1174,51 @@ class _UsersToolbar extends StatelessWidget {
       ),
     );
 
+    if (MediaQuery.sizeOf(context).width < 992) {
+      return Material(
+        color: theme.secondaryBackground,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Row(
+            children: [
+              Expanded(child: search),
+              const SizedBox(width: 8),
+              Badge(
+                isLabelVisible: selectedFilter != 'Tout' ||
+                    sortMode != UserSortMode.alphabetical,
+                child: IconButton(
+                  tooltip: 'Filtres et tri',
+                  onPressed: () => _openFilters(context),
+                  style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
+                  icon: const Icon(Icons.tune_rounded),
+                ),
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'Actions des membres',
+                onSelected: (action) {
+                  if (action == 'refresh') onRefresh();
+                  if (action == 'export') onExport?.call();
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'refresh',
+                    enabled: !isRefreshing,
+                    child: const Text('Actualiser'),
+                  ),
+                  PopupMenuItem(
+                    value: 'export',
+                    enabled: !isExporting && onExport != null,
+                    child: const Text('Exporter vers Excel'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       clipBehavior: Clip.none,
@@ -1192,6 +1249,73 @@ class _UsersToolbar extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _openFilters(BuildContext context) async {
+    focusNode.unfocus();
+    var filter = selectedFilter;
+    var sort = sortMode;
+    final result = await showModalBottomSheet<(String, UserSortMode)>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, update) => SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Filtres et tri',
+                  style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final entry in [
+                    ('Tout', 'Tous', totalCount),
+                    ('VIP', 'VIP', vipCount),
+                    ('Gratuit', 'Gratuit', totalCount - vipCount),
+                  ])
+                    ChoiceChip(
+                      label: Text('${entry.$2} · ${entry.$3}'),
+                      selected: filter == entry.$1,
+                      onSelected: (_) => update(() => filter = entry.$1),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              for (final entry in [
+                (UserSortMode.alphabetical, 'Ordre alphabétique'),
+                (UserSortMode.lastModified, 'Dernière modification'),
+                (UserSortMode.nearestExpiration, 'Expiration proche'),
+                (UserSortMode.newestUsers, 'Nouveaux utilisateurs'),
+              ])
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(entry.$2),
+                  trailing:
+                      sort == entry.$1 ? const Icon(Icons.check_rounded) : null,
+                  selected: sort == entry.$1,
+                  onTap: () => update(() => sort = entry.$1),
+                ),
+              const SizedBox(height: 16),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48)),
+                onPressed: () => Navigator.pop(sheetContext, (filter, sort)),
+                child: const Text('Appliquer'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (result == null || !context.mounted) return;
+    onFilterChanged(result.$1);
+    onSortModeChanged(result.$2);
   }
 }
 
@@ -1533,6 +1657,7 @@ class _UsersList extends StatelessWidget {
         final wide = constraints.maxWidth >= 820;
 
         return ListView.separated(
+          key: const PageStorageKey('members-list'),
           padding: EdgeInsets.only(top: topPadding, bottom: 28),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           itemCount: users.length + (wide ? 1 : 0),
@@ -1639,6 +1764,24 @@ class _UserListItemState extends State<_UserListItem> {
             user.endSub,
             locale: FFLocalizations.of(context).languageCode,
           );
+
+    if (!widget.wide) {
+      return AdminMemberRow(
+        name: name,
+        status: active ? 'VIP' : 'Gratuit',
+        deadline: user.endSub == null ? null : deadline,
+        active: active,
+        avatar: _UserAvatar(
+          user: user,
+          initial: initial,
+          size: 42,
+          isNew: isNew,
+          isVip: active,
+        ),
+        onOpen: widget.onViewProfile,
+        onPayment: widget.onAddPayment,
+      );
+    }
 
     final identity = Column(
       mainAxisSize: MainAxisSize.min,
