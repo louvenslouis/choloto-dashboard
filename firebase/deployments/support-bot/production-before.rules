@@ -249,6 +249,162 @@ service cloud.firestore {
           optionalString(data, 'link', 2048);
     }
 
+    // Additive customer-support contract. A member owns the conversation whose
+    // document id is their Authentication uid. Member messages stay immutable;
+    // administrators may correct or remove only messages sent by an admin.
+    function validSupportMessage(data) {
+      return data.keys().hasOnly([
+            'sender_uid', 'sender_role', 'text', 'attachment_type',
+            'created_at', 'edited_at'
+          ]) &&
+          data.keys().hasAll([
+            'sender_uid', 'sender_role', 'text', 'created_at'
+          ]) &&
+          data.sender_uid is string && data.sender_uid.size() > 0 &&
+          data.sender_uid.size() <= 128 &&
+          data.sender_role in ['user', 'admin'] &&
+          data.text is string && data.text.size() > 0 &&
+          data.text.size() <= 1000 &&
+          (!data.keys().hasAny(['attachment_type']) ||
+            data.attachment_type in ['image', 'audio']) &&
+          data.created_at is timestamp &&
+          optionalTimestamp(data, 'edited_at');
+    }
+
+    function validSupportImageAttachment(data) {
+      return data.keys().hasOnly([
+            'base64', 'mime_type', 'byte_length'
+          ]) &&
+          data.keys().hasAll([
+            'base64', 'mime_type', 'byte_length'
+          ]) &&
+          data.base64 is string && data.base64.size() > 0 &&
+          data.base64.size() <= 800000 &&
+          data.base64.matches('^[A-Za-z0-9+/]+={0,2}$') &&
+          data.mime_type == 'image/jpeg' &&
+          data.byte_length is int && data.byte_length > 0 &&
+          data.byte_length <= 600000;
+    }
+
+    function validSupportAudioAttachment(data) {
+      return data.keys().hasOnly(['base64', 'mime_type', 'byte_length', 'duration_ms']) &&
+          data.keys().hasAll(['base64', 'mime_type', 'byte_length', 'duration_ms']) &&
+          data.base64 is string && data.base64.size() > 0 &&
+          data.base64.size() <= 640060 &&
+          data.base64.matches('^[A-Za-z0-9+/]+={0,2}$') &&
+          data.mime_type == 'audio/wav' &&
+          data.byte_length is int && data.byte_length > 44 &&
+          data.byte_length <= 480044 && data.byte_length % 2 == 0 &&
+          data.base64.size() >= data.byte_length * 4 / 3 &&
+          data.base64.size() < data.byte_length * 4 / 3 + 4 &&
+          data.duration_ms is int && data.duration_ms > 0 &&
+          data.duration_ms <= 30000 &&
+          data.duration_ms <= (data.byte_length - 44) / 16 &&
+          data.duration_ms > (data.byte_length - 44) / 16 - 1;
+    }
+
+    function supportImageMatchesMessage(userId, messageId, data) {
+      return !data.keys().hasAny(['attachment_type']) ||
+          (data.attachment_type == 'image' &&
+            validSupportImageAttachment(getAfter(
+              /databases/$(database)/documents/support_conversations/$(userId)/messages/$(messageId)/attachments/image
+            ).data)) ||
+          (data.attachment_type == 'audio' &&
+            validSupportAudioAttachment(getAfter(
+              /databases/$(database)/documents/support_conversations/$(userId)/messages/$(messageId)/attachments/audio
+            ).data));
+    }
+
+    function validSupportConversation(data, userId) {
+      return data.keys().hasOnly([
+            'user_uid', 'user_email', 'user_display_name', 'topic', 'status',
+            'created_at', 'updated_at', 'last_message', 'last_message_id',
+            'last_sender_role'
+          ]) &&
+          data.keys().hasAll([
+            'user_uid', 'topic', 'status', 'created_at', 'updated_at',
+            'last_message', 'last_message_id', 'last_sender_role'
+          ]) &&
+          data.user_uid == userId &&
+          optionalString(data, 'user_email', 320) &&
+          optionalString(data, 'user_display_name', 256) &&
+          data.topic == 'subscription' &&
+          data.status in ['open', 'treated', 'deleting'] &&
+          data.created_at is timestamp &&
+          data.updated_at is timestamp &&
+          data.last_message is string && data.last_message.size() > 0 &&
+          data.last_message.size() <= 1000 &&
+          data.last_message_id is string &&
+          data.last_message_id.size() > 0 &&
+          data.last_message_id.size() <= 128 &&
+          data.last_sender_role in ['user', 'admin'];
+    }
+
+    function validGuestSupportId(guestId) {
+      return guestId.matches(
+        '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      );
+    }
+
+    function validGuestSupportConversation(data, guestId) {
+      return data.keys().hasOnly([
+            'user_uid', 'guest_access', 'topic', 'status', 'created_at',
+            'updated_at', 'last_message', 'last_message_id',
+            'last_sender_role'
+          ]) &&
+          data.keys().hasAll([
+            'user_uid', 'guest_access', 'topic', 'status', 'created_at',
+            'updated_at', 'last_message', 'last_message_id',
+            'last_sender_role'
+          ]) &&
+          data.user_uid == guestId &&
+          data.guest_access == true &&
+          data.topic == 'subscription' &&
+          data.status in ['open', 'treated', 'deleting'] &&
+          data.created_at is timestamp &&
+          data.updated_at is timestamp &&
+          data.last_message is string && data.last_message.size() > 0 &&
+          data.last_message.size() <= 1000 &&
+          data.last_message_id is string &&
+          data.last_message_id.size() > 0 &&
+          data.last_message_id.size() <= 128 &&
+          data.last_sender_role in ['user', 'admin'];
+    }
+
+    function supportSummaryMatchesMessage(userId, data, senderRole) {
+      let message = getAfter(
+        /databases/$(database)/documents/support_conversations/$(userId)/messages/$(data.last_message_id)
+      ).data;
+      return data.updated_at == request.time &&
+          data.last_sender_role == senderRole &&
+          message.sender_uid == request.auth.uid &&
+          message.sender_role == senderRole &&
+          message.text == data.last_message &&
+          message.created_at == request.time;
+    }
+
+    function supportSummaryMatchesStoredMessage(userId, data) {
+      let message = getAfter(
+        /databases/$(database)/documents/support_conversations/$(userId)/messages/$(data.last_message_id)
+      ).data;
+      return data.updated_at == request.time &&
+          message.text == data.last_message &&
+          message.sender_role == data.last_sender_role &&
+          validSupportMessage(message);
+    }
+
+    function guestSupportSummaryMatchesMessage(guestId, data) {
+      let message = getAfter(
+        /databases/$(database)/documents/support_conversations/$(guestId)/messages/$(data.last_message_id)
+      ).data;
+      return data.updated_at == request.time &&
+          data.last_sender_role == 'user' &&
+          message.sender_uid == guestId &&
+          message.sender_role == 'user' &&
+          message.text == data.last_message &&
+          message.created_at == request.time;
+    }
+
     function validWebPushToken(data, userId) {
       return data.keys().hasOnly([
             'token', 'userId', 'locale', 'createdAt', 'updatedAt'
@@ -337,7 +493,22 @@ service cloud.firestore {
               !('currency' in data) &&
               (
                 !('related_transaction_ref' in data) ||
-                data.related_transaction_ref is path
+                (
+                  data.related_transaction_ref is path &&
+                  exists(data.related_transaction_ref) &&
+                  get(data.related_transaction_ref).data.user_uid ==
+                    data.user_uid &&
+                  (
+                    !('transaction_type' in
+                      get(data.related_transaction_ref).data) ||
+                    get(data.related_transaction_ref).data.transaction_type !=
+                      'cancellation'
+                  )
+                )
+              ) &&
+              (
+                data.payment_cancelled == false ||
+                'related_transaction_ref' in data
               )
             ) ||
             (
@@ -424,7 +595,11 @@ service cloud.firestore {
     }
 
     match /prediction/{document} {
-      allow read: if hasActiveVipAccess();
+      // Released clients already gate the VIP screen locally using end_sub.
+      // Keep authenticated prediction reads compatible with those clients;
+      // this also avoids hiding the VIP content when a legacy profile does not
+      // yet expose a normalized end_sub timestamp to rules.
+      allow read: if signedIn();
       allow create: if isAdmin() && createsOwn('created_by') &&
           validPrediction(request.resource.data);
       allow update: if isAdmin() && owns('created_by') && keepsOwner('created_by') &&
@@ -536,24 +711,6 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // Public help content, published atomically by administrators only.
-    match /support_bot/{document} {
-      allow get: if document == 'config';
-      allow list, delete: if false;
-      allow create, update: if document == 'config' && isAdmin() &&
-        request.resource.data.keys().hasOnly(['enabled', 'greeting', 'nodes', 'revision']) &&
-        request.resource.data.enabled is bool &&
-        request.resource.data.greeting is string &&
-        request.resource.data.greeting.size() > 0 &&
-        request.resource.data.greeting.size() <= 1000 &&
-        request.resource.data.nodes is list &&
-        request.resource.data.nodes.size() > 0 &&
-        request.resource.data.nodes.size() <= 80 &&
-        request.resource.data.revision is int &&
-        ((!exists(/databases/$(database)/documents/support_bot/config) && request.resource.data.revision == 1) ||
-          (exists(/databases/$(database)/documents/support_bot/config) && request.resource.data.revision == resource.data.revision + 1));
-    }
-
     match /settings/{document} {
       allow read: if true;
       allow create: if isAdmin() && validSettings(request.resource.data);
@@ -564,6 +721,231 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isAdmin() && validPostText(request.resource.data);
       allow update, delete: if false;
+    }
+
+    match /support_conversations/{userId} {
+      // Reading an absent own conversation is part of the first-message flow;
+      // ownership therefore comes from the path, never resource.data.
+      allow get: if
+          (signedIn() && (request.auth.uid == userId || isAdmin())) ||
+          (request.auth == null && validGuestSupportId(userId) &&
+            (!exists(
+              /databases/$(database)/documents/support_conversations/$(userId)
+            ) || resource.data.guest_access == true));
+      allow list: if isAdmin();
+      allow create: if
+          (signedIn() && request.auth.uid == userId &&
+            exists(/databases/$(database)/documents/user/$(userId)) &&
+            validSupportConversation(request.resource.data, userId) &&
+            request.resource.data.status == 'open' &&
+            request.resource.data.created_at == request.time &&
+            supportSummaryMatchesMessage(
+              userId, request.resource.data, 'user'
+            )) ||
+          (request.auth == null && validGuestSupportId(userId) &&
+            validGuestSupportConversation(request.resource.data, userId) &&
+            request.resource.data.status == 'open' &&
+            request.resource.data.created_at == request.time &&
+            guestSupportSummaryMatchesMessage(
+              userId, request.resource.data
+            ));
+      allow update: if signedIn() &&
+          (validSupportConversation(request.resource.data, userId) ||
+            validGuestSupportConversation(request.resource.data, userId)) &&
+          request.resource.data.user_uid == resource.data.user_uid &&
+          request.resource.data.topic == resource.data.topic &&
+          request.resource.data.created_at == resource.data.created_at &&
+          (
+            (resource.data.status != 'deleting' &&
+              request.resource.data.status == 'open' &&
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'status', 'updated_at', 'last_message', 'last_message_id',
+                'last_sender_role'
+              ]) &&
+              (
+                (request.auth.uid == userId &&
+                  supportSummaryMatchesMessage(
+                    userId, request.resource.data, 'user'
+                  )) ||
+                (isAdmin() &&
+                  supportSummaryMatchesMessage(
+                    userId, request.resource.data, 'admin'
+                  ))
+              )) ||
+            (isAdmin() &&
+              request.resource.data.status in ['treated', 'deleting'] &&
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'status'
+              ])) ||
+            (isAdmin() && resource.data.status != 'deleting' &&
+              request.resource.data.status == resource.data.status &&
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'updated_at', 'last_message', 'last_message_id',
+                'last_sender_role'
+              ]) &&
+              supportSummaryMatchesStoredMessage(
+                userId, request.resource.data
+              ))
+          ) ||
+          (request.auth == null && validGuestSupportId(userId) &&
+            resource.data.guest_access == true &&
+            validGuestSupportConversation(request.resource.data, userId) &&
+            request.resource.data.user_uid == resource.data.user_uid &&
+            request.resource.data.topic == resource.data.topic &&
+            request.resource.data.created_at == resource.data.created_at &&
+            resource.data.status != 'deleting' &&
+            request.resource.data.status == 'open' &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status', 'updated_at', 'last_message', 'last_message_id',
+              'last_sender_role'
+            ]) &&
+            guestSupportSummaryMatchesMessage(
+              userId, request.resource.data
+            ));
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        allow get: if
+            (signedIn() && (request.auth.uid == userId || isAdmin())) ||
+            (request.auth == null && validGuestSupportId(userId) &&
+              (!exists(
+                /databases/$(database)/documents/support_conversations/$(userId)/messages/$(messageId)
+              ) || get(
+                /databases/$(database)/documents/support_conversations/$(userId)
+              ).data.guest_access == true));
+        allow list: if
+            (signedIn() && (request.auth.uid == userId || isAdmin())) ||
+            (request.auth == null && validGuestSupportId(userId) &&
+              (!exists(
+                /databases/$(database)/documents/support_conversations/$(userId)
+              ) || get(
+                  /databases/$(database)/documents/support_conversations/$(userId)
+                ).data.guest_access == true));
+        allow create: if signedIn() &&
+            validSupportMessage(request.resource.data) &&
+            !request.resource.data.keys().hasAny(['edited_at']) &&
+            supportImageMatchesMessage(
+              userId, messageId, request.resource.data
+            ) &&
+            request.resource.data.created_at == request.time &&
+            getAfter(
+              /databases/$(database)/documents/support_conversations/$(userId)
+            ).data.last_message_id == messageId &&
+            getAfter(
+              /databases/$(database)/documents/support_conversations/$(userId)
+            ).data.last_message == request.resource.data.text &&
+            getAfter(
+              /databases/$(database)/documents/support_conversations/$(userId)
+            ).data.updated_at == request.time &&
+            (
+              (request.auth.uid == userId &&
+                request.resource.data.sender_uid == request.auth.uid &&
+                request.resource.data.sender_role == 'user') ||
+              (isAdmin() &&
+                request.resource.data.sender_uid == request.auth.uid &&
+                request.resource.data.sender_role == 'admin')
+            ) ||
+            (request.auth == null && validGuestSupportId(userId) &&
+              validSupportMessage(request.resource.data) &&
+              !request.resource.data.keys().hasAny(['edited_at']) &&
+              supportImageMatchesMessage(
+                userId, messageId, request.resource.data
+              ) &&
+              request.resource.data.created_at == request.time &&
+              request.resource.data.sender_uid == userId &&
+              request.resource.data.sender_role == 'user' &&
+              getAfter(
+                /databases/$(database)/documents/support_conversations/$(userId)
+              ).data.guest_access == true &&
+              getAfter(
+                /databases/$(database)/documents/support_conversations/$(userId)
+              ).data.last_message_id == messageId &&
+              getAfter(
+                /databases/$(database)/documents/support_conversations/$(userId)
+              ).data.last_message == request.resource.data.text &&
+              getAfter(
+                /databases/$(database)/documents/support_conversations/$(userId)
+              ).data.updated_at == request.time);
+        allow update: if isAdmin() &&
+            resource.data.sender_role == 'admin' &&
+            validSupportMessage(request.resource.data) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'text', 'edited_at'
+            ]) &&
+            request.resource.data.edited_at == request.time &&
+            (
+              getAfter(
+                /databases/$(database)/documents/support_conversations/$(userId)
+              ).data.last_message_id != messageId ||
+              (
+                getAfter(
+                  /databases/$(database)/documents/support_conversations/$(userId)
+                ).data.last_message == request.resource.data.text &&
+                getAfter(
+                  /databases/$(database)/documents/support_conversations/$(userId)
+                ).data.updated_at == request.time
+              )
+            );
+        allow delete: if isAdmin() &&
+            (
+              get(
+                /databases/$(database)/documents/support_conversations/$(userId)
+              ).data.status == 'deleting' ||
+              getAfter(
+                /databases/$(database)/documents/support_conversations/$(userId)
+              ).data.last_message_id != messageId
+            );
+
+        match /attachments/{attachmentId} {
+          allow get: if
+              (signedIn() && (request.auth.uid == userId || isAdmin())) ||
+              (request.auth == null && validGuestSupportId(userId) &&
+                get(
+                  /databases/$(database)/documents/support_conversations/$(userId)
+                ).data.guest_access == true);
+          // The guest transaction reads the absent audio before its first write.
+          allow get: if attachmentId == 'audio' && request.auth == null &&
+              validGuestSupportId(userId) && !exists(
+                /databases/$(database)/documents/support_conversations/$(userId)
+              );
+          allow create: if (
+                (attachmentId == 'image' && validSupportImageAttachment(request.resource.data)) ||
+                (attachmentId == 'audio' && validSupportAudioAttachment(request.resource.data) &&
+                  !exists(/databases/$(database)/documents/support_conversations/$(userId)/messages/$(messageId)))
+              ) &&
+              getAfter(
+                /databases/$(database)/documents/support_conversations/$(userId)/messages/$(messageId)
+              ).data.attachment_type == attachmentId &&
+              (
+                (signedIn() &&
+                  getAfter(
+                    /databases/$(database)/documents/support_conversations/$(userId)/messages/$(messageId)
+                  ).data.sender_uid == request.auth.uid &&
+                  (
+                    (request.auth.uid == userId &&
+                      getAfter(
+                        /databases/$(database)/documents/support_conversations/$(userId)/messages/$(messageId)
+                      ).data.sender_role == 'user') ||
+                    (isAdmin() &&
+                      getAfter(
+                        /databases/$(database)/documents/support_conversations/$(userId)/messages/$(messageId)
+                      ).data.sender_role == 'admin')
+                  )) ||
+                (request.auth == null && validGuestSupportId(userId) &&
+                  getAfter(
+                    /databases/$(database)/documents/support_conversations/$(userId)
+                  ).data.guest_access == true &&
+                  getAfter(
+                    /databases/$(database)/documents/support_conversations/$(userId)/messages/$(messageId)
+                  ).data.sender_uid == userId &&
+                  getAfter(
+                    /databases/$(database)/documents/support_conversations/$(userId)/messages/$(messageId)
+                  ).data.sender_role == 'user')
+              );
+          allow list, update: if false;
+          allow delete: if isAdmin();
+        }
+      }
     }
 
     // Additive payment-proof flow. Published user/payment contracts stay intact.

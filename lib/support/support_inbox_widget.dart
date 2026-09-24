@@ -8,6 +8,8 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/pages/sidenav/sidenav_widget.dart';
 import 'support_conversation.dart';
+import 'support_bot_editor.dart';
+import 'support_bot_repository.dart';
 import 'support_audio.dart';
 import 'support_audio_player.dart';
 import 'support_image_picker.dart';
@@ -31,6 +33,15 @@ class _SupportInboxWidgetState extends State<SupportInboxWidget> {
   late final SupportConversationRepository _repository =
       widget.repository ?? SupportConversationRepository();
   String? _selectedConversationId;
+
+  Widget _botButton() => OutlinedButton.icon(
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => SupportBotEditor(
+              repository: SupportBotRepository(firestore: _repository.db)),
+        )),
+        icon: const Icon(Icons.account_tree_outlined, size: 18),
+        label: const Text('Bot du service client'),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -93,6 +104,7 @@ class _SupportInboxWidgetState extends State<SupportInboxWidget> {
                           padding: EdgeInsets.all(spacing.md),
                           children: [
                             Text('Service client', style: theme.headlineMedium),
+                            _botButton(),
                             SizedBox(height: spacing.xs),
                             Text(
                               'Questions d’abonnement reçues depuis l’application.',
@@ -161,6 +173,7 @@ class _SupportInboxWidgetState extends State<SupportInboxWidget> {
                                       ],
                                     ),
                                     SizedBox(height: spacing.xs),
+                                    _botButton(),
                                     Text(
                                       'Assistance client en direct',
                                       style: theme.bodySmall.override(
