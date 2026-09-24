@@ -615,8 +615,8 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    final cannedChip =
-        find.text('👋 Bonjour ! Comment pouvons-nous vous aider ?');
+    final cannedChip = find.text(
+        'Bonjou fanmi! Byenveni sou CHOLOTO. Ou vle antre nan VIP a oswa renouvle plan ou?');
     expect(cannedChip, findsOneWidget);
 
     await tester.tap(cannedChip);
@@ -627,7 +627,7 @@ void main() {
     );
     expect(
       replyField.controller?.text,
-      '👋 Bonjour ! Comment pouvons-nous vous aider ?',
+      'Bonjou fanmi! Byenveni sou CHOLOTO. Ou vle antre nan VIP a oswa renouvle plan ou?',
     );
   });
 

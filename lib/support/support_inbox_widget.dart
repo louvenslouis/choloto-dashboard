@@ -859,11 +859,16 @@ class _SupportConversationPageState extends State<SupportConversationPage>
   bool _showScrollToBottom = false;
 
   static const _cannedResponses = [
-    '👋 Bonjour ! Comment pouvons-nous vous aider ?',
-    '✅ Votre abonnement a bien été vérifié et activé.',
-    '📸 Pouvez-vous nous envoyer une photo de votre reçu ?',
-    '⏳ Votre demande est en cours de traitement.',
-    '🙏 Merci d’avoir contacté le support CHOLOTO.',
+    'Bonjou fanmi! Byenveni sou CHOLOTO. Ou vle antre nan VIP a oswa renouvle plan ou?',
+    'Nan ki peyi ou ye, tanpri? Konsa n ap ka ba ou pri ak mwayen peman ki disponib pou ou.',
+    'Ou vle peye pa MonCash, NatCash oswa Zelle? Di nou kiyès pou nou voye enfòmasyon peman yo ba ou.',
+    'Anvan ou voye kòb la, mande nou konfime nimewo ak non moun k ap resevwa peman an.',
+    'Pou nou ka aktive VIP a sou kont ou, kreye yon kont CHOLOTO oswa konekte sou kont ou deja genyen an.',
+    'Lè ou fin peye, voye yon foto oswa yon kaptire ekran resi tranzaksyon an isit la. Fòk montan, dat ak referans tranzaksyon an parèt klè.',
+    'Mèsi pou enfòmasyon yo. N ap verifye peman an anvan nou konfime aktivasyon VIP ou a.',
+    'Si ou deja peye men VIP a toujou bloke, voye resi a ak yon kaptire ekran sa ki parèt sou kont ou pou nou verifye.',
+    'Se sou kont CHOLOTO ou w ap jwenn kontni VIP a, tankou boul ak maryaj yo. Konekte sou kont ki gen abònman an.',
+    'Ki mesaj erè ou wè sou ekran an? Voye yon kaptire ekran isit la pou nou ka ede ou.',
   ];
 
   @override
