@@ -28,6 +28,7 @@ void main() {
     await tester.pumpWidget(
         MaterialApp(home: SupportBotEditor(repository: repository)));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byTooltip('Ajouter un sous-choix'));
     await tester.tap(find.byTooltip('Ajouter un sous-choix'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField).at(0), 'MonCash');
@@ -41,6 +42,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(repository.saved!.children('vip').single.label, 'MonCash');
     expect(find.text('Bot publié'), findsOneWidget);
+    await tester.ensureVisible(find.byTooltip('Modifier').first);
     await tester.tap(find.byTooltip('Modifier').first);
     await tester.pumpAndSettle();
     await tester.enterText(

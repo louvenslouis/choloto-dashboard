@@ -19,6 +19,7 @@ class SupportBotRepository {
   }
 
   Future<void> publish(SupportBotConfig config) async {
+    config = config.synchronizedForPublication();
     config.validate();
     await db.runTransaction((transaction) async {
       final snapshot = await transaction.get(_document);

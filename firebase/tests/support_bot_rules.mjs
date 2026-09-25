@@ -32,4 +32,16 @@ assert.equal(await req('PATCH',admin,{...config,revision:3,extra:true}),403,'une
 assert.equal(await req('PATCH',member,{...config,revision:3}),403,'member update');
 assert.equal(await req('DELETE',admin),403,'disable instead of delete');
 assert.equal(await req('PATCH',admin,config,'support_bot/other'),403,'unknown document');
-console.log('Support bot: 13 access and validation checks passed.');
+const paymentMethods = [{id:'moncash',name:'MonCash',currency:'HTG',amountMinor:250000,months:1,account:'test-account',recipient:'Test recipient',enabled:true}];
+assert.equal(await req('PATCH',admin,{...config,revision:3,paymentMethods}),200,'admin saves payment profiles');
+assert.equal(await req('PATCH',member,{...config,revision:4,paymentMethods}),403,'member cannot edit payment details');
+assert.equal(await req('PATCH',undefined,{...config,revision:4,paymentMethods}),403,'guest cannot edit payment details');
+assert.equal(await req('PATCH',admin,{...config,revision:4,paymentMethods:'invalid'}),403,'invalid payment list');
+assert.equal(await req('PATCH',admin,{...config,revision:4,paymentMethods:Array(21).fill(paymentMethods[0])}),403,'payment list limit');
+const plans = [{id:'monthly',name:'Mensuel',amountHtgMinor:250000,amountUsdMinor:6000,months:1,enabled:true}];
+assert.equal(await req('PATCH',admin,{...config,revision:4,paymentMethods,plans}),200,'admin saves shared plans');
+assert.equal(await req('PATCH',member,{...config,revision:5,paymentMethods,plans}),403,'member cannot edit plans');
+assert.equal(await req('PATCH',admin,{...config,revision:5,paymentMethods,plans:'invalid'}),403,'invalid plan list');
+assert.equal(await req('PATCH',admin,{...config,revision:5,paymentMethods,plans:Array(31).fill(plans[0])}),403,'plan list limit');
+assert.equal(await req('GET'),200,'published payment profiles remain readable');
+console.log('Support bot: access and validation checks passed.');

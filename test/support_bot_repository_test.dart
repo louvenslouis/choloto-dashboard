@@ -17,6 +17,7 @@ void main() {
         enabled: false,
         greeting: latest.greeting,
         nodes: latest.nodes,
+        paymentMethods: latest.paymentMethods,
         revision: latest.revision));
     expect(db.rows['support_bot/config']!['revision'], 2);
     expect(db.rows['support_bot/config']!['enabled'], false);

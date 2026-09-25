@@ -1,0 +1,9 @@
+{
+  "release": {
+    "name": "projects/choloto-6aa5b/releases/cloud.firestore",
+    "rulesetName": "projects/choloto-6aa5b/rulesets/f09faacd-09ef-4fde-8930-afde7f299818",
+    "createTime": "2025-09-04T14:04:02.587335Z",
+    "updateTime": "2026-09-25T01:41:29.362125Z"
+  },
+  "sourceFile": "firestore.rules"
+}
