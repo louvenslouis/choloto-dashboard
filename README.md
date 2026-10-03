@@ -1,44 +1,62 @@
 # CHOLOTO Dashboard
 
-Tableau de bord d’administration CHOLOTO développé avec Flutter.
+Site d’administration en **React + TypeScript + Vite**, connecté au projet Firebase existant `choloto-6aa5b`.
 
-## Version web
+## Développement
 
-La version de production est publiée sur Cloudflare Pages :
+Node.js 22.12 ou supérieur.
+
+```bash
+npm ci
+npm run dev
+```
+
+Ouvrir l’adresse locale affichée par Vite. La connexion Google utilise les mêmes comptes et règles Firebase que l’ancienne version. Le domaine local doit être autorisé dans Firebase Authentication.
+
+```bash
+npm test
+npm run build
+npm run preview
+# Tests navigateur (Google Chrome installé)
+npm run test:e2e
+```
+
+Le site compilé est dans `dist/`. Aucune installation Flutter n’est nécessaire pour développer, tester ou compiler le site React.
+
+## Hébergement
+
+Les adresses de production restent :
 
 - https://ladministrateur.choloto.com/
 - https://choloto-dashboard.pages.dev/
 
-Déploiement manuel depuis la racine du projet :
+Cloudflare Pages : commande de compilation `npm run build`, dossier de sortie `dist`. La configuration Wrangler pointe désormais vers ce dossier. Les routes SPA et les en-têtes sont dans `public/` ; la fonction `/api/country` reste dans `functions/`.
+
+Pour rafraîchir les copies de résultats officiels avant compilation :
 
 ```bash
-flutter build web --release
-node tools/fetch_new_york_results.mjs build/web/data/official-new-york-results.json
-npx wrangler pages deploy build/web --project-name choloto-dashboard --branch main
+npm run results
+npm run build
+npx wrangler pages deploy dist --project-name choloto-dashboard --branch main
 ```
 
-## Développement local
+Le workflow GitHub Pages utilise Node et React, conserve son horaire de rafraîchissement des résultats et compile avec le préfixe `/choloto-dashboard/`. Les données officielles sont téléchargées dans son artefact après compilation.
 
-```bash
-flutter pub get
-flutter run -d chrome
-```
+## Fonctionnement
 
-## Google Analytics dans le dashboard
+- Routes existantes conservées : tableau de bord, tirages, prédictions, BINGO, croix, historiques, membres, paiements, support et paramètres.
+- Google Authentication ; accès réservé au compte administrateur existant ou au claim Firebase `admin`.
+- Schémas Firestore conservés, sans migration des documents ni changement des règles.
+- Transactions atomiques pour les paiements et révisions du bot.
+- Publication automatique des tirages toutes les dix minutes pendant une session ouverte, après activation dans Tirages. Historique vérifié sur le serveur avant toute publication automatique.
+- Export Excel des membres et export CSV des transactions ; reçus imprimables en PDF.
+- Support : messages, images JPEG, audio WAV mono à 8 kHz, enregistrement limité à 30 secondes. Nettoyage des conversations ouvertes inactives depuis 15 jours, comme dans la version précédente.
+- Thème clair/sombre et mise en page mobile.
 
-Le panneau **Audience et engagement** interroge directement Google Analytics
-Data API avec le compte Google de l’administrateur. L’autorisation demandée est
-limitée au scope `analytics.readonly` et le jeton d’accès reste uniquement en
-mémoire.
+Google Analytics utilise la propriété GA4 `503828194` et le scope `analytics.readonly`. Activer Google Analytics Data API et donner au compte administrateur l’accès à la propriété. Le jeton OAuth reste en mémoire.
 
-Configuration requise :
+## Sources
 
-1. activer **Google Analytics Data API** dans le projet Google Cloud
-   `choloto-6aa5b` ;
-2. donner au compte Google administrateur un accès en lecture à la propriété
-   GA4 `503828194` ;
-3. accepter l’autorisation Analytics lors de la connexion au dashboard ou via
-   le bouton **Autoriser Analytics**.
+Le code web actif est dans `src/`. Les sources Flutter (`lib/`, `web/`, `android/`, `ios/`, `pubspec.yaml`) restent conservées comme référence de migration, y compris les modifications locales préexistantes. Elles ne font plus partie de la compilation ni du workflow web.
 
-Cette intégration ne déploie aucune Cloud Function et ne nécessite donc pas le
-plan Firebase Blaze.
+Les tests React utilisent des données simulées et ne modifient pas Firebase en production. Une recette avec une session administrateur est nécessaire pour confirmer les autorisations OAuth et les services Firebase réellement déployés.

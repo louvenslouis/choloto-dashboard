@@ -35,3 +35,9 @@ ios/.symlinks/
 .env
 .env.*
 !.env.example
+
+# React / Vite
+dist/
+playwright-report/
+test-results/
+public/data/

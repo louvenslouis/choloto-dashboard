@@ -1,4 +1,4 @@
-name: Deploy Flutter Web to GitHub Pages
+name: Deploy React Dashboard to GitHub Pages
 
 on:
   push:
@@ -25,32 +25,37 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Flutter
-        uses: subosito/flutter-action@v2
+      - name: Install Node.js
+        uses: actions/setup-node@v4
         with:
-          flutter-version: "3.41.4"
-          cache: true
+          node-version: "22"
+          cache: npm
 
       - name: Install dependencies
-        run: flutter pub get
+        run: npm ci
+
+      - name: Test React application
+        run: npm test
 
       - name: Build web application
-        run: flutter build web --release --base-href "/choloto-dashboard/"
+        run: npm run build
+        env:
+          VITE_BASE_PATH: /choloto-dashboard/
 
       - name: Fetch official New York results
         run: >-
           node tools/fetch_new_york_results.mjs
-          build/web/data/official-new-york-results.json
+          dist/data/official-new-york-results.json
 
       - name: Fetch additional US lottery results
         run: >-
           node tools/fetch_additional_lottery_results.mjs
-          build/web/data/official-additional-lottery-results.json
+          dist/data/official-additional-lottery-results.json
 
       - name: Add GitHub Pages files
         run: |
-          touch build/web/.nojekyll
-          cp build/web/index.html build/web/404.html
+          touch dist/.nojekyll
+          cp dist/index.html dist/404.html
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
@@ -58,7 +63,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: build/web
+          path: dist
 
   deploy:
     environment:
