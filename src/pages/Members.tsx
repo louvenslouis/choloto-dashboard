@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
-import { Download, Search, Plus } from "lucide-react";
+import {
+  Download,
+  Search,
+  Plus,
+  LayoutGrid,
+  List,
+  ArrowUpRight,
+  Mail,
+} from "lucide-react";
 import { exportMembers } from "../services/export";
 import { db } from "../services/firebase";
 import {
@@ -52,6 +60,9 @@ export default function Members() {
   );
 }
 function Users() {
+  const [view, setView] = useState("cards");
+  const [sort, setSort] = useState("name");
+  const [initialPayment, setInitialPayment] = useState(false);
   const [count, setCount] = useState(200),
     [search, setSearch] = useState(""),
     [filter, setFilter] = useState("all"),
@@ -67,6 +78,14 @@ function Users() {
       (filter === "all" ||
         (filter === "vip") ===
           (asDate(r.end_sub)?.getTime() || 0) > Date.now()),
+  );
+  rows.sort((a, b) =>
+    sort === "name"
+      ? String(a.display_name || a.email || "").localeCompare(
+          String(b.display_name || b.email || ""),
+          "fr",
+        )
+      : (asDate(b[sort])?.getTime() || 0) - (asDate(a[sort])?.getTime() || 0),
   );
   return (
     <>
@@ -101,52 +120,147 @@ function Users() {
           Ajouter
         </button>
       </div>
+      <div className="member-view-toolbar">
+        <select
+          aria-label="Trier les membres"
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+        >
+          <option value="name">Ordre alphabétique</option>
+          <option value="end_sub">Échéance</option>
+          <option value="created_time">Nouveaux membres</option>
+        </select>
+        <button
+          aria-label="Vue cartes"
+          aria-pressed={view === "cards"}
+          onClick={() => setView("cards")}
+        >
+          <LayoutGrid size={18} />
+        </button>
+        <button
+          aria-label="Vue liste"
+          aria-pressed={view === "list"}
+          onClick={() => setView("list")}
+        >
+          <List size={18} />
+        </button>
+      </div>
       <Panel>
         {action.feedback}
         <Status {...state} empty={!rows.length} />
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Membre</th>
-                <th>Code</th>
-                <th>Téléphone</th>
-                <th>Abonnement</th>
-                <th>Échéance</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <td>
-                    <strong>{r.display_name || "—"}</strong>
-                    <small>{r.email}</small>
-                  </td>
-                  <td>{r.code_personnel || "—"}</td>
-                  <td>{r.phone_number || "—"}</td>
-                  <td>
-                    <Badge
-                      tone={
-                        (asDate(r.end_sub)?.getTime() || 0) > Date.now()
-                          ? "green"
-                          : ""
-                      }
-                    >
-                      {(asDate(r.end_sub)?.getTime() || 0) > Date.now()
-                        ? "VIP"
-                        : "Standard"}
-                    </Badge>
-                  </td>
-                  <td>{dateLabel(r.end_sub)}</td>
-                  <td>
-                    <button onClick={() => setSelected(r)}>Gérer</button>
-                  </td>
+        {view === "cards" ? (
+          <div className="member-cards">
+            {rows.map((r) => (
+              <article className="member-card" key={r.id}>
+                <div className="member-card-top">
+                  <span className="avatar">
+                    {(r.display_name || r.email || "M")[0].toUpperCase()}
+                  </span>
+                  <div>
+                    <strong>{r.display_name || "Membre CHOLOTO"}</strong>
+                    <small>{r.phone_number || "—"}</small>
+                  </div>
+                  <button
+                    aria-label={`Voir le profil de ${r.display_name || r.email}`}
+                    onClick={() => {
+                      setInitialPayment(false);
+                      setSelected(r);
+                    }}
+                  >
+                    <ArrowUpRight size={18} />
+                  </button>
+                </div>
+                <div className="member-contact">
+                  <Mail size={16} />
+                  <span>{r.email}</span>
+                  <Badge
+                    tone={
+                      (asDate(r.end_sub)?.getTime() || 0) > Date.now()
+                        ? "green"
+                        : ""
+                    }
+                  >
+                    {(asDate(r.end_sub)?.getTime() || 0) > Date.now()
+                      ? "VIP"
+                      : "Standard"}
+                  </Badge>
+                </div>
+                <div className="member-metrics">
+                  <div>
+                    <small>Échéance</small>
+                    <strong>{dateLabel(r.end_sub)}</strong>
+                  </div>
+                  <div>
+                    <small>Mois actifs</small>
+                    <strong>{r.member_time ?? 0}</strong>
+                  </div>
+                </div>
+                <div className="member-card-actions">
+                  <button
+                    onClick={() => {
+                      setInitialPayment(false);
+                      setSelected(r);
+                    }}
+                  >
+                    Profil
+                  </button>
+                  <button
+                    onClick={() => {
+                      setInitialPayment(true);
+                      setSelected(r);
+                    }}
+                  >
+                    Paiement
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Membre</th>
+                  <th>Code</th>
+                  <th>Téléphone</th>
+                  <th>Abonnement</th>
+                  <th>Échéance</th>
+                  <th />
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id}>
+                    <td>
+                      <strong>{r.display_name || "—"}</strong>
+                      <small>{r.email}</small>
+                    </td>
+                    <td>{r.code_personnel || "—"}</td>
+                    <td>{r.phone_number || "—"}</td>
+                    <td>
+                      <Badge
+                        tone={
+                          (asDate(r.end_sub)?.getTime() || 0) > Date.now()
+                            ? "green"
+                            : ""
+                        }
+                      >
+                        {(asDate(r.end_sub)?.getTime() || 0) > Date.now()
+                          ? "VIP"
+                          : "Standard"}
+                      </Badge>
+                    </td>
+                    <td>{dateLabel(r.end_sub)}</td>
+                    <td>
+                      <button onClick={() => setSelected(r)}>Gérer</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         {state.rows.length === count && (
           <button onClick={() => setCount(count + 200)}>Charger plus</button>
         )}
@@ -156,7 +270,7 @@ function Users() {
           title={selected.display_name || selected.email || "Membre"}
           onClose={() => setSelected(null)}
         >
-          <MemberEditor row={selected} />
+          <MemberEditor row={selected} initialPayment={initialPayment} />
         </Modal>
       )}
       {create && (
@@ -195,10 +309,16 @@ function CreateUser() {
     </Form>
   );
 }
-function MemberEditor({ row }: { row: Row }) {
+function MemberEditor({
+  row,
+  initialPayment = false,
+}: {
+  row: Row;
+  initialPayment?: boolean;
+}) {
   const [name, setName] = useState(row.display_name || ""),
     [phone, setPhone] = useState(row.phone_number || ""),
-    [payment, setPayment] = useState(false),
+    [payment, setPayment] = useState(initialPayment),
     [cancel, setCancel] = useState(false),
     [adjust, setAdjust] = useState(false),
     [providers, setProviders] = useState<string[] | null>(null);

@@ -9,11 +9,33 @@ for (const width of [390, 1440]) {
     await expect(
       page.getByRole("heading", { name: "Aujourd’hui" }),
     ).toBeVisible();
-    await expect(page.getByText("1 248").first()).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /Paiements à traiter/ }),
+    ).toBeVisible();
+    if (width < 992) {
+      await page
+        .getByRole("button", { name: "Statistiques", exact: true })
+        .click();
+      await expect(
+        page.getByText("Bingo mensuel", { exact: true }),
+      ).toBeVisible();
+      await page.screenshot({
+        path: `test-results/statistics-${width}.png`,
+        fullPage: true,
+      });
+      await page
+        .getByRole("button", { name: "À traiter", exact: true })
+        .click();
+    }
     await page.screenshot({
       path: `test-results/dashboard-${width}.png`,
       fullPage: true,
     });
+    if (width >= 992) {
+      await page.getByRole("button", { name: "Réduire le menu" }).click();
+      await expect(page.locator(".app")).toHaveClass(/sidebar-collapsed/);
+      await page.getByRole("button", { name: "Développer le menu" }).click();
+    }
     for (const [path, title] of [
       ["/tirages", "Résultats officiels"],
       ["/predictions", "Prédictions"],
@@ -35,6 +57,20 @@ for (const width of [390, 1440]) {
         ),
       ).toBe(true);
     }
+    await page.goto("/users");
+    await expect(page.locator(".member-card")).toHaveCount(1);
+    await page.getByRole("button", { name: "Vue liste", exact: true }).click();
+    await expect(
+      page.getByRole("columnheader", { name: "Membre", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Vue cartes", exact: true }).click();
+    await page.screenshot({
+      path: `test-results/members-${width}.png`,
+      fullPage: true,
+    });
+    await page.getByRole("button", { name: "Paiement", exact: true }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByLabel("Montant", { exact: true })).toBeVisible();
     await page.goto("/predictions");
     await page
       .getByRole("textbox", { name: "BOLOTO 1", exact: true })
@@ -67,9 +103,8 @@ for (const width of [390, 1440]) {
         page.getByRole("heading", { name: "Apparence" }),
       ).toBeVisible();
     }
-    await page
-      .getByRole("button", { name: "Mode sombre", exact: true })
-      .click();
+    await page.goto("/settings");
+    await page.getByRole("button", { name: "Sombre", exact: true }).click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     expect(errors).toEqual([]);
   });

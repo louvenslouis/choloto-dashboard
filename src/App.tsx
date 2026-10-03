@@ -27,8 +27,8 @@ import {
   LogOut,
   Menu,
   X,
-  Sun,
-  Moon,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { auth, isAdministrator, login, logout } from "./services/firebase";
 import { OfficialProvider } from "./services/OfficialProvider";
@@ -113,8 +113,8 @@ function Login({ error }: { error: string }) {
     <main className="login-page">
       <section className="login-card">
         <img src={`${import.meta.env.BASE_URL}logo.png`} alt="CHOLOTO" />
-        <span className="eyebrow">ADMINISTRATION</span>
-        <h1>Bienvenue</h1>
+        <span className="eyebrow">ESPACE ADMINISTRATEUR</span>
+        <h1>Bienvenue sur CHOLOTO</h1>
         <Status error={error} />
         {action.feedback}
         <button
@@ -122,13 +122,14 @@ function Login({ error }: { error: string }) {
           disabled={action.busy}
           onClick={() => void action.run(login, "")}
         >
-          {action.busy ? "Connexion…" : "Se connecter avec Google"}
+          {action.busy ? "Connexion en cours…" : "Continuer avec Google"}
         </button>
       </section>
     </main>
   );
 }
 function Shell({ user }: { user: User }) {
+  const [collapsed, setCollapsed] = useState(false);
   const [open, setOpen] = useState(false),
     [theme, setTheme] = useState(
       () => localStorage.getItem("choloto-theme") || "light",
@@ -164,7 +165,7 @@ function Shell({ user }: { user: User }) {
       ? links[6]
       : links[0]);
   return (
-    <div className="app">
+    <div className={`app ${collapsed ? "sidebar-collapsed" : ""}`}>
       {open && (
         <button
           className="overlay"
@@ -175,6 +176,13 @@ function Shell({ user }: { user: User }) {
       <aside className={open ? "open" : ""}>
         <LinkBrand />
         <button
+          className="collapse-sidebar"
+          aria-label={collapsed ? "Développer le menu" : "Réduire le menu"}
+          onClick={() => setCollapsed(!collapsed)}
+        >
+          {collapsed ? <ChevronsRight size={19} /> : <ChevronsLeft size={19} />}
+        </button>
+        <button
           className="mobile-close"
           aria-label="Fermer le menu"
           onClick={() => setOpen(false)}
@@ -184,11 +192,13 @@ function Shell({ user }: { user: User }) {
         <nav>
           {links.map((item, i) => (
             <div key={item.path}>
-              {i === 1 && <span className="nav-label">PUBLICATIONS</span>}
+              {i === 0 && <span className="nav-label">VUE D’ENSEMBLE</span>}
+              {i === 1 && <span className="nav-label">OPÉRATIONS</span>}
               {i === 5 && <span className="nav-label">COMMUNAUTÉ</span>}
-              {i === 7 && <div className="nav-divider" />}
+              {i === 7 && <span className="nav-label">OUTILS</span>}
               <NavLink
                 to={item.path}
+                aria-label={item.label}
                 className={({ isActive }) =>
                   isActive ||
                   (item.path === "/users" &&
@@ -205,50 +215,32 @@ function Shell({ user }: { user: User }) {
             </div>
           ))}
         </nav>
-        <div className="sidebar-user">
-          <span className="avatar">
-            {(user.displayName || user.email || "A").slice(0, 1).toUpperCase()}
-          </span>
-          <div>
-            <strong>{user.displayName || "Administrateur"}</strong>
-            <small>{user.email}</small>
-          </div>
-          <button
-            aria-label="Déconnexion"
-            disabled={action.busy}
-            onClick={() => void action.run(logout, "")}
-          >
-            <LogOut size={18} />
-          </button>
-        </div>
       </aside>
       <div className="workspace">
-        <header>
-          <div className="header-title">
-            <button
-              className="menu-toggle"
-              aria-label="Ouvrir le menu"
-              aria-expanded={open}
-              onClick={() => setOpen(true)}
-            >
-              <Menu size={23} />
-            </button>
-            <h1>{current.label}</h1>
-          </div>
-          <div className="actions">
-            <button
-              aria-label={theme === "dark" ? "Mode clair" : "Mode sombre"}
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            >
-              {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-            <span className="admin-chip">
-              <span />
-              Administrateur
+        {location.pathname !== "/dashboard" && (
+          <header className="section-header">
+            <span className="section-icon">
+              <current.icon size={26} />
             </span>
-          </div>
-        </header>
-        <main id="main-content">
+            <img
+              className="mobile-brand"
+              src={`${import.meta.env.BASE_URL}logo.png`}
+              alt="CHOLOTO"
+            />
+            <div>
+              <span className="eyebrow">ESPACE DE GESTION</span>
+              <h1>{current.label}</h1>
+            </div>
+            <span className="online-status">
+              <i />
+              En ligne
+            </span>
+          </header>
+        )}
+        <main
+          id="main-content"
+          className={location.pathname === "/dashboard" ? "dashboard-main" : ""}
+        >
           {action.feedback}
           <Suspense fallback={<Status loading />}>
             <Routes>
@@ -307,6 +299,27 @@ function Shell({ user }: { user: User }) {
           </Suspense>
         </main>
       </div>
+      <nav className="bottom-nav" aria-label="Navigation mobile">
+        {[
+          { ...links[0], label: "Accueil" },
+          links[1],
+          links[3],
+          { ...links[6], label: "Membres" },
+        ].map((item) => (
+          <NavLink key={item.path} to={item.path}>
+            <item.icon size={23} />
+            <span>{item.label}</span>
+          </NavLink>
+        ))}
+        <button
+          aria-label="Ouvrir le menu"
+          aria-expanded={open}
+          onClick={() => setOpen(true)}
+        >
+          <Menu size={23} />
+          <span>Menu</span>
+        </button>
+      </nav>
     </div>
   );
 }
@@ -316,7 +329,7 @@ function LinkBrand() {
       <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" />
       <div>
         <strong>CHOLOTO</strong>
-        <span>ADMINISTRATION</span>
+        <span>ESPACE ADMIN</span>
       </div>
     </NavLink>
   );

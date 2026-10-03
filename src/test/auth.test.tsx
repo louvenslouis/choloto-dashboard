@@ -37,7 +37,7 @@ it("protège une route privée sans session", async () => {
     </MemoryRouter>,
   );
   expect(
-    await screen.findByRole("button", { name: "Se connecter avec Google" }),
+    await screen.findByRole("button", { name: "Continuer avec Google" }),
   ).toBeVisible();
   expect(screen.queryByText("Transactions")).not.toBeInTheDocument();
 });
@@ -66,7 +66,7 @@ it("affiche les paramètres pour un administrateur autorisé", async () => {
   expect(
     await screen.findByRole("heading", { name: "Apparence" }),
   ).toBeVisible();
-  expect(screen.getByRole("button", { name: "Mode sombre" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Sombre" })).toBeVisible();
 });
 
 it("conserve l’écran monté lors du renouvellement du jeton", async () => {

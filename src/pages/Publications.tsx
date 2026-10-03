@@ -60,12 +60,26 @@ export default function Publications() {
   const [history, setHistory] = useState(path.endsWith("/history"));
   return (
     <>
-      <div className="toolbar">
-        <button onClick={() => setHistory(!history)}>
-          <History size={17} />
-          {history ? "Nouvelle publication" : "Historique"}
-        </button>
-      </div>
+      {kind !== "bingo" && (
+        <div className="tabs publication-tabs">
+          <button
+            className={!history ? "active" : ""}
+            onClick={() => setHistory(false)}
+          >
+            {kind === "prediction"
+              ? "Prédictions"
+              : kind === "croix"
+                ? "Croix de la chance"
+                : "BINGO"}
+          </button>
+          <button
+            className={history ? "active" : ""}
+            onClick={() => setHistory(true)}
+          >
+            Historique
+          </button>
+        </div>
+      )}
       {history ? (
         <PublicationHistory kind={kind} />
       ) : kind === "croix" ? (
@@ -74,6 +88,15 @@ export default function Publications() {
         <PredictionForm />
       ) : (
         <BingoForm />
+      )}
+      {kind === "bingo" && (
+        <button
+          className="bingo-history-shortcut"
+          onClick={() => setHistory(!history)}
+        >
+          <History size={18} />
+          {history ? "Nouvelle publication" : "Historique des publications"}
+        </button>
       )}
     </>
   );
@@ -193,30 +216,52 @@ function PredictionForm({ row, done }: { row?: Row; done?: () => void }) {
           </Field>
         </div>
         <div className="prediction-grid">
-          {predictionGroups.map(([key, name]) => (
-            <fieldset key={key}>
-              <legend>{name}</legend>
-              <div className="numbers-input">
-                {values[key].map((v, i) => (
-                  <input
-                    key={i}
-                    aria-label={`${name} ${i + 1}`}
-                    inputMode="numeric"
-                    maxLength={10}
-                    value={v}
-                    onChange={(e) =>
-                      setValues({
-                        ...values,
-                        [key]: values[key].map((x, j) =>
-                          j === i ? e.target.value : x,
-                        ),
-                      })
-                    }
-                  />
-                ))}
-              </div>
-            </fieldset>
-          ))}
+          {[...predictionGroups]
+            .sort(
+              (a, b) =>
+                [
+                  "favori",
+                  "soutni",
+                  "boloto",
+                  "mariage",
+                  "chif3",
+                  "chif4",
+                  "extra",
+                ].indexOf(a[0]) -
+                [
+                  "favori",
+                  "soutni",
+                  "boloto",
+                  "mariage",
+                  "chif3",
+                  "chif4",
+                  "extra",
+                ].indexOf(b[0]),
+            )
+            .map(([key, name]) => (
+              <fieldset key={key}>
+                <legend>{name}</legend>
+                <div className="numbers-input">
+                  {values[key].map((v, i) => (
+                    <input
+                      key={i}
+                      aria-label={`${name} ${i + 1}`}
+                      inputMode="numeric"
+                      maxLength={10}
+                      value={v}
+                      onChange={(e) =>
+                        setValues({
+                          ...values,
+                          [key]: values[key].map((x, j) =>
+                            j === i ? e.target.value : x,
+                          ),
+                        })
+                      }
+                    />
+                  ))}
+                </div>
+              </fieldset>
+            ))}
         </div>
         {action.feedback}
         <Submit busy={action.busy}>{row ? "Enregistrer" : "Publier"}</Submit>
@@ -362,16 +407,38 @@ export function PublicationHistory({ kind }: { kind: string }) {
               </div>
             ) : kind === "prediction" ? (
               <div className="prediction-grid">
-                {predictionGroups.map(([key, name]) => (
-                  <div key={key}>
-                    <small>{name}</small>
-                    <div className="balls">
-                      {row[key]?.boul?.map((v: string, i: number) => (
-                        <span key={i}>{v}</span>
-                      ))}
+                {[...predictionGroups]
+                  .sort(
+                    (a, b) =>
+                      [
+                        "favori",
+                        "soutni",
+                        "boloto",
+                        "mariage",
+                        "chif3",
+                        "chif4",
+                        "extra",
+                      ].indexOf(a[0]) -
+                      [
+                        "favori",
+                        "soutni",
+                        "boloto",
+                        "mariage",
+                        "chif3",
+                        "chif4",
+                        "extra",
+                      ].indexOf(b[0]),
+                  )
+                  .map(([key, name]) => (
+                    <div key={key}>
+                      <small>{name}</small>
+                      <div className="balls">
+                        {row[key]?.boul?.map((v: string, i: number) => (
+                          <span key={i}>{v}</span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             ) : (
               <>
