@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import '/payments/payment_reviews_widget.dart';
 import '/support/support_inbox_widget.dart';
@@ -374,6 +375,7 @@ class _DashboardWidgetState extends State<DashboardWidget> {
                                           Icons.workspace_premium_rounded,
                                           theme.success,
                                           UsersWidget.routeName,
+                                          startDate: data?.today,
                                           series: data?.vipSeries(
                                                   _vipChartPeriod) ??
                                               const [],
@@ -420,6 +422,12 @@ class _DashboardWidgetState extends State<DashboardWidget> {
                                           Icons.person_add_alt_1_rounded,
                                           const Color(0xFF3A7CA5),
                                           UsersWidget.routeName,
+                                          startDate: data == null
+                                              ? null
+                                              : DateTime(
+                                                  data.today.year,
+                                                  data.today.month,
+                                                  data.today.day - 29),
                                           series:
                                               data?.newUsersSeries ?? const [],
                                           period: data?.newUsersPeriod ??
@@ -892,12 +900,14 @@ class _StatData {
     this.detail,
     this.month,
     this.periodSelector,
+    this.startDate,
     required this.series,
     required this.period,
     required this.chartLabel,
   });
 
   final DateTime? month;
+  final DateTime? startDate;
   final Widget? periodSelector;
   final List<double> series;
   final String period;
@@ -1034,7 +1044,11 @@ class _StatCard extends StatelessWidget {
                                 label: stat.chartLabel,
                                 child: CustomPaint(
                                   painter: _StatChartPainter(
-                                      values: stat.series, color: stat.color),
+                                      values: stat.series,
+                                      color: stat.color,
+                                      startDate: stat.startDate,
+                                      textScaler:
+                                          MediaQuery.textScalerOf(context)),
                                 ),
                               ),
                   ),
@@ -1073,26 +1087,86 @@ class _StatCard extends StatelessWidget {
 }
 
 class _StatChartPainter extends CustomPainter {
-  const _StatChartPainter({required this.values, required this.color});
+  const _StatChartPainter({
+    required this.values,
+    required this.color,
+    required this.startDate,
+    required this.textScaler,
+  });
   final List<double> values;
   final Color color;
+  final DateTime? startDate;
+  final TextScaler textScaler;
+
+  TextPainter _label(String text) => TextPainter(
+        text: TextSpan(
+          text: text,
+          style: const TextStyle(color: Color(0xFFB9C4CE), fontSize: 10),
+        ),
+        textDirection: ui.TextDirection.ltr,
+        textScaler: textScaler,
+      )..layout();
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+    final peak = values.fold<double>(1, (a, b) => a > b ? a : b);
+    final step = (peak / 3).ceil();
+    final maximum = step * 3;
+    final ticks = List.generate(4, (index) => _label('${index * step}'));
+    final labelWidth =
+        ticks.fold<double>(0, (width, tick) => max(width, tick.width));
+    final labelHeight = ticks.first.height;
+    final plot = Rect.fromLTRB(labelWidth + 10, labelHeight / 2 + 2,
+        size.width - 8, size.height - labelHeight - 12);
+    if (plot.width <= 0 || plot.height <= 0) return;
     final gridPaint = Paint()
-      ..color = Colors.white.withValues(alpha: .06)
+      ..color = Colors.white.withValues(alpha: .08)
       ..strokeWidth = 1;
-    for (var row = 1; row <= 3; row++) {
-      final y = size.height * row / 4;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    final axisPaint = Paint()
+      ..color = Colors.white.withValues(alpha: .28)
+      ..strokeWidth = 1;
+    for (var index = 0; index <= 3; index++) {
+      final y = plot.bottom - plot.height * index / 3;
+      canvas.drawLine(Offset(plot.left, y), Offset(plot.right, y), gridPaint);
+      canvas.drawLine(
+          Offset(plot.left - 4, y), Offset(plot.left, y), axisPaint);
+      ticks[index].paint(
+          canvas,
+          Offset(
+              plot.left - ticks[index].width - 9, y - ticks[index].height / 2));
     }
+    canvas.drawLine(plot.topLeft, plot.bottomLeft, axisPaint);
+    canvas.drawLine(plot.bottomLeft, plot.bottomRight, axisPaint);
     if (values.isEmpty) return;
+    final date = startDate;
+    if (date != null) {
+      final indices = <int>{
+        0,
+        if (plot.width >= 180) (values.length - 1) ~/ 2,
+        values.length - 1
+      };
+      for (final index in indices) {
+        final x = values.length == 1
+            ? plot.left
+            : plot.left + plot.width * index / (values.length - 1);
+        final label = _label(DateFormat('dd/MM')
+            .format(DateTime(date.year, date.month, date.day + index)));
+        canvas.drawLine(
+            Offset(x, plot.bottom), Offset(x, plot.bottom + 4), axisPaint);
+        label.paint(
+            canvas,
+            Offset(
+                (x - label.width / 2)
+                    .clamp(0.0, max(0.0, size.width - label.width)),
+                plot.bottom + 10));
+      }
+    }
     final points = values.length == 1 ? [values.first, values.first] : values;
-    final maximum = points.fold<double>(1, (a, b) => a > b ? a : b);
     final offsets = List.generate(
         points.length,
-        (i) => Offset(5 + i * (size.width - 10) / (points.length - 1),
-            size.height - 6 - points[i] / maximum * (size.height - 16)));
+        (i) => Offset(plot.left + i * plot.width / (points.length - 1),
+            plot.bottom - points[i] / maximum * plot.height));
     final line = Path()..moveTo(offsets.first.dx, offsets.first.dy);
     for (var i = 1; i < offsets.length; i++) {
       final previous = offsets[i - 1];
@@ -1102,8 +1176,8 @@ class _StatChartPainter extends CustomPainter {
           middle, previous.dy, middle, current.dy, current.dx, current.dy);
     }
     final area = Path.from(line)
-      ..lineTo(offsets.last.dx, size.height)
-      ..lineTo(offsets.first.dx, size.height)
+      ..lineTo(offsets.last.dx, plot.bottom)
+      ..lineTo(offsets.first.dx, plot.bottom)
       ..close();
     canvas.drawPath(
         area,
@@ -1115,7 +1189,7 @@ class _StatChartPainter extends CustomPainter {
               color.withValues(alpha: .28),
               color.withValues(alpha: .01)
             ],
-          ).createShader(Offset.zero & size));
+          ).createShader(plot));
     canvas.drawPath(
         line,
         Paint()
@@ -1137,7 +1211,10 @@ class _StatChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _StatChartPainter oldDelegate) =>
-      oldDelegate.values != values || oldDelegate.color != color;
+      oldDelegate.values != values ||
+      oldDelegate.color != color ||
+      oldDelegate.startDate != startDate ||
+      oldDelegate.textScaler != textScaler;
 }
 
 class _DashboardChartData {
