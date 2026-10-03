@@ -271,7 +271,14 @@ export async function cancelMembership(
   });
 }
 
-export async function adjustMembership(uid: string, end: Date, id: string) {
+export async function adjustMembership(
+  uid: string,
+  end: Date,
+  id: string,
+  method?: string,
+) {
+  if (method !== undefined && method !== "" && !paymentMethods.includes(method))
+    throw new Error("Moyen de paiement invalide.");
   if (!Number.isFinite(end.getTime()) || end <= new Date())
     throw new Error("Échéance invalide.");
   const profile = doc(db, "user", uid),
@@ -303,9 +310,11 @@ export async function adjustMembership(uid: string, end: Date, id: string) {
     ])
       if (typeof data[source] === "string") payload[target] = data[source];
     if (previous) payload.previous_end_sub = Timestamp.fromDate(previous);
-    if (data.method) payload.payment_method = data.method;
+    const updatedMethod = method === undefined ? data.method : method;
+    if (updatedMethod) payload.payment_method = updatedMethod;
     tx.update(profile, {
       end_sub: Timestamp.fromDate(end),
+      ...(method === undefined ? {} : { method: method || deleteField() }),
       updated_time: serverTimestamp(),
     });
     tx.set(receipt, payload);

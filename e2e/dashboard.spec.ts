@@ -44,7 +44,7 @@ for (const width of [390, 1440]) {
       ["/users", "Membres & Paiements"],
       ["/payment-reviews", "Paiements à vérifier"],
       ["/payments", "Transactions"],
-      ["/support-inbox", "Conversations"],
+      ["/support-inbox", "Service client"],
       ["/settings", "Apparence"],
     ]) {
       await page.goto(path);
@@ -59,18 +59,53 @@ for (const width of [390, 1440]) {
     }
     await page.goto("/users");
     await expect(page.locator(".member-card")).toHaveCount(1);
-    await page.getByRole("button", { name: "Vue liste", exact: true }).click();
+    if (width >= 992) {
+      await page
+        .getByRole("button", { name: "Vue liste", exact: true })
+        .click();
+      await expect(page.locator(".members-list-heading")).toBeVisible();
+      await page
+        .getByRole("button", { name: "Vue cartes", exact: true })
+        .click();
+    } else {
+      await page.getByRole("button", { name: "Filtres et tri" }).click();
+    }
+    await page.getByRole("button", { name: /^Gratuit/ }).click();
+    if (width < 992)
+      await page.getByRole("button", { name: "Appliquer" }).click();
     await expect(
-      page.getByRole("columnheader", { name: "Membre", exact: true }),
+      page.getByRole("heading", { name: "Aucun membre trouvé" }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Vue cartes", exact: true }).click();
+    await page.getByRole("button", { name: "Réinitialiser" }).click();
+    await expect(page.locator(".member-card")).toHaveCount(1);
+    await expect(page.locator(".new-member")).toBeVisible();
+    await page.getByRole("button", { name: /^Membre Test/ }).click();
+    await expect(
+      page.getByRole("heading", { name: "Profil du membre" }),
+    ).toBeVisible();
+    await expect(page.getByText("CH-0001", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("ABONNEMENT ACTIF", { exact: true }),
+    ).toBeVisible();
+    await page.screenshot({
+      path: `test-results/member-profile-${width}.png`,
+      fullPage: true,
+    });
+    await page.getByRole("button", { name: "Fermer", exact: true }).click();
     await page.screenshot({
       path: `test-results/members-${width}.png`,
       fullPage: true,
     });
     await page.getByRole("button", { name: "Paiement", exact: true }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
+    await page
+      .getByRole("button", { name: "Prolonger l’abonnement", exact: true })
+      .click();
     await expect(page.getByLabel("Montant", { exact: true })).toBeVisible();
+    await page.screenshot({
+      path: `test-results/payment-editor-${width}.png`,
+      fullPage: true,
+    });
     await page.goto("/predictions");
     await page
       .getByRole("textbox", { name: "BOLOTO 1", exact: true })
@@ -88,15 +123,46 @@ for (const width of [390, 1440]) {
       page.getByRole("textbox", { name: "BOLOTO 1", exact: true }),
     ).toHaveValue("12");
     await page.goto("/support-inbox");
+    await page
+      .getByRole("textbox", { name: "Rechercher une conversation" })
+      .fill("introuvable");
+    await expect(
+      page.getByText("Aucune conversation ne correspond à vos filtres."),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Réinitialiser les filtres" })
+      .click();
+    await page.getByRole("button", { name: /^À répondre/ }).click();
+    await page.screenshot({
+      path: `test-results/support-inbox-${width}.png`,
+      fullPage: true,
+    });
     await page.getByRole("button", { name: /Membre Test/ }).click();
     await expect(
       page.getByRole("textbox", { name: "Message", exact: true }),
     ).toBeVisible();
+    await page.getByLabel("Actions du message").click();
+    await page
+      .locator(".support-message-menu")
+      .getByRole("button", { name: "Modifier", exact: true })
+      .click();
+    await expect(
+      page.getByRole("textbox", { name: "Message à modifier" }),
+    ).toHaveValue("Bonjour, nous allons vous aider.");
+    await page.getByRole("button", { name: "Fermer", exact: true }).click();
+    await page.getByLabel("Actions du message").click();
+    await page.getByRole("button", { name: /^Bonjou fanmi/ }).click();
+    await expect(
+      page.getByRole("textbox", { name: "Message", exact: true }),
+    ).toHaveValue(/Bonjou fanmi/);
     await page.screenshot({
       path: `test-results/support-${width}.png`,
       fullPage: true,
     });
     if (width < 850) {
+      await page
+        .getByRole("button", { name: "Retour aux conversations" })
+        .click();
       await page.getByRole("button", { name: "Ouvrir le menu" }).click();
       await page.getByRole("link", { name: "Paramètres", exact: true }).click();
       await expect(

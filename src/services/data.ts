@@ -19,6 +19,7 @@ export function useCollection(
   after = 0,
   equalField = "",
   equalValue = "",
+  revision = 0,
 ) {
   const [state, setState] = useState<{
     rows: Row[];
@@ -43,7 +44,7 @@ export function useCollection(
         }),
       (error) => setState({ rows: [], loading: false, error: error.message }),
     );
-  }, [path, sort, count, after, equalField, equalValue]);
+  }, [path, sort, count, after, equalField, equalValue, revision]);
   return state;
 }
 export function useDocument(path: string) {

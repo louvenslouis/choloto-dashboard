@@ -1,4 +1,12 @@
-import { useEffect, useState, type ReactNode, type CSSProperties } from "react";
+import LineChart from "../components/TrendChart";
+import {
+  useEffect,
+  useState,
+  useId,
+  useRef,
+  type ReactNode,
+  type CSSProperties,
+} from "react";
 import { Link } from "react-router-dom";
 import { collection, getCountFromServer } from "firebase/firestore";
 import {
@@ -163,6 +171,30 @@ export default function Dashboard() {
       state: cross,
     },
   ];
+  const vipEnd = new Date(now);
+  if (horizon === 30) vipEnd.setDate(vipEnd.getDate() + 30);
+  else {
+    const target = new Date(
+      now.getFullYear(),
+      now.getMonth() + (horizon === 90 ? 3 : 6),
+      1,
+    );
+    const lastDay = new Date(
+      target.getFullYear(),
+      target.getMonth() + 1,
+      0,
+    ).getDate();
+    vipEnd.setFullYear(
+      target.getFullYear(),
+      target.getMonth(),
+      Math.min(now.getDate(), lastDay),
+    );
+  }
+  const vipDays = Math.round(
+    (Date.UTC(vipEnd.getFullYear(), vipEnd.getMonth(), vipEnd.getDate()) -
+      Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) /
+      day,
+  );
   const user = auth.currentUser;
   const metric = (state: { loading: boolean; error: string }, count: number) =>
     state.loading || state.error ? "—" : count.toLocaleString("fr-HT");
@@ -281,12 +313,20 @@ export default function Dashboard() {
         >
           <LineChart
             values={Array.from(
-              { length: horizon },
+              { length: vipDays + 1 },
               (_, i) =>
                 validVip.filter(
                   (r) =>
                     (asDate(r.end_sub)?.getTime() || 0) >=
-                    now.getTime() + i * day,
+                    new Date(
+                      now.getFullYear(),
+                      now.getMonth(),
+                      now.getDate() + i,
+                      now.getHours(),
+                      now.getMinutes(),
+                      now.getSeconds(),
+                      now.getMilliseconds(),
+                    ).getTime(),
                 ).length,
             )}
             start={now.getTime()}
@@ -458,106 +498,75 @@ function Stat({
     </section>
   );
 }
-function LineChart({ values, start }: { values: number[]; start: number }) {
-  const step = Math.max(1, Math.ceil(Math.max(...values) / 3)),
-    max = step * 3;
-  const points = values.map((v, i) => [
-    30 + (i * 260) / (values.length - 1),
-    145 - (v / max) * 130,
-  ]);
-  const path = points.map(([x, y], i) => `${i ? "L" : "M"}${x},${y}`).join(" ");
-  return (
-    <svg viewBox="0 0 310 180" role="img" aria-label="Évolution sur la période">
-      {[0, 1, 2, 3].map((i) => (
-        <g key={i}>
-          <line
-            x1="30"
-            x2="295"
-            y1={145 - (i * 130) / 3}
-            y2={145 - (i * 130) / 3}
-            stroke="#ffffff12"
-          />
-          <text x="0" y={149 - (i * 130) / 3}>
-            {i * step}
-          </text>
-        </g>
-      ))}
-      <path
-        d={`${path} L290,145 L30,145 Z`}
-        fill="var(--chart-color)"
-        opacity=".16"
-      />
-      <path
-        d={path}
-        fill="none"
-        stroke="var(--chart-color)"
-        strokeWidth="2.5"
-        strokeLinejoin="round"
-      />
-      <circle
-        cx="290"
-        cy={points.at(-1)![1]}
-        r="4"
-        fill="var(--chart-color)"
-        stroke="white"
-      />
-      {[0, Math.floor((values.length - 1) / 2), values.length - 1].map(
-        (v, i) => (
-          <text
-            key={i}
-            x={30 + i * 130}
-            y="174"
-            textAnchor={i === 0 ? "start" : i === 2 ? "end" : "middle"}
-          >
-            {new Date(start + v * day).toLocaleDateString("fr-FR", {
-              day: "2-digit",
-              month: "2-digit",
-            })}
-          </text>
-        ),
-      )}
-    </svg>
-  );
-}
 function MonthGrid({ now, rows }: { now: Date; rows: Row[] }) {
   const offset =
     (new Date(now.getFullYear(), now.getMonth(), 1).getDay() + 6) % 7;
   const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const counts = Array.from(
+    { length: days },
+    (_, i) => rows.filter((r) => asDate(r.date)?.getDate() === i + 1).length,
+  );
+  const maximum = Math.max(1, ...counts),
+    weeks = Math.ceil((offset + days) / 7);
+  const cell = (260 - 25 - 6 * 5) / 7,
+    height = 18 + weeks * cell + (weeks - 1) * 5;
+  const colors = ["#303941", "#194F35", "#267D4B", "#37A862", "#4AC77D"];
   return (
-    <div className="month-grid">
-      <span />
-      {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((d) => (
-        <small key={d}>{d}</small>
+    <svg
+      className="bingo-calendar"
+      viewBox={`0 0 260 ${height}`}
+      role="img"
+      aria-label="BINGO du mois"
+    >
+      {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((label, i) => (
+        <text
+          key={label}
+          x={25 + i * (cell + 5) + cell / 2}
+          y="9"
+          textAnchor="middle"
+        >
+          {label}
+        </text>
       ))}
-      {Array.from({ length: Math.ceil((offset + days) / 7) }, (_, week) => (
-        <div className="month-week" key={week}>
-          <small>S{week + 1}</small>
-          {Array.from({ length: 7 }, (_, weekday) => {
-            const d = week * 7 + weekday - offset + 1;
-            const count = rows.filter(
-              (r) => asDate(r.date)?.getDate() === d,
-            ).length;
-            return d < 1 || d > days ? (
-              <span key={weekday} />
-            ) : (
-              <span
-                key={weekday}
-                className={`month-day ${count ? "won" : ""} ${d > now.getDate() ? "future" : ""}`}
-                style={
-                  count
-                    ? {
-                        background: `rgba(74,199,125,${Math.min(0.95, 0.3 + count * 0.16)})`,
-                      }
-                    : undefined
-                }
-                title={`${d} : ${count} BINGO`}
-              >
-                {d}
-              </span>
-            );
-          })}
-        </div>
+      {Array.from({ length: weeks }, (_, i) => (
+        <text
+          key={i}
+          x="0"
+          y={18 + i * (cell + 5) + cell / 2}
+          dominantBaseline="central"
+        >
+          S{i + 1}
+        </text>
       ))}
-    </div>
+      {counts.map((count, i) => {
+        const d = i + 1,
+          future = d > now.getDate(),
+          level =
+            count === 0 ? 0 : Math.min(4, Math.ceil((count / maximum) * 4));
+        const label = `${String(d).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()} : ${future ? "à venir" : `${count} Bingo validé${count === 1 ? "" : "s"}`}`;
+        return (
+          <rect
+            key={d}
+            x={25 + ((offset + i) % 7) * (cell + 5)}
+            y={18 + Math.floor((offset + i) / 7) * (cell + 5)}
+            width={cell}
+            height={cell}
+            rx="2.5"
+            fill={future ? "#30394140" : colors[level]}
+            stroke={
+              d === now.getDate()
+                ? "#B8E9CB"
+                : future
+                  ? "#6977801f"
+                  : "#69778033"
+            }
+            strokeWidth=".7"
+            aria-label={label}
+          >
+            <title>{label}</title>
+          </rect>
+        );
+      })}
+    </svg>
   );
 }

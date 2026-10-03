@@ -27,6 +27,10 @@ import {
   LogOut,
   Menu,
   X,
+  Sun,
+  Moon,
+  Shield,
+  UserRound,
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
@@ -217,29 +221,42 @@ function Shell({ user }: { user: User }) {
         </nav>
       </aside>
       <div className="workspace">
-        {location.pathname !== "/dashboard" && (
-          <header className="section-header">
-            <span className="section-icon">
-              <current.icon size={26} />
-            </span>
-            <img
-              className="mobile-brand"
-              src={`${import.meta.env.BASE_URL}logo.png`}
-              alt="CHOLOTO"
-            />
-            <div>
-              <span className="eyebrow">ESPACE DE GESTION</span>
-              <h1>{current.label}</h1>
-            </div>
-            <span className="online-status">
-              <i />
-              En ligne
-            </span>
-          </header>
-        )}
+        {location.pathname !== "/dashboard" &&
+          location.pathname !== "/support-inbox" && (
+            <header
+              className={`section-header ${["/users", "/payments", "/payment-reviews"].includes(location.pathname) ? "members-section-header" : ""}`}
+            >
+              <span className="section-icon">
+                <current.icon size={26} />
+              </span>
+              <img
+                className="mobile-brand"
+                src={`${import.meta.env.BASE_URL}logo.png`}
+                alt="CHOLOTO"
+              />
+              <div>
+                <span className="eyebrow">ESPACE DE GESTION</span>
+                <h1>{current.label}</h1>
+              </div>
+              <span className="online-status">
+                <i />
+                En ligne
+              </span>
+            </header>
+          )}
         <main
           id="main-content"
-          className={location.pathname === "/dashboard" ? "dashboard-main" : ""}
+          className={
+            location.pathname === "/dashboard"
+              ? "dashboard-main"
+              : location.pathname === "/support-inbox"
+                ? "support-main"
+                : ["/users", "/payments", "/payment-reviews"].includes(
+                      location.pathname,
+                    )
+                  ? "members-main"
+                  : ""
+          }
         >
           {action.feedback}
           <Suspense fallback={<Status loading />}>
@@ -266,32 +283,57 @@ function Shell({ user }: { user: User }) {
               <Route
                 path="/settings"
                 element={
-                  <Panel title="Paramètres">
-                    <p>{user.email}</p>
-                    <h3>Apparence</h3>
-                    <div className="tabs">
+                  <div className="settings-page">
+                    <Panel title="Session administrateur">
+                      <div className="settings-account">
+                        <span className="settings-avatar">
+                          {user.photoURL ? (
+                            <img src={user.photoURL} alt="" />
+                          ) : (
+                            <UserRound size={28} />
+                          )}
+                        </span>
+                        <div>
+                          <strong>
+                            {user.displayName || "Administrateur"}
+                          </strong>
+                          <small>{user.email}</small>
+                        </div>
+                        <span className="badge green">En ligne</span>
+                      </div>
+                    </Panel>
+                    <Panel title="Apparence">
+                      <div className="theme-selector">
+                        <button
+                          className={theme === "light" ? "active" : ""}
+                          onClick={() => setTheme("light")}
+                        >
+                          <Sun size={18} />
+                          Clair
+                        </button>
+                        <button
+                          className={theme === "dark" ? "active" : ""}
+                          onClick={() => setTheme("dark")}
+                        >
+                          <Moon size={18} />
+                          Sombre
+                        </button>
+                      </div>
+                    </Panel>
+                    <Panel title="Sécurité">
                       <button
-                        className={theme === "light" ? "active" : ""}
-                        onClick={() => setTheme("light")}
+                        className="danger"
+                        disabled={action.busy}
+                        onClick={() => {
+                          if (confirm("Se déconnecter ?"))
+                            void action.run(logout, "");
+                        }}
                       >
-                        Clair
+                        <LogOut size={18} />
+                        Déconnexion
                       </button>
-                      <button
-                        className={theme === "dark" ? "active" : ""}
-                        onClick={() => setTheme("dark")}
-                      >
-                        Sombre
-                      </button>
-                    </div>
-                    <h3>Session</h3>
-                    <button
-                      disabled={action.busy}
-                      onClick={() => void action.run(logout, "")}
-                    >
-                      <LogOut size={17} />
-                      Déconnexion
-                    </button>
-                  </Panel>
+                    </Panel>
+                  </div>
                 }
               />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />

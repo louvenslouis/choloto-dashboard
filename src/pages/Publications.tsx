@@ -9,9 +9,20 @@ import {
   Timestamp,
   updateDoc,
 } from "firebase/firestore";
-import { History, Plus, Trash2, Pencil } from "lucide-react";
+import {
+  History,
+  Plus,
+  Trash2,
+  Pencil,
+  Minus,
+  Star,
+  Heart,
+  Trophy,
+  Clover,
+  Hash,
+} from "lucide-react";
 import { auth, db } from "../services/firebase";
-import { dateLabel, useCollection, type Row } from "../services/data";
+import { dateLabel, asDate, useCollection, type Row } from "../services/data";
 import { predictionGroups } from "../services/publications";
 import {
   Field,
@@ -23,6 +34,7 @@ import {
   Modal,
 } from "../components/ui";
 import Comments from "./comments";
+import BingoActivity from "./BingoActivity";
 const bingoLotteries = [
   "NEW YORK",
   "GEORGIA",
@@ -59,8 +71,8 @@ export default function Publications() {
       : "bingo";
   const [history, setHistory] = useState(path.endsWith("/history"));
   return (
-    <>
-      {kind !== "bingo" && (
+    <div className={`publication-page ${kind}-page`}>
+      {kind === "prediction" && (
         <div className="tabs publication-tabs">
           <button
             className={!history ? "active" : ""}
@@ -89,7 +101,7 @@ export default function Publications() {
       ) : (
         <BingoForm />
       )}
-      {kind === "bingo" && (
+      {kind !== "prediction" && (
         <button
           className="bingo-history-shortcut"
           onClick={() => setHistory(!history)}
@@ -98,7 +110,7 @@ export default function Publications() {
           {history ? "Nouvelle publication" : "Historique des publications"}
         </button>
       )}
-    </>
+    </div>
   );
 }
 function CroixForm({ row, done }: { row?: Row; done?: () => void }) {
@@ -106,28 +118,28 @@ function CroixForm({ row, done }: { row?: Row; done?: () => void }) {
     row?.numeros || Array(9).fill(""),
   );
   const action = useAction();
+  const [confirming, setConfirming] = useState(false);
+  const publish = () => {
+    void action.run(async () => {
+      if (values.some((v, i) => i !== 4 && !/^\d{1,2}$/.test(v)))
+        throw new Error("Renseignez les huit numéros.");
+      const payload = {
+        numeros: values.map((v, i) => (i === 4 ? "0" : v)),
+        created_by: auth.currentUser!.uid,
+      };
+      if (row) await updateDoc(doc(db, "croix", row.id), payload);
+      else
+        await addDoc(collection(db, "croix"), {
+          ...payload,
+          date: serverTimestamp(),
+        });
+      if (done) done();
+      else setValues(Array(9).fill(""));
+    }, "Croix publiée");
+  };
   return (
     <Panel title="Croix de la chance">
-      <Form
-        onSubmit={() => {
-          void action.run(async () => {
-            if (values.some((v, i) => i !== 4 && !/^\d{1,2}$/.test(v)))
-              throw new Error("Renseignez les huit numéros.");
-            const payload = {
-              numeros: values.map((v, i) => (i === 4 ? "0" : v)),
-              created_by: auth.currentUser!.uid,
-            };
-            if (row) await updateDoc(doc(db, "croix", row.id), payload);
-            else
-              await addDoc(collection(db, "croix"), {
-                ...payload,
-                date: serverTimestamp(),
-              });
-            if (done) done();
-            else setValues(Array(9).fill(""));
-          }, "Croix publiée");
-        }}
-      >
+      <Form onSubmit={() => setConfirming(true)}>
         <div className="cross-grid">
           {values.map((v, i) =>
             i === 4 ? (
@@ -137,6 +149,9 @@ function CroixForm({ row, done }: { row?: Row; done?: () => void }) {
             ) : (
               <input
                 key={i}
+                placeholder={
+                  ["11", "12", "13", "21", "", "22", "31", "32", "33"][i]
+                }
                 aria-label={`Numéro ${i < 4 ? i + 1 : i}`}
                 value={v}
                 required
@@ -153,8 +168,36 @@ function CroixForm({ row, done }: { row?: Row; done?: () => void }) {
           )}
         </div>
         {action.feedback}
-        <Submit busy={action.busy}>{row ? "Enregistrer" : "Publier"}</Submit>
+        <Submit busy={action.busy}>
+          {row ? "Enregistrer" : "Publier la mise à jour"}
+        </Submit>
       </Form>
+      {confirming && (
+        <Modal
+          title="Vérifier la publication"
+          onClose={() => setConfirming(false)}
+        >
+          <div className="cross-grid small">
+            {values.map((v, i) => (
+              <span key={i}>{i === 4 ? "0" : v}</span>
+            ))}
+          </div>
+          {action.feedback}
+          <div className="form-actions">
+            <button onClick={() => setConfirming(false)}>Annuler</button>
+            <button
+              className="primary"
+              disabled={action.busy}
+              onClick={() => {
+                publish();
+                setConfirming(false);
+              }}
+            >
+              Publier
+            </button>
+          </div>
+        </Modal>
+      )}
     </Panel>
   );
 }
@@ -196,24 +239,39 @@ function PredictionForm({ row, done }: { row?: Row; done?: () => void }) {
           }, "Prédictions publiées");
         }}
       >
-        <div className="form-grid">
-          <Field label="Période">
-            <select value={period} onChange={(e) => setPeriod(e.target.value)}>
-              {["Matin", "Midi", "Soir"].map((p) => (
-                <option key={p}>{p}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Pourcentage">
-            <input
-              type="number"
-              min={0}
-              max={100}
-              required
-              value={percent}
-              onChange={(e) => setPercent(Number(e.target.value))}
-            />
-          </Field>
+        <div className="prediction-controls">
+          <div className="period-selector">
+            {["Matin", "Midi", "Soir"].map((p) => (
+              <button
+                type="button"
+                aria-pressed={period === p}
+                key={p}
+                onClick={() => setPeriod(p)}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          <div className="percentage-control">
+            <span>Pourcentage</span>
+            <button
+              type="button"
+              aria-label="Diminuer le pourcentage"
+              disabled={percent <= 0}
+              onClick={() => setPercent(Math.max(0, percent - 5))}
+            >
+              <Minus size={17} />
+            </button>
+            <strong>{percent} %</strong>
+            <button
+              type="button"
+              aria-label="Augmenter le pourcentage"
+              disabled={percent >= 100}
+              onClick={() => setPercent(Math.min(100, percent + 5))}
+            >
+              <Plus size={17} />
+            </button>
+          </div>
         </div>
         <div className="prediction-grid">
           {[...predictionGroups]
@@ -240,11 +298,27 @@ function PredictionForm({ row, done }: { row?: Row; done?: () => void }) {
             )
             .map(([key, name]) => (
               <fieldset key={key}>
-                <legend>{name}</legend>
+                <legend>
+                  <Star size={18} />
+                  {
+                    (
+                      {
+                        favori: "Boul favoris",
+                        soutni: "Soutni",
+                        boloto: "Boloto",
+                        mariage: "Mariages",
+                        chif3: "3 chiffres",
+                        chif4: "4 chiffres",
+                        extra: "Extra",
+                      } as Record<string, string>
+                    )[key]
+                  }
+                </legend>
                 <div className="numbers-input">
                   {values[key].map((v, i) => (
                     <input
                       key={i}
+                      placeholder={`N°${i + 1}`}
                       aria-label={`${name} ${i + 1}`}
                       inputMode="numeric"
                       maxLength={10}
@@ -264,7 +338,9 @@ function PredictionForm({ row, done }: { row?: Row; done?: () => void }) {
             ))}
         </div>
         {action.feedback}
-        <Submit busy={action.busy}>{row ? "Enregistrer" : "Publier"}</Submit>
+        <div className="publication-submit">
+          <Submit busy={action.busy}>{row ? "Enregistrer" : "Publier"}</Submit>
+        </div>
       </Form>
     </Panel>
   );
@@ -277,7 +353,10 @@ function BingoForm({ row, done }: { row?: Row; done?: () => void }) {
   const edit = (index: number, key: string, value: string) =>
     setItems(items.map((r, i) => (i === index ? { ...r, [key]: value } : r)));
   return (
-    <Panel title="Publication BINGO">
+    <Panel
+      title="Publication BINGO"
+      action={<span className="badge">{items.length} / 32</span>}
+    >
       <Form
         onSubmit={() => {
           void action.run(async () => {
@@ -299,6 +378,10 @@ function BingoForm({ row, done }: { row?: Row; done?: () => void }) {
         <div className="stack">
           {items.map((item, i) => (
             <div className="bingo-form" key={i}>
+              <div className="bingo-result-title">
+                <Trophy size={18} />
+                <strong>Résultat {i + 1}</strong>
+              </div>
               <Field label="Lot">
                 <select
                   value={item.valeur}
@@ -356,7 +439,9 @@ function BingoForm({ row, done }: { row?: Row; done?: () => void }) {
           >
             <Plus size={16} /> Ajouter un résultat
           </button>
-          <Submit busy={action.busy}>{row ? "Enregistrer" : "Publier"}</Submit>
+          <Submit busy={action.busy}>
+            {row ? "Enregistrer" : "Publier le BINGO"}
+          </Submit>
         </div>
         {action.feedback}
       </Form>
@@ -375,7 +460,10 @@ export function PublicationHistory({ kind }: { kind: string }) {
       {action.feedback}
       <div className="stack">
         {state.rows.map((row) => (
-          <article className="publication" key={row.id}>
+          <article
+            className={`publication history-card ${kind}-history-card`}
+            key={row.id}
+          >
             <div className="panel-heading">
               <strong>
                 {dateLabel(row.date, true)} {row.periode}
@@ -399,6 +487,25 @@ export function PublicationHistory({ kind }: { kind: string }) {
                 </button>
               </div>
             </div>
+            {kind === "prediction" && (
+              <div className="history-status">
+                <span className="badge">{row.periode}</span>
+                <span className="badge green">{row.pourcentage} %</span>
+              </div>
+            )}
+            {kind === "bingo" && (
+              <div className="history-status">
+                <Trophy size={18} />
+                <span
+                  className={`badge ${(asDate(row.expiration)?.getTime() || 0) > Date.now() ? "green" : ""}`}
+                >
+                  {(asDate(row.expiration)?.getTime() || 0) > Date.now()
+                    ? "Actif"
+                    : "Expiré"}
+                </span>
+                <small>{row.dataStack?.length || 0} résultat(s)</small>
+              </div>
+            )}
             {kind === "croix" ? (
               <div className="cross-grid small">
                 {row.numeros?.map((v: string, i: number) => (
@@ -453,7 +560,7 @@ export function PublicationHistory({ kind }: { kind: string }) {
                     </div>
                   ),
                 )}
-                <button onClick={() => setComments(row)}>Commentaires</button>
+                <BingoActivity id={row.id} />
               </>
             )}
           </article>

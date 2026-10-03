@@ -26,6 +26,12 @@ const rows: Record<string, Record<string, unknown>[]> = {
       ],
     },
   ],
+  "bingo/bingo-1/bingostats": [
+    { id: "reaction-1", user: "member-1", gain: true },
+  ],
+  "bingo/bingo-1/comments": [
+    { id: "comment-1", user: "member-1", text: "Bravo !", createdAt: stamp },
+  ],
   prediction: [
     {
       id: "prediction-1",
@@ -60,6 +66,9 @@ const rows: Record<string, Record<string, unknown>[]> = {
   payment_transactions: [
     {
       id: "payment-1",
+      user_uid: "member-1",
+      transaction_type: "renewal",
+      payment_method: "moncash",
       receipt_code: "CH-payment-1",
       user_display_name: "Membre Test",
       user_email: "membre@example.test",
@@ -81,6 +90,12 @@ const rows: Record<string, Record<string, unknown>[]> = {
     },
   ],
   "support_conversations/member-1/messages": [
+    {
+      id: "admin-message",
+      sender_role: "admin",
+      text: "Bonjour, nous allons vous aider.",
+      created_at: stamp,
+    },
     {
       id: "message-1",
       sender_role: "user",

@@ -7,7 +7,12 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
-import { useCollection, dateLabel, type Row } from "../services/data";
+import {
+  useCollection,
+  useDocument,
+  dateLabel,
+  type Row,
+} from "../services/data";
 import { Status, useAction } from "../components/ui";
 export default function Comments({ bingoId }: { bingoId: string }) {
   const [hidden, setHidden] = useState(false),
@@ -57,9 +62,8 @@ export default function Comments({ bingoId }: { bingoId: string }) {
       {action.feedback}
       {state.rows.map((row) => (
         <article className="publication" key={row.id}>
-          <small>
-            {row.user} · {dateLabel(row.createdAt, true)}
-          </small>
+          <CommentIdentity uid={row.user} date={row.createdAt} />
+          {row.updatedAt && <span className="badge">Modifié</span>}
           <p>{row.text}</p>
           {row.adminReply && <blockquote>{row.adminReply}</blockquote>}
           <div className="actions">
@@ -99,7 +103,7 @@ export default function Comments({ bingoId }: { bingoId: string }) {
               e.preventDefault();
               void action.run(() =>
                 updateDoc(doc(db, path, row.id), {
-                  adminReply: replies[row.id].trim(),
+                  adminReply: (replies[row.id] ?? row.adminReply ?? "").trim(),
                   adminReplyAt: serverTimestamp(),
                   adminReplyBy: auth.currentUser!.uid,
                 }),
@@ -111,15 +115,50 @@ export default function Comments({ bingoId }: { bingoId: string }) {
               placeholder="Répondre…"
               required
               maxLength={500}
-              value={replies[row.id] ?? ""}
+              value={replies[row.id] ?? row.adminReply ?? ""}
               onChange={(e) =>
                 setReplies({ ...replies, [row.id]: e.target.value })
               }
             />
-            <button disabled={action.busy}>Répondre</button>
+            <button disabled={action.busy}>
+              {row.adminReply ? "Modifier la réponse" : "Répondre"}
+            </button>
+            {row.adminReply && (
+              <button
+                type="button"
+                disabled={action.busy}
+                onClick={() => {
+                  if (confirm("Supprimer la réponse ?"))
+                    void action.run(() =>
+                      updateDoc(doc(db, path, row.id), {
+                        adminReply: deleteField(),
+                        adminReplyAt: deleteField(),
+                        adminReplyBy: deleteField(),
+                      }),
+                    );
+                }}
+              >
+                Supprimer la réponse
+              </button>
+            )}
           </form>
         </article>
       ))}
     </>
+  );
+}
+
+function CommentIdentity({ uid, date }: { uid: string; date: unknown }) {
+  const state = useDocument(`user/${uid}`);
+  return (
+    <div className="comment-identity">
+      <span className="avatar">{(state.data?.display_name || "M")[0]}</span>
+      <div>
+        <strong>
+          {state.data?.display_name || state.data?.email || "Membre CHOLOTO"}
+        </strong>
+        <small>{dateLabel(date, true)}</small>
+      </div>
+    </div>
   );
 }
