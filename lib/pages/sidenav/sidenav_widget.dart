@@ -280,7 +280,8 @@ class _CollapseButton extends StatelessWidget {
       onPressed: onPressed,
       tooltip: isCollapsed ? 'Agrandir le menu' : 'Réduire le menu',
       iconSize: 19,
-      visualDensity: VisualDensity.compact,
+      visualDensity: VisualDensity.standard,
+      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
       style: IconButton.styleFrom(
         foregroundColor: Colors.white.withValues(alpha: .76),
         backgroundColor: Colors.white.withValues(alpha: .07),
@@ -316,7 +317,7 @@ class _NavGroupLabel extends StatelessWidget {
       child: Text(
         label,
         style: theme.labelSmall.copyWith(
-          color: Colors.white.withValues(alpha: .38),
+          color: Colors.white.withValues(alpha: .65),
           fontSize: 9,
           fontWeight: FontWeight.w700,
           letterSpacing: 1.15,
@@ -407,10 +408,13 @@ class _NavTile extends StatelessWidget {
     final tile = Semantics(
       selected: selected,
       button: true,
-      label: label,
+      label: collapsed ? label : null,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
+        constraints: const BoxConstraints(minHeight: 48),
         decoration: BoxDecoration(
           color: selected
               ? Colors.white.withValues(alpha: .105)
@@ -424,8 +428,11 @@ class _NavTile extends StatelessWidget {
         ),
         child: InkWell(
           onTap: onTap,
+          focusColor: Colors.white.withValues(alpha: .24),
           borderRadius: BorderRadius.circular(13),
-          child: Padding(
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 48),
+            alignment: Alignment.center,
             padding: EdgeInsets.symmetric(
               horizontal: collapsed ? 8 : 10,
               vertical: 9,
@@ -436,7 +443,9 @@ class _NavTile extends StatelessWidget {
                   : MainAxisAlignment.start,
               children: [
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 220),
                   curve: Curves.easeOutCubic,
                   width: 3,
                   height: selected ? 20 : 0,
@@ -456,7 +465,7 @@ class _NavTile extends StatelessWidget {
                   Expanded(
                     child: Text(
                       label,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.bodyMedium.copyWith(
                         color: foreground,
@@ -476,6 +485,7 @@ class _NavTile extends StatelessWidget {
     if (!collapsed) return tile;
     return Tooltip(
       message: label,
+      excludeFromSemantics: true,
       waitDuration: const Duration(milliseconds: 350),
       child: tile,
     );

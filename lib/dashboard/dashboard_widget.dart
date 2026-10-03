@@ -386,8 +386,12 @@ class _DashboardWidgetState extends State<DashboardWidget> {
                                                 DropdownButton<_VipChartPeriod>(
                                               value: _vipChartPeriod,
                                               isExpanded: true,
+                                              dropdownColor:
+                                                  const Color(0xFF252D36),
+                                              iconEnabledColor: Colors.white70,
                                               style: theme.bodySmall.copyWith(
-                                                fontWeight: FontWeight.w600,
+                                                color: const Color(0xFFB9C4CE),
+                                                fontWeight: FontWeight.w500,
                                               ),
                                               items: _VipChartPeriod.values
                                                   .map((period) =>
@@ -835,19 +839,17 @@ class _StatsGrid extends StatelessWidget {
       builder: (context, constraints) {
         final columns = constraints.maxWidth >= 900
             ? 3
-            : constraints.maxWidth >= 560
+            : constraints.maxWidth >= 600
                 ? 2
-                : constraints.maxWidth >= 330
-                    ? 2
-                    : 1;
-        const gap = 14.0;
+                : 1;
+        const gap = 16.0;
         final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
         return Wrap(
           spacing: gap,
           runSpacing: gap,
           children: stats
               .map((stat) => SizedBox(
-                    width: stat.month != null && constraints.maxWidth < 560
+                    width: stat.month != null && columns == 2
                         ? constraints.maxWidth
                         : width,
                     child: _StatCard(stat: stat, loading: loading),
@@ -916,110 +918,156 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ConstrainedBox(
-          constraints: BoxConstraints(
-            minHeight: stat.month != null ? 350 : 0,
+    final radius = BorderRadius.circular(24);
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF102A43).withValues(alpha: .10),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
           ),
-          child: Material(
-            color: const Color(0xFF1C2229),
-            borderRadius: BorderRadius.circular(24),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: () => context.goNamed(stat.route),
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
+        ],
+      ),
+      child: Material(
+        color: const Color(0xFF1C2229),
+        borderRadius: radius,
+        clipBehavior: Clip.antiAlias,
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color.alphaBlend(
+                    stat.color.withValues(alpha: .09), const Color(0xFF1C2229)),
+                const Color(0xFF1C2229),
+              ],
+            ),
+            border: Border.all(color: Colors.white.withValues(alpha: .09)),
+          ),
+          child: InkWell(
+            onTap: () => context.goNamed(stat.route),
+            hoverColor: stat.color.withValues(alpha: .06),
+            highlightColor: stat.color.withValues(alpha: .09),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
+                        width: 40,
+                        height: 40,
                         decoration: BoxDecoration(
-                          color: stat.color.withValues(alpha: .18),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(stat.icon, color: stat.color, size: 20),
-                      ),
-                      const SizedBox(width: 9),
-                      Expanded(
-                          child: Text(
-                        stat.label,
-                        maxLines: 2,
-                        style: theme.bodyMedium.copyWith(
-                            color: Colors.white, fontWeight: FontWeight.w600),
-                      )),
-                      if (stat.month != null) ...[
-                        const SizedBox(width: 8),
-                        Tooltip(
-                          message:
-                              '${stat.value ?? '0'} Bingo validés • ${stat.period}',
-                          child: Text(
-                            loading ? '—' : stat.value ?? '0',
-                            style: theme.titleLarge.copyWith(
-                              color: stat.color,
-                              fontWeight: FontWeight.w700,
-                            ),
+                          color: stat.color.withValues(alpha: .14),
+                          borderRadius: BorderRadius.circular(13),
+                          border: Border.all(
+                            color: stat.color.withValues(alpha: .18),
                           ),
                         ),
-                      ],
-                    ]),
-                    SizedBox(height: stat.month != null ? 12 : 22),
-                    SizedBox(
-                      height: stat.month != null && !loading ? null : 152,
-                      width: double.infinity,
-                      child: loading
-                          ? Center(
-                              child: SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: stat.color)))
-                          : stat.month != null
-                              ? MonthlyBingoHeatmap(
-                                  asOf: stat.month!,
-                                  dailyCounts: stat.series,
-                                )
-                              : Semantics(
-                                  label: stat.chartLabel,
-                                  child: CustomPaint(
-                                      painter: _StatChartPainter(
-                                          values: stat.series,
-                                          color: stat.color)),
-                                ),
-                    ),
-                    if (stat.month == null) ...[
-                      const SizedBox(height: 12),
-                      Text(loading ? '—' : stat.value ?? '0',
-                          style: theme.headlineLarge.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -1)),
-                      const SizedBox(height: 4),
-                      Text(stat.detail ?? '',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.bodySmall.copyWith(color: stat.color)),
+                        child: Icon(stat.icon, color: stat.color, size: 21),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          stat.label,
+                          style: theme.bodyMedium.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.arrow_outward_rounded,
+                          color: Colors.white38, size: 18),
                     ],
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    loading ? '—' : stat.value ?? '0',
+                    style: theme.headlineLarge.copyWith(
+                      color: Colors.white,
+                      fontSize: 36,
+                      height: 1.1,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    stat.detail ?? '',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.bodySmall
+                        .copyWith(color: const Color(0xFFB9C4CE)),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    height: 180,
+                    width: double.infinity,
+                    child: loading
+                        ? Center(
+                            child: SizedBox.square(
+                              dimension: 22,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: stat.color),
+                            ),
+                          )
+                        : stat.month != null
+                            ? Center(
+                                child: FittedBox(
+                                  fit: BoxFit.contain,
+                                  child: SizedBox(
+                                    width: 260,
+                                    child: MonthlyBingoHeatmap(
+                                      asOf: stat.month!,
+                                      dailyCounts: stat.series,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : Semantics(
+                                label: stat.chartLabel,
+                                child: CustomPaint(
+                                  painter: _StatChartPainter(
+                                      values: stat.series, color: stat.color),
+                                ),
+                              ),
+                  ),
+                  const SizedBox(height: 18),
+                  Divider(
+                      height: 1, color: Colors.white.withValues(alpha: .10)),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 48,
+                    child: stat.periodSelector != null
+                        ? Theme(
+                            data: Theme.of(context).copyWith(
+                              canvasColor: const Color(0xFF252D36),
+                            ),
+                            child: stat.periodSelector!,
+                          )
+                        : Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              stat.period,
+                              style: theme.bodySmall.copyWith(
+                                color: const Color(0xFFB9C4CE),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                  ),
+                ],
               ),
             ),
           ),
         ),
-        if (stat.month == null) ...[
-          const SizedBox(height: 10),
-          if (stat.periodSelector != null) stat.periodSelector!,
-          Text(stat.period,
-              style: theme.bodySmall.copyWith(
-                  color: theme.primaryText, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 3),
-          Text(stat.chartLabel,
-              style: theme.labelSmall.copyWith(color: theme.secondaryText)),
-        ],
-      ],
+      ),
     );
   }
 }
@@ -1031,6 +1079,13 @@ class _StatChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final gridPaint = Paint()
+      ..color = Colors.white.withValues(alpha: .06)
+      ..strokeWidth = 1;
+    for (var row = 1; row <= 3; row++) {
+      final y = size.height * row / 4;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
     if (values.isEmpty) return;
     final points = values.length == 1 ? [values.first, values.first] : values;
     final maximum = points.fold<double>(1, (a, b) => a > b ? a : b);

@@ -319,7 +319,9 @@ class AdminMobileBottomBar extends StatelessWidget {
             child: NavigationBar(
               height: 68,
               selectedIndex: selectedIndex,
-              animationDuration: const Duration(milliseconds: 280),
+              animationDuration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 280),
               labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
               backgroundColor: theme.secondaryBackground,
               indicatorColor: theme.secondary.withValues(alpha: .22),
@@ -536,11 +538,14 @@ class AdminDialogHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: theme.titleLarge.copyWith(
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -.35,
+              Semantics(
+                header: true,
+                child: Text(
+                  title,
+                  style: theme.titleLarge.copyWith(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -.35,
+                  ),
                 ),
               ),
               if (subtitle != null) ...[
@@ -564,7 +569,7 @@ class AdminDialogHeader extends StatelessWidget {
           style: IconButton.styleFrom(
             backgroundColor: theme.primaryBackground,
             foregroundColor: theme.secondaryText,
-            minimumSize: const Size(44, 44),
+            minimumSize: const Size(48, 48),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(13),
               side: BorderSide(color: theme.alternate),
