@@ -207,11 +207,6 @@ class _PaymentTransactionsViewState extends State<PaymentTransactionsView>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 14),
-                  _PaymentTrendCard(
-                    ledger: ledger,
-                    period: data,
-                  ),
-                  const SizedBox(height: 16),
                   _PaymentToolbar(
                     searchController: _searchController,
                     statusFilter: _statusFilter,
@@ -231,6 +226,11 @@ class _PaymentTransactionsViewState extends State<PaymentTransactionsView>
                       setState(() => _methodFilter = method);
                     },
                     onRefresh: _retry,
+                  ),
+                  const SizedBox(height: 16),
+                  _PaymentTrendCard(
+                    ledger: ledger,
+                    period: data,
                   ),
                   const SizedBox(height: 16),
                   Expanded(

@@ -32,7 +32,7 @@ class _SidenavWidgetState extends State<SidenavWidget> {
         PublicationsWidget.routeName, PublicationsWidget.routePath),
     _NavItem('Prédictions', Icons.auto_graph_rounded,
         PredictionsWidget.routeName, PredictionsWidget.routePath),
-    _NavItem('Croix de la chance', Icons.brightness_7_rounded,
+    _NavItem('Croix de la chance', Icons.add_box_rounded,
         CroixWidget.routeName, CroixWidget.routePath),
   ];
 
