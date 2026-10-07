@@ -3,6 +3,7 @@ import '/components/admin_ui.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
+import 'payment_settings_widget.dart';
 import '/main.dart';
 import '/pages/sidenav/sidenav_widget.dart';
 import 'package:flutter/material.dart';
@@ -166,6 +167,19 @@ class AdminSettingsContent extends StatelessWidget {
                 compact: true,
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        AdminSurface(
+          padding: EdgeInsets.zero,
+          child: ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            leading: const AdminIconTile(
+                icon: Icons.account_balance_wallet_outlined),
+            title: const Text('Plans et paiements'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => context.pushNamed(PaymentSettingsWidget.routeName),
           ),
         ),
         const SizedBox(height: 18),

@@ -1,3 +1,4 @@
+import '/settings/payment_settings_widget.dart';
 import '/payments/payment_reviews_widget.dart';
 import 'dart:async';
 
@@ -119,6 +120,12 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           path: DashboardWidget.routePath,
           requireAuth: true,
           builder: (context, params) => const DashboardWidget(),
+        ),
+        FFRoute(
+          name: PaymentSettingsWidget.routeName,
+          path: PaymentSettingsWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => const PaymentSettingsWidget(),
         ),
         FFRoute(
           name: SettingsWidget.routeName,

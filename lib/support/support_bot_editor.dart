@@ -4,8 +4,6 @@ import '/components/admin_ui.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import 'support_bot.dart';
 import 'support_bot_repository.dart';
-import 'support_bot_payment_dialog.dart';
-import 'support_bot_plan_dialog.dart';
 
 class SupportBotEditor extends StatefulWidget {
   const SupportBotEditor({super.key, required this.repository});
@@ -262,102 +260,6 @@ class _SupportBotEditorState extends State<SupportBotEditor> {
       _dirty = true;
     });
   }
-
-  Future<void> _editPayment([SupportBotPayment? payment]) async {
-    final result = await _showEditorDialog<SupportBotPayment>(
-        (_) => SupportBotPaymentDialog(payment: payment));
-    if (result == null || !mounted) return;
-    setState(() {
-      if (payment == null) {
-        _payments.add(result);
-      } else {
-        _payments[_payments.indexOf(payment)] = result;
-      }
-      _dirty = true;
-    });
-  }
-
-  Future<void> _editPlan([SupportBotPlan? plan]) async {
-    final result = await _showEditorDialog<SupportBotPlan>(
-        (_) => SupportBotPlanDialog(plan: plan));
-    if (result == null || !mounted) return;
-    setState(() {
-      if (plan == null) {
-        _plans.add(result);
-      } else {
-        _plans[_plans.indexOf(plan)] = result;
-      }
-      _dirty = true;
-    });
-  }
-
-  Widget _plansSection() => _panel(
-        padding: EdgeInsets.zero,
-        child: ExpansionTile(
-          key: const ValueKey('bot-plans-section'),
-          shape: const Border(),
-          collapsedShape: const Border(),
-          tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          leading: _badge(Icons.workspace_premium_outlined),
-          title: Text('Plans',
-              style: TextStyle(color: _text, fontWeight: FontWeight.w700)),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          children: [
-            ..._plans.map((p) => ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                  leading: Icon(Icons.circle,
-                      size: 10, color: p.enabled ? _theme.success : _muted),
-                  title: Text(p.name,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text(p.enabled
-                      ? '${(p.amountHtgMinor / 100).toStringAsFixed(2)} HTG · ${(p.amountUsdMinor / 100).toStringAsFixed(2)} USD · ${p.months} mois'
-                      : 'Inactif'),
-                  trailing: IconButton(
-                      tooltip: 'Modifier le plan ${p.name}',
-                      icon: const Icon(Icons.edit_outlined, size: 19),
-                      onPressed: () => _editPlan(p)),
-                  onTap: () => _editPlan(p),
-                )),
-            TextButton.icon(
-                onPressed: _plans.length >= 30 ? null : () => _editPlan(),
-                icon: const Icon(Icons.add_circle_outline, size: 20),
-                label: const Text('Ajouter un plan')),
-          ],
-        ),
-      );
-
-  Widget _paymentSection() => _panel(
-        padding: EdgeInsets.zero,
-        child: ExpansionTile(
-          key: const ValueKey('bot-payment-section'),
-          shape: const Border(),
-          collapsedShape: const Border(),
-          tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          leading: _badge(Icons.account_balance_wallet_outlined),
-          title: Text('Informations de paiement',
-              style: TextStyle(color: _text, fontWeight: FontWeight.w700)),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          children: [
-            ..._payments.map((p) => ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                  leading: Icon(Icons.circle,
-                      size: 10, color: p.enabled ? _theme.success : _muted),
-                  title: Text(p.name,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text(p.enabled ? p.currency : 'Inactif'),
-                  trailing: IconButton(
-                      tooltip: 'Modifier ${p.name}',
-                      icon: const Icon(Icons.edit_outlined, size: 19),
-                      onPressed: () => _editPayment(p)),
-                  onTap: () => _editPayment(p),
-                )),
-            TextButton.icon(
-                onPressed: _payments.length >= 20 ? null : () => _editPayment(),
-                icon: const Icon(Icons.add_circle_outline, size: 20),
-                label: const Text('Ajouter un moyen de paiement')),
-          ],
-        ),
-      );
 
   Future<void> _delete(SupportBotNode node) async {
     final ids = <String>{node.id};
@@ -682,10 +584,6 @@ class _SupportBotEditorState extends State<SupportBotEditor> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _greetingSection(),
-                        const SizedBox(height: 16),
-                        _plansSection(),
-                        const SizedBox(height: 16),
-                        _paymentSection(),
                         const SizedBox(height: 24),
                         Padding(
                           padding: const EdgeInsets.only(bottom: 14, left: 4),
