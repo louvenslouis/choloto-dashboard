@@ -193,3 +193,65 @@ test("export Excel des membres", async ({ page }) => {
     "membre@example.test",
   );
 });
+
+test("infobulles des graphiques de l’accueil", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.route(/https:\/\/(?!fonts\.).*/, (route) => route.abort());
+  await page.goto("/dashboard");
+  const vip = page.locator(".legacy-stat").nth(0);
+  const chart = vip.locator("svg[aria-label='Évolution sur la période']");
+  const box = await chart.boundingBox();
+  expect(box).not.toBeNull();
+  await chart.hover({ position: { x: 20, y: 60 } });
+  await expect(vip.getByRole("tooltip")).toContainText("VIP actifs");
+  const firstDate = await vip.getByRole("tooltip").locator("span").innerText();
+  await chart.hover({ position: { x: box!.width - 9, y: 60 } });
+  await expect(vip.getByRole("tooltip").locator("span")).not.toHaveText(
+    firstDate,
+  );
+  await expect(vip.locator(".chart-highlight")).toBeVisible();
+  await page.screenshot({ path: "test-results/chart-hover.png" });
+  await page.mouse.move(0, 0);
+  await expect(vip.getByRole("tooltip")).toHaveCount(0);
+  await chart.focus();
+  await expect(vip.getByRole("tooltip").locator("span")).toHaveText(firstDate);
+  await chart.press("ArrowRight");
+  await expect(vip.getByRole("tooltip").locator("span")).not.toHaveText(
+    firstDate,
+  );
+  await chart.press("Escape");
+  await expect(vip.getByRole("tooltip")).toHaveCount(0);
+  const bingo = page.locator(".legacy-stat").nth(2);
+  const firstDay = bingo.locator(".bingo-day").first();
+  await firstDay.hover();
+  await expect(firstDay).toHaveClass(/is-active/);
+  await expect(bingo.getByRole("tooltip")).toContainText("Bingo validé");
+  await page.mouse.move(0, 0);
+  await expect(bingo.getByRole("tooltip")).toHaveCount(0);
+});
+
+test("la période VIP actualise les dates et la courbe", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.route(/https:\/\/(?!fonts\.).*/, (route) => route.abort());
+  await page.goto("/dashboard");
+  const vip = page.locator(".legacy-stat").first();
+  const chart = vip.locator("svg[aria-label='Évolution sur la période']");
+  const dates = chart.locator('text[dominant-baseline="hanging"]');
+  const initialDates = await dates.allTextContents();
+  const initialPath = await chart
+    .locator('path[stroke-width="2.5"]')
+    .getAttribute("d");
+  await page.getByLabel("Période VIP").selectOption("90");
+  await expect(dates.last()).not.toHaveText(initialDates.at(-1)!);
+  await expect(chart.locator('path[stroke-width="2.5"]')).not.toHaveAttribute(
+    "d",
+    initialPath!,
+  );
+  const threeMonthDates = await dates.allTextContents();
+  expect(threeMonthDates.every((date) => !date.includes("/"))).toBe(true);
+  await page.getByLabel("Période VIP").selectOption("180");
+  await expect(dates.last()).not.toHaveText(threeMonthDates.at(-1)!);
+  await page.screenshot({ path: "test-results/vip-six-month-axis.png" });
+  await page.getByLabel("Période VIP").selectOption("30");
+  await expect(dates).toHaveText(initialDates);
+});

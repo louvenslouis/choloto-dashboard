@@ -312,6 +312,9 @@ export default function Dashboard() {
           }
         >
           <LineChart
+            height={120}
+            valueLabel="VIP actifs"
+            monthlyAxis={horizon !== 30}
             values={Array.from(
               { length: vipDays + 1 },
               (_, i) =>
@@ -347,6 +350,7 @@ export default function Dashboard() {
           }
         >
           <LineChart
+            height={120}
             values={Array.from(
               { length: 30 },
               (_, i) =>
@@ -499,6 +503,7 @@ function Stat({
   );
 }
 function MonthGrid({ now, rows }: { now: Date; rows: Row[] }) {
+  const [activeDay, setActiveDay] = useState<number | null>(null);
   const offset =
     (new Date(now.getFullYear(), now.getMonth(), 1).getDay() + 6) % 7;
   const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -512,61 +517,92 @@ function MonthGrid({ now, rows }: { now: Date; rows: Row[] }) {
     height = 18 + weeks * cell + (weeks - 1) * 5;
   const colors = ["#303941", "#194F35", "#267D4B", "#37A862", "#4AC77D"];
   return (
-    <svg
-      className="bingo-calendar"
-      viewBox={`0 0 260 ${height}`}
-      role="img"
-      aria-label="BINGO du mois"
+    <div
+      className="interactive-chart"
+      onPointerLeave={() => setActiveDay(null)}
     >
-      {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((label, i) => (
-        <text
-          key={label}
-          x={25 + i * (cell + 5) + cell / 2}
-          y="9"
-          textAnchor="middle"
-        >
-          {label}
-        </text>
-      ))}
-      {Array.from({ length: weeks }, (_, i) => (
-        <text
-          key={i}
-          x="0"
-          y={18 + i * (cell + 5) + cell / 2}
-          dominantBaseline="central"
-        >
-          S{i + 1}
-        </text>
-      ))}
-      {counts.map((count, i) => {
-        const d = i + 1,
-          future = d > now.getDate(),
-          level =
-            count === 0 ? 0 : Math.min(4, Math.ceil((count / maximum) * 4));
-        const label = `${String(d).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()} : ${future ? "à venir" : `${count} Bingo validé${count === 1 ? "" : "s"}`}`;
-        return (
-          <rect
-            key={d}
-            x={25 + ((offset + i) % 7) * (cell + 5)}
-            y={18 + Math.floor((offset + i) / 7) * (cell + 5)}
-            width={cell}
-            height={cell}
-            rx="2.5"
-            fill={future ? "#30394140" : colors[level]}
-            stroke={
-              d === now.getDate()
-                ? "#B8E9CB"
-                : future
-                  ? "#6977801f"
-                  : "#69778033"
-            }
-            strokeWidth=".7"
-            aria-label={label}
+      <svg
+        className="bingo-calendar"
+        viewBox={`0 0 260 ${height}`}
+        role="img"
+        aria-label="BINGO du mois"
+      >
+        {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((label, i) => (
+          <text
+            key={label}
+            x={25 + i * (cell + 5) + cell / 2}
+            y="9"
+            textAnchor="middle"
           >
-            <title>{label}</title>
-          </rect>
-        );
-      })}
-    </svg>
+            {label}
+          </text>
+        ))}
+        {Array.from({ length: weeks }, (_, i) => (
+          <text
+            key={i}
+            x="0"
+            y={18 + i * (cell + 5) + cell / 2}
+            dominantBaseline="central"
+          >
+            S{i + 1}
+          </text>
+        ))}
+        {counts.map((count, i) => {
+          const d = i + 1,
+            future = d > now.getDate(),
+            level =
+              count === 0 ? 0 : Math.min(4, Math.ceil((count / maximum) * 4));
+          const label = `${String(d).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()} : ${future ? "à venir" : `${count} Bingo validé${count === 1 ? "" : "s"}`}`;
+          return (
+            <rect
+              key={d}
+              className={`bingo-day${activeDay === d ? " is-active" : ""}`}
+              tabIndex={0}
+              onPointerEnter={() => setActiveDay(d)}
+              onFocus={() => setActiveDay(d)}
+              onBlur={() => setActiveDay(null)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setActiveDay(null);
+              }}
+              x={25 + ((offset + i) % 7) * (cell + 5)}
+              y={18 + Math.floor((offset + i) / 7) * (cell + 5)}
+              width={cell}
+              height={cell}
+              rx="2.5"
+              fill={future ? "#30394140" : colors[level]}
+              stroke={
+                d === now.getDate()
+                  ? "#B8E9CB"
+                  : future
+                    ? "#6977801f"
+                    : "#69778033"
+              }
+              strokeWidth=".7"
+              aria-label={label}
+            />
+          );
+        })}
+      </svg>
+      {activeDay !== null && (
+        <div className="chart-tooltip calendar-tooltip" role="tooltip">
+          <span>
+            {new Date(
+              now.getFullYear(),
+              now.getMonth(),
+              activeDay,
+            ).toLocaleDateString("fr-FR", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}
+          </span>
+          <strong>
+            {activeDay > now.getDate()
+              ? "À venir"
+              : `${counts[activeDay - 1]} Bingo validé${counts[activeDay - 1] === 1 ? "" : "s"}`}
+          </strong>
+        </div>
+      )}
+    </div>
   );
 }
