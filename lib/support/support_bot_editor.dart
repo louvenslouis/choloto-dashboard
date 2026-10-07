@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import '/components/admin_ui.dart';
+import '/flutter_flow/flutter_flow_theme.dart';
 import 'support_bot.dart';
 import 'support_bot_repository.dart';
 import 'support_bot_payment_dialog.dart';
@@ -25,39 +27,28 @@ class _SupportBotEditorState extends State<SupportBotEditor> {
   String? _error;
   String _previewParent = '';
 
-  static const _mint = Color(0xFFBDF4D6);
-  static const _ink = Color(0xFF173D38);
-  bool get _dark => Theme.of(context).brightness == Brightness.dark;
-  Color get _surface => _dark ? const Color(0xFF172B2B) : Colors.white;
-  Color get _muted => _dark ? const Color(0xFFA7C0BA) : const Color(0xFF647B75);
-  Color get _line => _dark ? const Color(0xFF314843) : const Color(0xFFE2EBE7);
-  Color get _text => _dark ? const Color(0xFFEAF5EF) : _ink;
+  FlutterFlowTheme get _theme => FlutterFlowTheme.of(context);
+  Color get _surface => _theme.secondaryBackground;
+  Color get _muted => _theme.secondaryText;
+  Color get _line => _theme.alternate;
+  Color get _text => _theme.primaryText;
 
-  Widget _badge(IconData icon, Color color, {double size = 40}) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(size * .32),
-        ),
-        child: Icon(icon, color: _ink, size: size * .52),
+  Widget _badge(IconData icon, {double size = 40}) => AdminIconTile(
+        icon: icon,
+        size: size,
+        iconSize: size * .52,
+        radius: 12,
       );
 
   Widget _panel({required Widget child, EdgeInsetsGeometry? padding}) =>
-      Container(
+      AdminSurface(
         padding: padding ?? const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: _surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: _line),
-        ),
         child: child,
       );
 
-  Widget _sectionTitle(String title, IconData icon, Color color,
-          {Widget? trailing}) =>
+  Widget _sectionTitle(String title, IconData icon, {Widget? trailing}) =>
       Row(children: [
-        _badge(icon, color),
+        _badge(icon),
         const SizedBox(width: 12),
         Expanded(
           child: Text(title,
@@ -140,7 +131,7 @@ class _SupportBotEditorState extends State<SupportBotEditor> {
   Future<T?> _showEditorDialog<T>(WidgetBuilder builder) => showDialog<T>(
         context: context,
         builder: (_) => Theme(
-          data: _editorTheme,
+          data: Theme.of(context),
           child: Builder(builder: builder),
         ),
       );
@@ -307,7 +298,7 @@ class _SupportBotEditorState extends State<SupportBotEditor> {
           shape: const Border(),
           collapsedShape: const Border(),
           tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          leading: _badge(Icons.workspace_premium_outlined, _mint),
+          leading: _badge(Icons.workspace_premium_outlined),
           title: Text('Plans',
               style: TextStyle(color: _text, fontWeight: FontWeight.w700)),
           childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -315,8 +306,7 @@ class _SupportBotEditorState extends State<SupportBotEditor> {
             ..._plans.map((p) => ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                   leading: Icon(Icons.circle,
-                      size: 10,
-                      color: p.enabled ? const Color(0xFF29A575) : _muted),
+                      size: 10, color: p.enabled ? _theme.success : _muted),
                   title: Text(p.name,
                       style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text(p.enabled
@@ -343,8 +333,7 @@ class _SupportBotEditorState extends State<SupportBotEditor> {
           shape: const Border(),
           collapsedShape: const Border(),
           tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          leading: _badge(
-              Icons.account_balance_wallet_outlined, const Color(0xFFFFE6B5)),
+          leading: _badge(Icons.account_balance_wallet_outlined),
           title: Text('Informations de paiement',
               style: TextStyle(color: _text, fontWeight: FontWeight.w700)),
           childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -352,8 +341,7 @@ class _SupportBotEditorState extends State<SupportBotEditor> {
             ..._payments.map((p) => ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                   leading: Icon(Icons.circle,
-                      size: 10,
-                      color: p.enabled ? const Color(0xFF29A575) : _muted),
+                      size: 10, color: p.enabled ? _theme.success : _muted),
                   title: Text(p.name,
                       style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text(p.enabled ? p.currency : 'Inactif'),
@@ -414,13 +402,6 @@ class _SupportBotEditorState extends State<SupportBotEditor> {
   Widget _branch(SupportBotNode node, int depth) {
     final children = _nodes.where((n) => n.parent == node.id).toList();
     final siblings = _nodes.where((n) => n.parent == node.parent).toList();
-    const accents = [
-      Color(0xFFDAE8FF),
-      Color(0xFFE9DDFB),
-      Color(0xFFFFE6B5),
-      Color(0xFFBDF4D6),
-    ];
-    final color = accents[(siblings.indexOf(node) + depth) % accents.length];
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: _panel(
@@ -439,10 +420,11 @@ class _SupportBotEditorState extends State<SupportBotEditor> {
                   height: 34,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                      color: color, borderRadius: BorderRadius.circular(12)),
+                      color: _theme.primary.withValues(alpha: .10),
+                      borderRadius: BorderRadius.circular(12)),
                   child: Text('${siblings.indexOf(node) + 1}'.padLeft(2, '0'),
-                      style: const TextStyle(
-                          color: _ink, fontWeight: FontWeight.w800)),
+                      style: TextStyle(
+                          color: _theme.primary, fontWeight: FontWeight.w800)),
                 ),
           title: Text(node.label,
               style: TextStyle(
@@ -454,8 +436,7 @@ class _SupportBotEditorState extends State<SupportBotEditor> {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color:
-                    _dark ? const Color(0xFF203733) : const Color(0xFFF5F8F6),
+                color: _theme.primaryBackground,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Text(node.answer,
@@ -517,7 +498,7 @@ class _SupportBotEditorState extends State<SupportBotEditor> {
 
   Widget _greetingSection() => _panel(
           child: Column(children: [
-        _sectionTitle('Message d’accueil', Icons.waving_hand_outlined, _mint,
+        _sectionTitle('Message d’accueil', Icons.waving_hand_outlined,
             trailing: Tooltip(
                 message: 'Bot actif',
                 child: Switch(
@@ -553,7 +534,6 @@ class _SupportBotEditorState extends State<SupportBotEditor> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _sectionTitle('Aperçu des réponses', Icons.forum_outlined,
-            const Color(0xFFE9DDFB),
             trailing: IconButton(
               tooltip: 'Recommencer',
               onPressed: () => setState(() => _previewParent = ''),
@@ -561,7 +541,7 @@ class _SupportBotEditorState extends State<SupportBotEditor> {
             )),
         const SizedBox(height: 24),
         Row(children: [
-          _badge(Icons.smart_toy_rounded, _mint, size: 32),
+          _badge(Icons.smart_toy_rounded, size: 32),
           const SizedBox(width: 10),
           Expanded(
               child: Text('CHOLOTO',
@@ -574,7 +554,7 @@ class _SupportBotEditorState extends State<SupportBotEditor> {
               height: 7,
               decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _enabled ? const Color(0xFF29A575) : _muted)),
+                  color: _enabled ? _theme.success : _muted)),
           const SizedBox(width: 6),
           Text(_enabled ? 'Actif' : 'En pause',
               style: TextStyle(color: _muted, fontSize: 12)),
@@ -587,9 +567,10 @@ class _SupportBotEditorState extends State<SupportBotEditor> {
                 padding: const EdgeInsets.all(12),
                 margin: const EdgeInsets.only(left: 24, bottom: 12),
                 decoration: BoxDecoration(
-                    color: _mint, borderRadius: BorderRadius.circular(16)),
+                    color: _theme.primary,
+                    borderRadius: BorderRadius.circular(16)),
                 child: Text(selected.label,
-                    style: const TextStyle(color: _ink, fontSize: 13)),
+                    style: TextStyle(color: _theme.info, fontSize: 13)),
               )),
         ],
         AnimatedSize(
@@ -599,7 +580,7 @@ class _SupportBotEditorState extends State<SupportBotEditor> {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _dark ? const Color(0xFF203733) : const Color(0xFFF1F6F3),
+              color: _theme.primaryBackground,
               borderRadius: const BorderRadius.only(
                   topRight: Radius.circular(18),
                   bottomLeft: Radius.circular(18),
@@ -645,164 +626,133 @@ class _SupportBotEditorState extends State<SupportBotEditor> {
     ));
   }
 
-  ThemeData get _editorTheme {
-    final base = Theme.of(context);
-    return base.copyWith(
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF26745B),
-        brightness: base.brightness,
-        primary: _dark ? _mint : _ink,
-        onPrimary: _dark ? _ink : Colors.white,
-        surface: _surface,
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: _dark ? const Color(0xFF203733) : const Color(0xFFF5F8F6),
-        contentPadding: const EdgeInsets.all(16),
-        border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: _line)),
-        enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: _line)),
-      ),
-    );
-  }
-
   @override
-  Widget build(BuildContext context) => Theme(
-        data: _editorTheme,
-        child: PopScope(
-          canPop: !_dirty && !_saving,
-          onPopInvokedWithResult: (didPop, result) async {
-            if (didPop || _saving) return;
-            if (await _discard() && mounted) {
-              setState(() => _dirty = false);
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) Navigator.pop(context);
-              });
-            }
-          },
-          child: Scaffold(
-            backgroundColor:
-                _dark ? const Color(0xFF10201F) : const Color(0xFFF4F7F3),
-            appBar: AppBar(
-              backgroundColor: _surface,
-              foregroundColor: _text,
-              surfaceTintColor: Colors.transparent,
-              title: const Text('Bot du service client',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-              actions: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 18, vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                    ),
-                    onPressed:
-                        _loading || _saving || _nodes.isEmpty ? null : _publish,
-                    icon: _saving
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.rocket_launch_outlined, size: 18),
-                    label: Text(_saving ? 'Publication…' : 'Publier'),
+  Widget build(BuildContext context) => PopScope(
+        canPop: !_dirty && !_saving,
+        onPopInvokedWithResult: (didPop, result) async {
+          if (didPop || _saving) return;
+          if (await _discard() && mounted) {
+            setState(() => _dirty = false);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) Navigator.pop(context);
+            });
+          }
+        },
+        child: Scaffold(
+          backgroundColor: _theme.primaryBackground,
+          appBar: AppBar(
+            backgroundColor: _surface,
+            foregroundColor: _text,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            shape: Border(bottom: BorderSide(color: _line)),
+            title: const Text('Bot du service client',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
                   ),
+                  onPressed:
+                      _loading || _saving || _nodes.isEmpty ? null : _publish,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.rocket_launch_outlined, size: 18),
+                  label: Text(_saving ? 'Publication…' : 'Publier'),
                 ),
-              ],
-            ),
-            body: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : AbsorbPointer(
-                    absorbing: _saving,
-                    child: LayoutBuilder(builder: (context, constraints) {
-                      final wide = constraints.maxWidth >= 1050;
-                      final editor = Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _greetingSection(),
-                          const SizedBox(height: 16),
-                          _plansSection(),
-                          const SizedBox(height: 16),
-                          _paymentSection(),
-                          const SizedBox(height: 24),
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 14, left: 4),
-                            child: _sectionTitle(
-                                'Le parcours',
-                                Icons.account_tree_outlined,
-                                const Color(0xFFDAE8FF)),
-                          ),
-                          ..._nodes
-                              .where((n) => n.parent.isEmpty)
-                              .map((n) => _branch(n, 0)),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.all(18),
-                              side: BorderSide(color: _line),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(18)),
-                            ),
-                            onPressed:
-                                _nodes.length >= 80 ? null : () => _edit(),
-                            icon:
-                                const Icon(Icons.add_circle_outline, size: 20),
-                            label: const Text('Ajouter un choix'),
-                          ),
-                          if (!wide) ...[
-                            const SizedBox(height: 24),
-                            _preview(),
-                          ],
-                        ],
-                      );
-                      return SingleChildScrollView(
-                        padding: EdgeInsets.all(
-                            constraints.maxWidth < 600 ? 16 : 28),
-                        child: Center(
-                            child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1200),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              if (_error != null) ...[
-                                _panel(
-                                    child: Row(children: [
-                                  const Icon(Icons.error_outline,
-                                      color: Color(0xFFBA3546)),
-                                  const SizedBox(width: 12),
-                                  Expanded(child: Text(_error!)),
-                                  if (_nodes.isEmpty)
-                                    TextButton(
-                                        onPressed: _load,
-                                        child: const Text('Réessayer')),
-                                ])),
-                                const SizedBox(height: 16),
-                              ],
-                              if (_nodes.isNotEmpty || _dirty) ...[
-                                if (wide)
-                                  Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Expanded(flex: 3, child: editor),
-                                      const SizedBox(width: 24),
-                                      Expanded(flex: 2, child: _preview()),
-                                    ],
-                                  )
-                                else
-                                  editor,
-                              ],
-                            ],
-                          ),
-                        )),
-                      );
-                    }),
-                  ),
+              ),
+            ],
           ),
+          body: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : AbsorbPointer(
+                  absorbing: _saving,
+                  child: LayoutBuilder(builder: (context, constraints) {
+                    final wide = constraints.maxWidth >= 1050;
+                    final editor = Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _greetingSection(),
+                        const SizedBox(height: 16),
+                        _plansSection(),
+                        const SizedBox(height: 16),
+                        _paymentSection(),
+                        const SizedBox(height: 24),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 14, left: 4),
+                          child: _sectionTitle(
+                              'Le parcours', Icons.account_tree_outlined),
+                        ),
+                        ..._nodes
+                            .where((n) => n.parent.isEmpty)
+                            .map((n) => _branch(n, 0)),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.all(18),
+                            side: BorderSide(color: _line),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14)),
+                          ),
+                          onPressed: _nodes.length >= 80 ? null : () => _edit(),
+                          icon: const Icon(Icons.add_circle_outline, size: 20),
+                          label: const Text('Ajouter un choix'),
+                        ),
+                        if (!wide) ...[
+                          const SizedBox(height: 24),
+                          _preview(),
+                        ],
+                      ],
+                    );
+                    return SingleChildScrollView(
+                      padding:
+                          EdgeInsets.all(constraints.maxWidth < 600 ? 16 : 28),
+                      child: Center(
+                          child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1200),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (_error != null) ...[
+                              _panel(
+                                  child: Row(children: [
+                                Icon(Icons.error_outline, color: _theme.error),
+                                const SizedBox(width: 12),
+                                Expanded(child: Text(_error!)),
+                                if (_nodes.isEmpty)
+                                  TextButton(
+                                      onPressed: _load,
+                                      child: const Text('Réessayer')),
+                              ])),
+                              const SizedBox(height: 16),
+                            ],
+                            if (_nodes.isNotEmpty || _dirty) ...[
+                              if (wide)
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(flex: 3, child: editor),
+                                    const SizedBox(width: 24),
+                                    Expanded(flex: 2, child: _preview()),
+                                  ],
+                                )
+                              else
+                                editor,
+                            ],
+                          ],
+                        ),
+                      )),
+                    );
+                  }),
+                ),
         ),
       );
 }
