@@ -250,8 +250,32 @@ test("la période VIP actualise les dates et la courbe", async ({ page }) => {
   const threeMonthDates = await dates.allTextContents();
   expect(threeMonthDates.every((date) => !date.includes("/"))).toBe(true);
   await page.getByLabel("Période VIP").selectOption("180");
-  await expect(dates.last()).not.toHaveText(threeMonthDates.at(-1)!);
+  await expect(dates.first()).not.toHaveText(threeMonthDates[0]);
+  await expect(dates.last()).toHaveText(threeMonthDates.at(-1)!);
   await page.screenshot({ path: "test-results/vip-six-month-axis.png" });
   await page.getByLabel("Période VIP").selectOption("30");
   await expect(dates).toHaveText(initialDates);
+});
+
+test("Clean remet l’activité BINGO à zéro et persiste au rechargement", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 960 });
+  await page.route(/https:\/\/(?!fonts\.).*/, (route) => route.abort());
+  await page.goto("/dashboard");
+  const card = page
+    .locator(".task-tile-container")
+    .filter({ hasText: "Activité BINGO" });
+  await expect(card).toContainText("6 commentaires • 3 réactions");
+  await card.getByRole("button", { name: "Clean l’activité BINGO" }).click();
+  await expect(page).toHaveURL(/dashboard/);
+  await expect(card).toContainText("0 commentaires • 0 réactions");
+  await expect(card.getByRole("button")).toBeDisabled();
+  await page.reload();
+  await expect(card).toContainText("0 commentaires • 0 réactions");
+  await expect(card.getByRole("link")).toHaveAttribute(
+    "href",
+    "/publications/history",
+  );
+  await page.screenshot({ path: "test-results/bingo-clean-mobile.png" });
 });

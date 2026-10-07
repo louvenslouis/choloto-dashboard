@@ -1510,8 +1510,38 @@ main {
   background: var(--panel);
   color: var(--text);
 }
-.task-tile:last-child {
+.task-tile-container:last-child .task-tile {
   border-color: #16805c38;
+}
+.task-tile-container {
+  position: relative;
+  min-width: 0;
+}
+.task-tile-container:has(.activity-clean) .task-tile {
+  padding-right: 76px;
+}
+.task-tile-container:has(.activity-clean) .task-tile > svg {
+  display: none;
+}
+.activity-clean {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid #16805c38;
+  border-radius: 10px;
+  background: #16805c12;
+  color: var(--text);
+  font-size: 12px;
+}
+.activity-clean:hover:not(:disabled) {
+  background: #16805c26;
+}
+.activity-clean:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 .task-tile > div {
   flex: 1;

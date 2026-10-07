@@ -1,4 +1,5 @@
 import LineChart from "../components/TrendChart";
+import { vipPeriodStart, vipHistory } from "../services/vipHistory";
 import {
   useEffect,
   useState,
@@ -27,6 +28,14 @@ import { auth, db } from "../services/firebase";
 import { asDate, dateLabel, useCollection, type Row } from "../services/data";
 import { Panel, Status } from "../components/ui";
 const day = 86400000;
+type ActivityCounts = Record<string, { comments: number; reactions: number }>;
+function readCleanedActivity(key: string): ActivityCounts {
+  try {
+    return JSON.parse(localStorage.getItem(key) || "{}") ?? {};
+  } catch {
+    return {};
+  }
+}
 export default function Dashboard() {
   const [now, setNow] = useState(() => new Date());
   const [statistics, setStatistics] = useState(false);
@@ -38,6 +47,11 @@ export default function Dashboard() {
   ).getTime();
   const month = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
   const vip = useCollection("user", "end_sub", 0, now.getTime());
+  const vipTransactions = useCollection(
+    "payment_transactions",
+    "created_at",
+    0,
+  );
   const members = useCollection("user", "created_time", 0, start - 29 * day);
   const bingo = useCollection("bingo", "date", 0, month);
   const recent = useCollection("bingo", "date", 10);
@@ -60,14 +74,43 @@ export default function Dashboard() {
   const draws = useCollection("resultats", "date", 0, start);
   const predictions = useCollection("prediction", "date", 0, start);
   const cross = useCollection("croix", "date", 0, start);
-  const [activity, setActivity] = useState<{
-    comments: number;
-    reactions: number;
-  } | null>(null);
+  const activityKey = `bingo-activity-cleaned:${auth.currentUser?.uid}`;
+  const [cleanedActivity, setCleanedActivity] = useState(() =>
+    readCleanedActivity(activityKey),
+  );
+  const [activityCounts, setActivityCounts] = useState<ActivityCounts | null>(
+    null,
+  );
+  const activity =
+    activityCounts &&
+    Object.entries(activityCounts).reduce(
+      (total, [id, counts]) => ({
+        comments:
+          total.comments +
+          Math.max(0, counts.comments - (cleanedActivity[id]?.comments || 0)),
+        reactions:
+          total.reactions +
+          Math.max(0, counts.reactions - (cleanedActivity[id]?.reactions || 0)),
+      }),
+      { comments: 0, reactions: 0 },
+    );
+  const cleanActivity = () => {
+    if (!activityCounts) return;
+    try {
+      const next = { ...cleanedActivity, ...activityCounts };
+      localStorage.setItem(activityKey, JSON.stringify(next));
+      setCleanedActivity(next);
+      setActivityError("");
+    } catch {
+      setActivityError(
+        "Impossible d’enregistrer le nettoyage sur ce navigateur.",
+      );
+    }
+  };
   const [activityError, setActivityError] = useState("");
   useEffect(() => {
     let active = true;
-    setActivity(null);
+    setActivityCounts(null);
     setActivityError("");
     if (recent.loading || recent.error) return;
     Promise.all(
@@ -78,6 +121,7 @@ export default function Dashboard() {
           ),
         );
         return {
+          id: r.id,
           comments: counts[0].data().count + counts[1].data().count,
           reactions: counts[2].data().count,
         };
@@ -85,14 +129,8 @@ export default function Dashboard() {
     )
       .then((rows) => {
         if (active)
-          setActivity(
-            rows.reduce(
-              (a, b) => ({
-                comments: a.comments + b.comments,
-                reactions: a.reactions + b.reactions,
-              }),
-              { comments: 0, reactions: 0 },
-            ),
+          setActivityCounts(
+            Object.fromEntries(rows.map(({ id, ...counts }) => [id, counts])),
           );
       })
       .catch((e) => {
@@ -171,30 +209,7 @@ export default function Dashboard() {
       state: cross,
     },
   ];
-  const vipEnd = new Date(now);
-  if (horizon === 30) vipEnd.setDate(vipEnd.getDate() + 30);
-  else {
-    const target = new Date(
-      now.getFullYear(),
-      now.getMonth() + (horizon === 90 ? 3 : 6),
-      1,
-    );
-    const lastDay = new Date(
-      target.getFullYear(),
-      target.getMonth() + 1,
-      0,
-    ).getDate();
-    vipEnd.setFullYear(
-      target.getFullYear(),
-      target.getMonth(),
-      Math.min(now.getDate(), lastDay),
-    );
-  }
-  const vipDays = Math.round(
-    (Date.UTC(vipEnd.getFullYear(), vipEnd.getMonth(), vipEnd.getDate()) -
-      Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) /
-      day,
-  );
+  const vipStart = vipPeriodStart(now, horizon);
   const user = auth.currentUser;
   const metric = (state: { loading: boolean; error: string }, count: number) =>
     state.loading || state.error ? "—" : count.toLocaleString("fr-HT");
@@ -263,16 +278,32 @@ export default function Dashboard() {
             tone: "green",
           },
         ].map((item) => (
-          <Link className="task-tile" to={item.path} key={item.title}>
-            <span className={`task-icon ${item.tone}`}>
-              <item.icon size={21} />
-            </span>
-            <div>
-              <strong>{item.title}</strong>
-              <small>{item.detail}</small>
-            </div>
-            <ChevronRight size={18} />
-          </Link>
+          <div className="task-tile-container" key={item.title}>
+            <Link className="task-tile" to={item.path}>
+              <span className={`task-icon ${item.tone}`}>
+                <item.icon size={21} />
+              </span>
+              <div>
+                <strong>{item.title}</strong>
+                <small>{item.detail}</small>
+              </div>
+              <ChevronRight size={18} />
+            </Link>
+            {item.title === "Activité BINGO" && (
+              <button
+                className="activity-clean"
+                onClick={cleanActivity}
+                disabled={
+                  !activity ||
+                  !!activityError ||
+                  (activity.comments === 0 && activity.reactions === 0)
+                }
+                aria-label="Clean l’activité BINGO"
+              >
+                Clean
+              </button>
+            )}
+          </div>
         ))}
       </div>
       <Status
@@ -281,6 +312,7 @@ export default function Dashboard() {
           support.error,
           recent.error,
           activityError,
+          vipTransactions.error,
           vip.error,
           members.error,
           bingo.error,
@@ -315,24 +347,17 @@ export default function Dashboard() {
             height={120}
             valueLabel="VIP actifs"
             monthlyAxis={horizon !== 30}
-            values={Array.from(
-              { length: vipDays + 1 },
-              (_, i) =>
-                validVip.filter(
-                  (r) =>
-                    (asDate(r.end_sub)?.getTime() || 0) >=
-                    new Date(
-                      now.getFullYear(),
-                      now.getMonth(),
-                      now.getDate() + i,
-                      now.getHours(),
-                      now.getMinutes(),
-                      now.getSeconds(),
-                      now.getMilliseconds(),
-                    ).getTime(),
-                ).length,
-            )}
-            start={now.getTime()}
+            values={
+              vipTransactions.loading || vipTransactions.error
+                ? []
+                : vipHistory(
+                    vipTransactions.rows,
+                    vipStart,
+                    now,
+                    validVip.length,
+                  )
+            }
+            start={vipStart.getTime()}
           />
         </Stat>
         <Stat
