@@ -8,6 +8,7 @@ import {
   serverTimestamp,
   Timestamp,
   updateDoc,
+  runTransaction,
 } from "firebase/firestore";
 import {
   History,
@@ -35,6 +36,7 @@ import {
 } from "../components/ui";
 import Comments from "./comments";
 import BingoActivity from "./BingoActivity";
+import BingoSuggestions from "./BingoSuggestions";
 const bingoLotteries = [
   "NEW YORK",
   "GEORGIA",
@@ -70,6 +72,7 @@ export default function Publications() {
       ? "prediction"
       : "bingo";
   const [history, setHistory] = useState(path.endsWith("/history"));
+  const [suggestion, setSuggestion] = useState<Row | null>(null);
   return (
     <div className={`publication-page ${kind}-page`}>
       {kind === "prediction" && (
@@ -99,7 +102,22 @@ export default function Publications() {
       ) : kind === "prediction" ? (
         <PredictionForm />
       ) : (
-        <BingoForm />
+        <>
+          <BingoSuggestions onChoose={setSuggestion} />
+          <BingoForm />
+          {suggestion && (
+            <Modal
+              title="Vérifier le BINGO"
+              onClose={() => setSuggestion(null)}
+            >
+              <BingoForm
+                key={suggestion.id}
+                initial={suggestion}
+                done={() => setSuggestion(null)}
+              />
+            </Modal>
+          )}
+        </>
       )}
       {kind !== "prediction" && (
         <button
@@ -345,9 +363,17 @@ function PredictionForm({ row, done }: { row?: Row; done?: () => void }) {
     </Panel>
   );
 }
-function BingoForm({ row, done }: { row?: Row; done?: () => void }) {
+function BingoForm({
+  row,
+  initial,
+  done,
+}: {
+  row?: Row;
+  initial?: Row;
+  done?: () => void;
+}) {
   const [items, setItems] = useState<ReturnType<typeof emptyBingo>[]>(
-    row?.dataStack || [emptyBingo()],
+    row?.dataStack || initial?.dataStack || [emptyBingo()],
   );
   const action = useAction();
   const edit = (index: number, key: string, value: string) =>
@@ -364,11 +390,19 @@ function BingoForm({ row, done }: { row?: Row; done?: () => void }) {
             if (row) await updateDoc(doc(db, "bingo", row.id), payload);
             else {
               const now = new Date();
-              await addDoc(collection(db, "bingo"), {
+              const publication = {
                 ...payload,
                 date: Timestamp.fromDate(now),
                 expiration: Timestamp.fromMillis(now.getTime() + 86400000),
-              });
+              };
+              if (initial) {
+                const ref = doc(db, "bingo", `suggested_${initial.id}`);
+                await runTransaction(db, async (transaction) => {
+                  if ((await transaction.get(ref)).exists())
+                    throw new Error("Ce BINGO a déjà été publié.");
+                  transaction.set(ref, publication);
+                });
+              } else await addDoc(collection(db, "bingo"), publication);
               setItems([emptyBingo()]);
             }
             done?.();
