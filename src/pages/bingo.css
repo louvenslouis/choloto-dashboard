@@ -250,8 +250,7 @@
 .bingo-result-selects select {
   min-height: 44px;
   font-size: 13px;
-  background: var(--panel);
-  border-radius: 10px;
+  background-color: var(--panel);
 }
 .bingo-period-row {
   display: flex;

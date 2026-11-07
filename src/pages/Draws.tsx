@@ -47,6 +47,7 @@ export default function Draws() {
         <label className="check">
           <input
             type="checkbox"
+            role="switch"
             checked={automatic}
             onChange={(e) => setAutomatic(e.target.checked)}
           />

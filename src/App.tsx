@@ -318,14 +318,14 @@ function Shell({ user }: { user: User }) {
                     <Panel title="Apparence">
                       <div className="theme-selector">
                         <button
-                          className={theme === "light" ? "active" : ""}
+                          aria-pressed={theme === "light"}
                           onClick={() => setTheme("light")}
                         >
                           <Sun size={18} />
                           Clair
                         </button>
                         <button
-                          className={theme === "dark" ? "active" : ""}
+                          aria-pressed={theme === "dark"}
                           onClick={() => setTheme("dark")}
                         >
                           <Moon size={18} />

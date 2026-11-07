@@ -233,6 +233,7 @@ function Editor({
               <label className="check">
                 <input
                   type="checkbox"
+                  role="switch"
                   checked={config.enabled}
                   onChange={(e) => change("enabled", e.target.checked)}
                 />
@@ -513,6 +514,7 @@ function BotItemEditor({
           <label className="check">
             <input
               type="checkbox"
+              role="switch"
               checked={draft.enabled}
               onChange={(e) => change("enabled", e.target.checked)}
             />

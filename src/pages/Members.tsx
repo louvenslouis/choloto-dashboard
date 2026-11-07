@@ -1017,6 +1017,110 @@ function Transactions() {
   );
   return (
     <div className="transactions-page">
+      <div
+        className="transaction-toolbar"
+        role="group"
+        aria-label="Filtres des paiements"
+      >
+        <div className="search">
+          <Search size={18} />
+          <input
+            aria-label="Rechercher une transaction"
+            placeholder="Nom, e-mail ou reçu"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="transaction-filters">
+          <select
+            data-active={period !== "month"}
+            aria-label="Période des paiements"
+            value={period}
+            onChange={(e) => setPeriod(e.target.value)}
+          >
+            {[
+              ["7", "7 jours"],
+              ["30", "30 jours"],
+              ["month", "Ce mois"],
+              ["year", "Cette année"],
+              ["custom", "Sur mesure"],
+            ].map(([v, t]) => (
+              <option key={v} value={v}>
+                {t}
+              </option>
+            ))}
+          </select>
+          <select
+            data-active={status !== "all"}
+            aria-label="Statut des paiements"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
+            <option value="all">Statut</option>
+            <option value="active">Encaissés</option>
+            <option value="cancelled">Annulés</option>
+          </select>
+          <select
+            data-active={method !== "all"}
+            aria-label="Méthode de paiement"
+            value={method}
+            onChange={(e) => setMethod(e.target.value)}
+          >
+            <option value="all">Moyen</option>
+            {paymentMethods.map((m) => (
+              <option key={m}>{m}</option>
+            ))}
+          </select>
+        </div>
+        <div className="transaction-actions">
+          <button
+            aria-label="Actualiser les paiements"
+            title="Actualiser les paiements"
+            onClick={() => setRevision((v) => v + 1)}
+          >
+            <RefreshCw size={18} />
+          </button>
+          <button
+            onClick={() =>
+              exportCsv(
+                rows,
+                [
+                  "receipt_code",
+                  "user_display_name",
+                  "user_email",
+                  "amount",
+                  "currency",
+                  "created_at",
+                ],
+                "transactions",
+              )
+            }
+          >
+            <Download size={17} />
+            CSV
+          </button>
+        </div>
+        {period === "custom" && (
+          <div className="transaction-dates">
+            <Field label="Du">
+              <input
+                type="date"
+                value={from}
+                max={to}
+                onChange={(e) => setFrom(e.target.value)}
+              />
+            </Field>
+            <Field label="Au">
+              <input
+                type="date"
+                value={to}
+                min={from}
+                onChange={(e) => setTo(e.target.value)}
+              />
+            </Field>
+          </div>
+        )}
+      </div>
       <section className="payment-trend">
         <div>
           <h2>Transactions</h2>
@@ -1039,98 +1143,6 @@ function Transactions() {
           <LineChart values={series} start={start.getTime()} />
         </div>
       </section>
-      <div className="transaction-toolbar">
-        <div className="search">
-          <Search size={18} />
-          <input
-            aria-label="Rechercher une transaction"
-            placeholder="Nom, e-mail ou reçu"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <select
-          aria-label="Période des paiements"
-          value={period}
-          onChange={(e) => setPeriod(e.target.value)}
-        >
-          {[
-            ["7", "7 derniers jours"],
-            ["30", "30 derniers jours"],
-            ["month", "Mois en cours"],
-            ["year", "Année en cours"],
-            ["custom", "Période personnalisée"],
-          ].map(([v, t]) => (
-            <option key={v} value={v}>
-              {t}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Statut des paiements"
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-        >
-          <option value="all">Tous</option>
-          <option value="active">Encaissés</option>
-          <option value="cancelled">Annulés</option>
-        </select>
-        <select
-          aria-label="Méthode de paiement"
-          value={method}
-          onChange={(e) => setMethod(e.target.value)}
-        >
-          <option value="all">Tous les moyens</option>
-          {paymentMethods.map((m) => (
-            <option key={m}>{m}</option>
-          ))}
-        </select>
-        <button
-          aria-label="Actualiser les paiements"
-          onClick={() => setRevision((v) => v + 1)}
-        >
-          <RefreshCw size={18} />
-        </button>
-        <button
-          onClick={() =>
-            exportCsv(
-              rows,
-              [
-                "receipt_code",
-                "user_display_name",
-                "user_email",
-                "amount",
-                "currency",
-                "created_at",
-              ],
-              "transactions",
-            )
-          }
-        >
-          <Download size={17} />
-          CSV
-        </button>
-      </div>
-      {period === "custom" && (
-        <div className="form-grid">
-          <Field label="Du">
-            <input
-              type="date"
-              value={from}
-              max={to}
-              onChange={(e) => setFrom(e.target.value)}
-            />
-          </Field>
-          <Field label="Au">
-            <input
-              type="date"
-              value={to}
-              min={from}
-              onChange={(e) => setTo(e.target.value)}
-            />
-          </Field>
-        </div>
-      )}
       <Status {...state} empty={!rows.length} />
       <div className="payment-records">
         {rows.map((r) => (

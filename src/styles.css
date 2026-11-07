@@ -94,6 +94,106 @@ textarea {
   resize: vertical;
   min-height: 88px;
 }
+input:where(:not([type="checkbox"], [type="radio"], [type="file"])),
+textarea,
+select {
+  border-radius: 12px;
+  border-color: var(--control-border);
+}
+select {
+  appearance: none;
+  min-height: 42px;
+  padding: 10px 36px 10px 13px;
+  background-color: var(--panel);
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+select:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+@media (hover: hover) {
+  select:enabled:hover,
+  .search:hover {
+    border-color: var(--muted);
+  }
+}
+select:focus-visible,
+.field > :is(input, textarea):focus-visible,
+.search:focus-within {
+  border-color: var(--focus-border);
+  outline: 3px solid var(--focus-halo);
+  outline-offset: 1px;
+}
+.search input:focus-visible {
+  outline: none;
+}
+/* Keep the system picker on touchscreens, including inside dialogs. */
+@media (pointer: fine) {
+  @supports (appearance: base-select) and selector(select::picker(select)) {
+    select,
+    select::picker(select) {
+      appearance: base-select;
+    }
+    select::picker-icon {
+      display: none;
+    }
+    select:open {
+      border-color: var(--focus-border);
+    }
+    select::picker(select) {
+      margin-block: 5px;
+      padding: 5px;
+      max-height: min(320px, 48dvh);
+      max-width: calc(100vw - 24px);
+      overflow: auto;
+      overscroll-behavior: contain;
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--control-border);
+      border-radius: 14px;
+      box-shadow: var(--menu-shadow);
+    }
+    select option {
+      gap: 14px;
+      min-height: 36px;
+      padding: 8px 11px;
+      border-radius: 9px;
+      font: 500 13px/1.4 "Inter", sans-serif;
+      cursor: pointer;
+      overflow-wrap: anywhere;
+    }
+    select option:checked {
+      background: var(--selection-fill);
+      font-weight: 650;
+    }
+    select option::checkmark {
+      order: 1;
+      margin-inline-start: auto;
+      color: var(--selection-mark);
+    }
+    select option:hover {
+      background: var(--bg);
+    }
+    select option:focus-visible {
+      outline: 2px solid var(--focus-border);
+      outline-offset: -2px;
+    }
+  }
+}
+@media (forced-colors: active) {
+  select {
+    appearance: auto;
+    background-image: none;
+  }
+  select::picker(select) {
+    appearance: auto;
+  }
+}
 input[type="checkbox"] {
   width: 17px;
   height: 17px;
@@ -501,8 +601,8 @@ main {
   display: flex;
   align-items: center;
   background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 9px;
+  border: 1px solid var(--control-border);
+  border-radius: 12px;
   padding-left: 12px;
   flex: 1;
   min-width: 180px;
@@ -887,6 +987,47 @@ dialog::backdrop {
   gap: 8px;
   font-size: 12px;
   margin: 12px 0;
+  min-height: 32px;
+  cursor: pointer;
+}
+input[role="switch"] {
+  appearance: none;
+  display: inline-grid;
+  align-items: center;
+  width: 40px;
+  height: 24px;
+  padding: 2px;
+  margin: 0;
+  flex: none;
+  border: 1px solid transparent;
+  border-radius: 24px;
+  background: #718195;
+  cursor: pointer;
+}
+input[role="switch"]::before {
+  content: "";
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px #10243a40;
+}
+input[role="switch"]:checked {
+  background: #237956;
+}
+input[role="switch"]:checked::before {
+  transform: translateX(16px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  input[role="switch"]::before {
+    transition: transform var(--motion-fast) var(--ease-out);
+  }
+}
+@media (forced-colors: active) {
+  input[role="switch"]::before {
+    background: ButtonText;
+    forced-color-adjust: none;
+  }
 }
 .inline-form {
   display: flex;
@@ -1219,6 +1360,13 @@ dialog::backdrop {
   --primary: #12263f;
   --soft: #f6c74418;
   --input: #f5f7fa;
+  --control-border: #cbd5df;
+  --focus-border: #9b7523;
+  --focus-halo: #c595322e;
+  --selection-fill: #fcf2d6;
+  --selection-mark: #785810;
+  --menu-shadow: 0 12px 32px #10243a24, 0 2px 5px #10243a0d;
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%236b7d91' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 [data-theme="dark"] {
   --bg: #0a1320;
@@ -1228,6 +1376,12 @@ dialog::backdrop {
   --border: #2a3b50;
   --primary: #4b9acd;
   --input: #0a1320;
+  --control-border: #43556b;
+  --focus-border: #e3ba60;
+  --focus-halo: #e3ba6033;
+  --selection-fill: #3d3525;
+  --selection-mark: #f6ce73;
+  --menu-shadow: 0 12px 32px #0006, 0 2px 5px #0003;
 }
 button {
   border-radius: 12px;
@@ -1623,15 +1777,16 @@ main {
   font-size: 12px;
 }
 .legacy-stat-footer select {
-  background: #ffffff0c;
+  background-color: #ffffff0c;
   border-color: #ffffff24;
   color: #dce4ec;
   font-size: 12px;
   width: auto;
-  padding: 10px 12px;
+  color-scheme: dark;
 }
 .legacy-stat-footer option {
-  background: #1c2229;
+  color: var(--text);
+  background-color: var(--panel);
 }
 .month-grid {
   width: 260px;
@@ -2368,7 +2523,7 @@ dialog:has(.compensation-dialog) {
 }
 .members-desktop-controls select {
   font-size: 12px;
-  width: 165px;
+  width: 181px;
 }
 .members-desktop-controls > button {
   padding: 10px;
@@ -2724,12 +2879,12 @@ dialog:has(.compensation-dialog) {
   .member-menu {
     position: absolute;
     right: 0;
-    top: 100%;
+    top: calc(100% + 4px);
     width: 210px;
     background: var(--panel);
-    border: 1px solid var(--border);
+    border: 1px solid var(--control-border);
     border-radius: 14px;
-    box-shadow: 0 10px 25px #14203320;
+    box-shadow: var(--menu-shadow);
     padding: 6px;
     z-index: 10;
   }
@@ -3288,14 +3443,14 @@ dialog:has(.compensation-dialog) {
 .support-message-menu > div {
   position: absolute;
   right: 0;
-  top: 100%;
+  top: calc(100% + 4px);
   z-index: 4;
   width: 140px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  border: 1px solid var(--control-border);
+  border-radius: 14px;
   background: var(--panel);
-  padding: 4px;
-  box-shadow: 0 5px 16px #0002;
+  padding: 5px;
+  box-shadow: var(--menu-shadow);
 }
 .support-message-menu button {
   width: 100%;
@@ -3379,21 +3534,26 @@ dialog:has(.compensation-dialog) {
   object-fit: cover;
 }
 .theme-selector {
-  display: flex;
+  display: inline-flex;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: var(--bg);
 }
 .theme-selector button {
-  border-radius: 0;
-  padding: 12px 24px;
+  min-height: 38px;
+  padding: 8px 18px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--muted);
 }
-.theme-selector button:first-child {
-  border-radius: 12px 0 0 12px;
-}
-.theme-selector button:last-child {
-  border-radius: 0 12px 12px 0;
-}
-.theme-selector .active {
-  background: #f6c74429;
-  border-color: #f6c744;
+.theme-selector button[aria-pressed="true"] {
+  background: var(--panel);
+  border-color: var(--control-border);
+  color: var(--text);
+  box-shadow: 0 1px 3px #10243a14;
 }
 button.danger {
   color: #e14f5a;
@@ -3610,7 +3770,7 @@ dialog:has(.current-plan) {
 }
 .bingo-form .field input,
 .bingo-form .field select {
-  background: var(--panel);
+  background-color: var(--panel);
 }
 .bingo-form > button {
   align-self: end;
@@ -3949,17 +4109,86 @@ dialog:has(.bot-builder) > .modal-head {
 }
 .transaction-toolbar {
   display: flex;
-  gap: 8px;
-  margin: 16px 0;
+  align-items: center;
   flex-wrap: wrap;
-}
-.transaction-toolbar > select {
-  width: auto;
-  max-width: 100%;
+  gap: 6px;
+  padding: 8px;
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: var(--panel);
 }
 .transaction-toolbar .search {
-  flex: 1;
-  min-width: 200px;
+  flex: 1 1 160px;
+  min-width: 0;
+  background: var(--bg);
+}
+.transaction-toolbar input,
+.transaction-toolbar select,
+.transaction-toolbar button {
+  min-height: 36px;
+  padding: 6px 9px;
+  font-size: 13px;
+}
+.transaction-filters,
+.transaction-actions,
+.transaction-dates {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.transaction-filters select {
+  width: auto;
+  padding-inline-end: 26px;
+  background-position: right 7px center;
+}
+.transaction-filters select[data-active="true"] {
+  background-color: color-mix(in srgb, #8b7cf6 12%, var(--panel));
+  border-color: color-mix(in srgb, #8b7cf6 55%, var(--border));
+}
+.transaction-dates {
+  flex-basis: 100%;
+  border-top: 1px solid var(--border);
+  padding-top: 7px;
+  gap: 12px;
+}
+.transaction-dates .field {
+  flex-direction: row;
+  align-items: center;
+  min-width: 0;
+  margin: 0;
+}
+@container (max-width: 690px) {
+  .transaction-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .transaction-actions {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .transaction-filters,
+  .transaction-dates {
+    grid-column: 1 / -1;
+  }
+  .transaction-filters {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr 1.15fr;
+  }
+  .transaction-filters select {
+    width: 100%;
+    padding-inline: 6px 19px;
+    background-position: right 3px center;
+  }
+  .transaction-dates .field {
+    flex: 1;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 3px;
+  }
+}
+.transactions-page {
+  container-type: inline-size;
 }
 .payment-records {
   display: flex;
