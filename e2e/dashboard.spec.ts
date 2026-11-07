@@ -243,6 +243,9 @@ for (const [width, month, weeks] of [
         return {
           width,
           height,
+          chartHeight: card
+            .querySelector(".legacy-chart")!
+            .getBoundingClientRect().height,
           bottomGap: bottom - footer.getBoundingClientRect().bottom,
         };
       }),
@@ -252,9 +255,21 @@ for (const [width, month, weeks] of [
       expect(size.width / size.height).toBeGreaterThanOrEqual(0.9);
       expect(size.width / size.height).toBeLessThanOrEqual(1.2);
       expect(Math.abs(size.width - sizes[0].width)).toBeLessThanOrEqual(1);
+      expect(Math.abs(size.height - sizes[0].height)).toBeLessThanOrEqual(1);
+      expect(
+        Math.abs(size.chartHeight - sizes[0].chartHeight),
+      ).toBeLessThanOrEqual(1);
       expect(size.bottomGap).toBeGreaterThanOrEqual(0);
       expect(Math.round(size.bottomGap)).toBeLessThanOrEqual(17);
     }
+    const periods = page
+      .getByRole("group", { name: "Période VIP" })
+      .getByRole("button");
+    await expect(periods).toHaveText(["30 jours", "3 mois", "6 mois"]);
+    const tops = await periods.evaluateAll((buttons) =>
+      buttons.map((button) => button.offsetTop),
+    );
+    expect(new Set(tops).size).toBe(1);
     const area = await card.locator(".legacy-chart").boundingBox();
     const cells = await calendar
       .locator(".bingo-day")
@@ -330,7 +345,11 @@ test("la période VIP actualise les dates et la courbe", async ({ page }) => {
   const initialPath = await chart
     .locator('path[stroke-width="2.5"]')
     .getAttribute("d");
-  await page.getByLabel("Période VIP").selectOption("90");
+  const periods = vip.getByRole("group", { name: "Période VIP" });
+  const selected = periods.getByRole("button", { pressed: true });
+  await expect(selected).toHaveText("30 jours");
+  await periods.getByRole("button", { name: "3 mois" }).click();
+  await expect(selected).toHaveText("3 mois");
   await expect(dates.last()).not.toHaveText(initialDates.at(-1)!);
   await expect(chart.locator('path[stroke-width="2.5"]')).not.toHaveAttribute(
     "d",
@@ -338,11 +357,13 @@ test("la période VIP actualise les dates et la courbe", async ({ page }) => {
   );
   const threeMonthDates = await dates.allTextContents();
   expect(threeMonthDates.every((date) => !date.includes("/"))).toBe(true);
-  await page.getByLabel("Période VIP").selectOption("180");
+  await periods.getByRole("button", { name: "6 mois" }).press("Enter");
+  await expect(selected).toHaveText("6 mois");
   await expect(dates.first()).not.toHaveText(threeMonthDates[0]);
   await expect(dates.last()).toHaveText(threeMonthDates.at(-1)!);
   await page.screenshot({ path: "test-results/vip-six-month-axis.png" });
-  await page.getByLabel("Période VIP").selectOption("30");
+  await periods.getByRole("button", { name: "30 jours" }).click();
+  await expect(selected).toHaveText("30 jours");
   await expect(dates).toHaveText(initialDates);
 });
 

@@ -1784,18 +1784,24 @@ main {
   align-items: center;
   color: #b9c4ce;
   font-size: 12px;
+  line-height: 24px;
 }
-.legacy-stat-footer select {
-  background-color: #ffffff0c;
-  border-color: #ffffff24;
-  color: #dce4ec;
-  font-size: 12px;
-  width: auto;
-  color-scheme: dark;
+.vip-periods {
+  display: flex;
+  gap: 16px;
 }
-.legacy-stat-footer option {
-  color: var(--text);
-  background-color: var(--panel);
+.vip-periods button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.vip-periods button:hover,
+.vip-periods button[aria-pressed="true"] {
+  color: white;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .month-grid {
   width: 260px;

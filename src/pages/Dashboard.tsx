@@ -30,6 +30,11 @@ import { auth, db } from "../services/firebase";
 import { asDate, dateLabel, useCollection, type Row } from "../services/data";
 import { Panel, Status } from "../components/ui";
 const day = 86400000;
+const vipPeriods = [
+  { days: 30, label: "30 jours" },
+  { days: 90, label: "3 mois" },
+  { days: 180, label: "6 mois" },
+];
 type ActivityCounts = Record<string, { comments: number; reactions: number }>;
 function readCleanedActivity(key: string): ActivityCounts {
   try {
@@ -352,15 +357,18 @@ export default function Dashboard() {
           icon={<Crown size={20} />}
           path="/users"
           footer={
-            <select
-              aria-label="Période VIP"
-              value={horizon}
-              onChange={(e) => setHorizon(Number(e.target.value))}
-            >
-              <option value={30}>30 jours</option>
-              <option value={90}>3 mois</option>
-              <option value={180}>6 mois</option>
-            </select>
+            <div className="vip-periods" role="group" aria-label="Période VIP">
+              {vipPeriods.map(({ days, label }) => (
+                <button
+                  key={days}
+                  type="button"
+                  aria-pressed={horizon === days}
+                  onClick={() => setHorizon(days)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           }
         >
           <LineChart
