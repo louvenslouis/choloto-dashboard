@@ -2331,17 +2331,16 @@ main {
   fill: #b9c4ce;
   font-size: 10px;
 }
-.legacy-stat .legacy-chart:has(.bingo-calendar) {
-  height: auto;
-}
 .bingo-calendar {
   display: grid;
+  height: 100%;
   grid-template-columns: max-content repeat(7, minmax(0, 1fr));
-  grid-template-rows: auto;
-  grid-auto-rows: 28px;
-  gap: 4px;
+  grid-template-rows: max-content;
+  grid-auto-rows: 1fr;
+  gap: 2px 4px;
   color: #b9c4ce;
   font-size: 12px;
+  line-height: 1.2;
   text-align: center;
 }
 .bingo-calendar > span {

@@ -210,10 +210,11 @@ test("export Excel des membres", async ({ page }) => {
 
 for (const [width, month, weeks] of [
   [360, 2, 4],
+  [360, 5, 6],
   [820, 5, 6],
   [1440, 4, 5],
 ]) {
-  test(`le calendrier Bingo remplit la carte à ${width}px`, async ({
+  test(`le calendrier Bingo de ${weeks} semaines remplit la carte à ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
@@ -242,7 +243,12 @@ for (const [width, month, weeks] of [
     const right = Math.max(...cells.map((cell) => cell.right));
     expect(right - left).toBeGreaterThan(area!.width * 0.85);
     expect(right).toBeLessThanOrEqual(area!.x + area!.width + 1);
-    expect(cells[0].height).toBeGreaterThanOrEqual(24);
+    const adjacentChart = page
+      .locator(".legacy-stat")
+      .filter({ hasText: "Nouveaux membres" })
+      .locator(".legacy-chart");
+    expect(area!.height).toBe((await adjacentChart.boundingBox())!.height);
+    expect(cells[0].height).toBeGreaterThanOrEqual(15);
     expect(Math.max(...cells.map((cell) => cell.bottom))).toBeLessThanOrEqual(
       area!.y + area!.height + 1,
     );
