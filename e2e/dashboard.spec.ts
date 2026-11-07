@@ -213,6 +213,7 @@ for (const [width, month, weeks] of [
   [360, 2, 4],
   [360, 5, 6],
   [820, 5, 6],
+  [1024, 5, 6],
   [1440, 4, 5],
 ]) {
   test(`le calendrier Bingo de ${weeks} semaines remplit la carte à ${width}px`, async ({
@@ -230,6 +231,26 @@ for (const [width, month, weeks] of [
       await page
         .getByRole("button", { name: "Statistiques", exact: true })
         .click();
+    const strip = page.getByRole("region", { name: "Statistiques" });
+    const titles = strip.locator(".legacy-stat-title strong");
+    await expect(titles).toHaveText([
+      "VIP actifs",
+      "Bingo mensuel",
+      "Réactions Bingo",
+      "Nouveaux membres",
+    ]);
+    const lastCard = strip.locator(".legacy-stat").last();
+    if (width < 1440) {
+      await expect(lastCard).not.toBeInViewport();
+      await strip.hover();
+      await page.mouse.wheel(2000, 0);
+    }
+    await expect(lastCard).toBeInViewport({ ratio: 0.99 });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
     const calendar = page.getByLabel("BINGO du mois", { exact: true });
     await expect(
       calendar.getByText(`S${weeks}`, { exact: true }),
@@ -237,13 +258,14 @@ for (const [width, month, weeks] of [
     const card = page.locator(".legacy-stat").filter({ has: calendar });
     const sizes = await page.locator(".legacy-stat").evaluateAll((cards) =>
       cards.map((card) => {
-        const { width, height, bottom } = card.getBoundingClientRect();
+        const { width, height, bottom, top } = card.getBoundingClientRect();
         const footer = card.querySelector(
           ".legacy-stat-footer > :first-child",
         )!;
         return {
           width,
           height,
+          top,
           chartHeight: card
             .querySelector(".legacy-chart")!
             .getBoundingClientRect().height,
@@ -253,6 +275,7 @@ for (const [width, month, weeks] of [
     );
     expect(sizes).toHaveLength(4);
     for (const size of sizes) {
+      expect(size.top).toBe(sizes[0].top);
       expect(size.width / size.height).toBeGreaterThanOrEqual(0.9);
       expect(size.width / size.height).toBeLessThanOrEqual(1.2);
       expect(Math.abs(size.width - sizes[0].width)).toBeLessThanOrEqual(1);
@@ -328,7 +351,9 @@ test("infobulles des graphiques de l’accueil", async ({ page }) => {
   );
   await chart.press("Escape");
   await expect(vip.getByRole("tooltip")).toHaveCount(0);
-  const bingo = page.locator(".legacy-stat").nth(2);
+  const bingo = page
+    .locator(".legacy-stat")
+    .filter({ hasText: "Bingo mensuel" });
   const firstDay = bingo.locator(".bingo-day").first();
   await firstDay.hover();
   await expect(firstDay).toHaveClass(/is-active/);

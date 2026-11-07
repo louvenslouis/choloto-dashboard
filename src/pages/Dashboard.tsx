@@ -353,7 +353,7 @@ export default function Dashboard() {
           .filter(Boolean)
           .join(" · ")}
       />
-      <div className="legacy-stats">
+      <section className="legacy-stats" aria-label="Statistiques" tabIndex={0}>
         <Stat
           title="VIP actifs"
           value={metric(vip, validVip.length)}
@@ -391,35 +391,6 @@ export default function Dashboard() {
                   )
             }
             start={vipStart.getTime()}
-          />
-        </Stat>
-        <Stat
-          title="Nouveaux membres"
-          value={metric(members, registrations.length)}
-          detail="inscriptions sur 30 jours"
-          color="#3A7CA5"
-          icon={<Users size={20} />}
-          path="/users"
-          footer={
-            <span>
-              {new Date(start - 29 * day).toLocaleDateString("fr-FR")} –{" "}
-              {now.toLocaleDateString("fr-FR")}
-            </span>
-          }
-        >
-          <LineChart
-            height={120}
-            values={Array.from(
-              { length: 30 },
-              (_, i) =>
-                registrations.filter((r) => {
-                  const t = asDate(r.created_time)?.getTime() || 0;
-                  return (
-                    t >= start - (29 - i) * day && t < start - (28 - i) * day
-                  );
-                }).length,
-            )}
-            start={start - 29 * day}
           />
         </Stat>
         <Stat
@@ -475,7 +446,36 @@ export default function Dashboard() {
             ariaLabel="Réactions Bingo par jour, gagné et pas gagné"
           />
         </Stat>
-      </div>
+        <Stat
+          title="Nouveaux membres"
+          value={metric(members, registrations.length)}
+          detail="inscriptions sur 30 jours"
+          color="#3A7CA5"
+          icon={<Users size={20} />}
+          path="/users"
+          footer={
+            <span>
+              {new Date(start - 29 * day).toLocaleDateString("fr-FR")} –{" "}
+              {now.toLocaleDateString("fr-FR")}
+            </span>
+          }
+        >
+          <LineChart
+            height={120}
+            values={Array.from(
+              { length: 30 },
+              (_, i) =>
+                registrations.filter((r) => {
+                  const t = asDate(r.created_time)?.getTime() || 0;
+                  return (
+                    t >= start - (29 - i) * day && t < start - (28 - i) * day
+                  );
+                }).length,
+            )}
+            start={start - 29 * day}
+          />
+        </Stat>
+      </section>
       <div className="operational-panels">
         <Panel
           title="Aujourd’hui"
