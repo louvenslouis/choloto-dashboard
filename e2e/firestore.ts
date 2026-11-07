@@ -28,6 +28,8 @@ const rows: Record<string, Record<string, unknown>[]> = {
   ],
   "bingo/bingo-1/bingostats": [
     { id: "reaction-1", user: "member-1", gain: true },
+    { id: "reaction-2", user: "member-2", gain: true },
+    { id: "reaction-3", user: "member-3", gain: false },
   ],
   "bingo/bingo-1/comments": [
     { id: "comment-1", user: "member-1", text: "Bravo !", createdAt: stamp },
@@ -104,6 +106,34 @@ const rows: Record<string, Record<string, unknown>[]> = {
     },
   ],
 };
+if (new URLSearchParams(location.search).has("reaction-fixture")) {
+  for (const [i, [offset, wins, misses]] of [
+    [-30, 50, 50],
+    [-29, 1, 3],
+    [-29, 2, 1],
+    [-23, 7, 2],
+    [-17, 5, 3],
+    [-12, 1, 4],
+    [-5, 8, 6],
+    [-2, 2, 3],
+    [1, 50, 50],
+  ].entries()) {
+    const date = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + offset,
+    );
+    const id = `bingo-history-${i}`;
+    rows.bingo.push({ id, date: { toDate: () => date } });
+    rows[`bingo/${id}/bingostats`] = Array.from(
+      { length: wins + misses },
+      (_, n) => ({
+        id: `reaction-${n}`,
+        gain: n < wins,
+      }),
+    );
+  }
+}
 if (new URLSearchParams(location.search).has("compensation-fixture")) {
   const id = `compensation_operation1_${"member".repeat(20)}`;
   rows.payment_transactions.push({
@@ -130,7 +160,10 @@ export const doc = (base: unknown, ...path: string[]) => {
   const ref = collection(base, ...path);
   return { ...ref, id: ref.path.split("/").at(-1) };
 };
-export const query = (ref: unknown, ..._filters: unknown[]) => ref;
+export const query = (ref: { path: string }, ...filters: unknown[][]) => ({
+  ...ref,
+  filters,
+});
 export const where = (...args: unknown[]) => args;
 export const orderBy = (...args: unknown[]) => args;
 export const limit = (...args: unknown[]) => args;
@@ -162,9 +195,22 @@ export const onSnapshot = (
   });
   return () => {};
 };
-export const getCountFromServer = async (ref: { path: string }) => ({
-  data: () => ({ count: ref.path === "user" ? 1248 : 3 }),
-});
+export const getCountFromServer = async (ref: {
+  path: string;
+  filters?: unknown[][];
+}) => {
+  if (ref.path.endsWith("/bingostats")) {
+    const documents = rows[ref.path] ?? [];
+    const count = documents.filter(
+      (row) =>
+        ref.filters?.every(
+          ([field, op, value]) => op === "==" && row[String(field)] === value,
+        ) ?? true,
+    ).length;
+    return { data: () => ({ count }) };
+  }
+  return { data: () => ({ count: ref.path === "user" ? 1248 : 3 }) };
+};
 export const getDocsFromServer = async (ref: { path: string }) =>
   snapshot(ref.path);
 export const getDocs = getDocsFromServer;

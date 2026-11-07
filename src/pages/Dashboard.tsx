@@ -1,20 +1,19 @@
 import { predictionPeriods } from "../services/publications";
 import LineChart from "../components/TrendChart";
+import { useBingoReactionHistory } from "../services/bingoReactionHistory";
 import { vipPeriodStart, vipHistory } from "../services/vipHistory";
-import {
-  useEffect,
-  useState,
-  useId,
-  useRef,
-  type ReactNode,
-  type CSSProperties,
-} from "react";
+import { useEffect, useState, type ReactNode, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
-import { collection, getCountFromServer } from "firebase/firestore";
+import {
+  clearActivityCounts,
+  loadActivityCounts,
+  type ActivityCounts,
+} from "../services/bingoActivityCounts";
 import {
   Crown,
   Users,
   Trophy,
+  ThumbsUp,
   Receipt,
   Headphones,
   MessageCircle,
@@ -26,7 +25,7 @@ import {
   ChartNoAxesCombined,
 } from "lucide-react";
 import { LuckyCross } from "../components/LuckyCross";
-import { auth, db } from "../services/firebase";
+import { auth } from "../services/firebase";
 import { asDate, dateLabel, useCollection, type Row } from "../services/data";
 import { Panel, Status } from "../components/ui";
 const day = 86400000;
@@ -35,7 +34,6 @@ const vipPeriods = [
   { days: 90, label: "3 mois" },
   { days: 180, label: "6 mois" },
 ];
-type ActivityCounts = Record<string, { comments: number; reactions: number }>;
 function readCleanedActivity(key: string): ActivityCounts {
   try {
     return JSON.parse(localStorage.getItem(key) || "{}") ?? {};
@@ -53,6 +51,11 @@ export default function Dashboard() {
     now.getDate(),
   ).getTime();
   const month = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const reactionStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() - 29,
+  ).getTime();
   const vip = useCollection("user", "end_sub", 0, now.getTime());
   const vipTransactions = useCollection(
     "payment_transactions",
@@ -60,7 +63,20 @@ export default function Dashboard() {
     0,
   );
   const members = useCollection("user", "created_time", 0, start - 29 * day);
-  const bingo = useCollection("bingo", "date", 0, month);
+  const bingo = useCollection(
+    "bingo",
+    "date",
+    0,
+    Math.min(month, reactionStart),
+  );
+  const { history: reactions, error: reactionError } = useBingoReactionHistory(
+    bingo.rows,
+    reactionStart,
+    now,
+    !bingo.loading && !bingo.error,
+  );
+  const won = reactions?.won.reduce((total, count) => total + count, 0);
+  const lost = reactions?.lost.reduce((total, count) => total + count, 0);
   const recent = useCollection("bingo", "date", 10);
   const payments = useCollection(
     "payment_requests",
@@ -120,25 +136,9 @@ export default function Dashboard() {
     setActivityCounts(null);
     setActivityError("");
     if (recent.loading || recent.error) return;
-    Promise.all(
-      recent.rows.map(async (r) => {
-        const counts = await Promise.all(
-          ["comments", "hiddenComments", "bingostats"].map((name) =>
-            getCountFromServer(collection(db, `bingo/${r.id}/${name}`)),
-          ),
-        );
-        return {
-          id: r.id,
-          comments: counts[0].data().count + counts[1].data().count,
-          reactions: counts[2].data().count,
-        };
-      }),
-    )
-      .then((rows) => {
-        if (active)
-          setActivityCounts(
-            Object.fromEntries(rows.map(({ id, ...counts }) => [id, counts])),
-          );
+    loadActivityCounts(recent.rows.map((row) => row.id))
+      .then((counts) => {
+        if (active) setActivityCounts(counts);
       })
       .catch((e) => {
         if (active) setActivityError(e.message);
@@ -150,9 +150,10 @@ export default function Dashboard() {
   const registrations = members.rows.filter(
     (r) => (asDate(r.created_time)?.getTime() ?? Infinity) <= now.getTime(),
   );
-  const monthBingo = bingo.rows.filter(
-    (r) => (asDate(r.date)?.getTime() ?? Infinity) <= now.getTime(),
-  );
+  const monthBingo = bingo.rows.filter((r) => {
+    const date = asDate(r.date)?.getTime();
+    return date != null && date >= month && date <= now.getTime();
+  });
   const validVip = vip.rows.filter(
     (r) => (asDate(r.end_sub)?.getTime() ?? 0) >= now.getTime(),
   );
@@ -247,7 +248,10 @@ export default function Dashboard() {
           <button
             className="refresh-dashboard"
             aria-label="Actualiser"
-            onClick={() => setNow(new Date())}
+            onClick={() => {
+              clearActivityCounts();
+              setNow(new Date());
+            }}
           >
             <RefreshCw size={19} />
           </button>
@@ -341,6 +345,7 @@ export default function Dashboard() {
           vip.error,
           members.error,
           bingo.error,
+          reactionError,
           draws.error,
           predictions.error,
           cross.error,
@@ -434,6 +439,41 @@ export default function Dashboard() {
           }
         >
           <MonthGrid now={now} rows={monthBingo} />
+        </Stat>
+        <Stat
+          title="Réactions Bingo"
+          value={
+            won != null && lost != null
+              ? (won + lost).toLocaleString("fr-HT")
+              : "—"
+          }
+          detail="réactions sur 30 jours"
+          color="#62DFC0"
+          icon={<ThumbsUp size={20} />}
+          path="/publications/history"
+          footer={
+            <div className="bingo-reaction-legend">
+              <span>
+                Gagné <b>{won?.toLocaleString("fr-HT") ?? "—"}</b>
+              </span>
+              <span>
+                Pas gagné <b>{lost?.toLocaleString("fr-HT") ?? "—"}</b>
+              </span>
+            </div>
+          }
+        >
+          <LineChart
+            height={120}
+            start={reactionStart}
+            values={reactions?.won ?? []}
+            valueLabel="Gagné"
+            comparison={{
+              values: reactions?.lost ?? [],
+              label: "Pas gagné",
+              color: "var(--bingo-no-gain)",
+            }}
+            ariaLabel="Réactions Bingo par jour, gagné et pas gagné"
+          />
         </Stat>
       </div>
       <div className="operational-panels">
@@ -544,9 +584,9 @@ function Stat({
       style={{ "--chart-color": color } as CSSProperties}
     >
       <Link className="legacy-stat-title" to={path}>
-        <span>{icon}</span>
+        <span aria-hidden="true">{icon}</span>
         <strong>{title}</strong>
-        <ArrowUpRight size={18} />
+        <ArrowUpRight size={18} aria-hidden="true" />
       </Link>
       <div className="legacy-stat-summary">
         <strong className="legacy-stat-value">{value}</strong>

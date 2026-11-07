@@ -36,6 +36,7 @@ import { auth, isAdministrator, login, logout } from "./services/firebase";
 import PushSettings from "./components/PushSettings";
 import { LuckyCross } from "./components/LuckyCross";
 import { forgetSessionPush, reconcilePush } from "./services/adminPush";
+import { MemberDirectoryProvider } from "./services/MemberDirectory";
 import { OfficialProvider } from "./services/OfficialProvider";
 import { Panel, Status, useAction } from "./components/ui";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -135,7 +136,9 @@ export default function App() {
     <Boundary>
       {user ? (
         <OfficialProvider key={user.uid} uid={user.uid}>
-          <Shell user={user} />
+          <MemberDirectoryProvider>
+            <Shell user={user} />
+          </MemberDirectoryProvider>
         </OfficialProvider>
       ) : (
         <Login error={error} />

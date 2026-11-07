@@ -1,19 +1,24 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type PointerEvent } from "react";
 export default function LineChart({
   values,
   start,
   height: initialHeight = 180,
   valueLabel = "membres",
   monthlyAxis = false,
+  comparison,
+  ariaLabel = "Évolution sur la période",
 }: {
   values: number[];
   start: number;
   height?: number;
   valueLabel?: string;
   monthlyAxis?: boolean;
+  comparison?: { values: number[]; label: string; color: string };
+  ariaLabel?: string;
 }) {
   const ref = useRef<SVGSVGElement>(null);
   const gradient = useId();
+  const tooltipId = useId();
   const [{ width, height }, setSize] = useState({
     width: 310,
     height: initialHeight,
@@ -29,28 +34,38 @@ export default function LineChart({
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
-  const step = Math.ceil(Math.max(1, ...values) / 3);
+  const step = Math.ceil(
+    Math.max(1, ...values, ...(comparison?.values ?? [])) / 3,
+  );
   const maximum = step * 3;
   const left = String(maximum).length * 6 + 10;
   const right = width - 8,
     top = 8,
     bottom = height - 24;
-  const series = values.length === 1 ? [values[0], values[0]] : values;
-  const points = series.map((value, i) => ({
-    x: left + (i * (right - left)) / (series.length - 1),
-    y: bottom - (value / maximum) * (bottom - top),
-  }));
-  const path = points
-    .map((point, i) => {
-      if (!i) return `M${point.x},${point.y}`;
-      const previous = points[i - 1],
-        middle = (previous.x + point.x) / 2;
-      return `C${middle},${previous.y} ${middle},${point.y} ${point.x},${point.y}`;
-    })
-    .join(" ");
-  const last = points.at(-1);
+  const primary = { values, label: valueLabel, color: "var(--chart-color)" };
+  const lines = (comparison ? [primary, comparison] : [primary]).map(
+    (series) => {
+      const samples =
+        series.values.length === 1
+          ? [series.values[0], series.values[0]]
+          : series.values;
+      const points = samples.map((value, i) => ({
+        x: left + (i * (right - left)) / (samples.length - 1),
+        y: bottom - (value / maximum) * (bottom - top),
+      }));
+      const path = points
+        .map((point, i) => {
+          if (!i) return `M${point.x},${point.y}`;
+          const previous = points[i - 1];
+          const middle = (previous.x + point.x) / 2;
+          return `C${middle},${previous.y} ${middle},${point.y} ${point.x},${point.y}`;
+        })
+        .join(" ");
+      return { ...series, points, path, last: points.at(-1) };
+    },
+  );
   const selected =
-    active !== null && active < values.length ? points[active] : null;
+    active !== null && active < values.length ? lines[0].points[active] : null;
   const selectedDate = new Date(start);
   selectedDate.setDate(selectedDate.getDate() + (active ?? 0));
   const dailyIndices = [
@@ -84,13 +99,37 @@ export default function LineChart({
     if (values.length > 1) monthIndices.push(values.length - 1);
   }
   const indices = monthlyAxis ? monthIndices : dailyIndices;
+  function selectDay(event: PointerEvent<SVGSVGElement>) {
+    if (!values.length) return;
+    const position = event.currentTarget.createSVGPoint();
+    position.x = event.clientX;
+    position.y = event.clientY;
+    const matrix = event.currentTarget.getScreenCTM();
+    if (!matrix) return;
+    const x = position.matrixTransform(matrix.inverse()).x;
+    setActive(
+      Math.max(
+        0,
+        Math.min(
+          values.length - 1,
+          Math.round(((x - left) / (right - left)) * (values.length - 1)),
+        ),
+      ),
+    );
+  }
   return (
-    <div className="interactive-chart" onPointerLeave={() => setActive(null)}>
+    <div
+      className="interactive-chart"
+      onPointerLeave={(event) => {
+        if (event.pointerType !== "touch") setActive(null);
+      }}
+    >
       <svg
         ref={ref}
         viewBox={`0 0 ${width} ${height}`}
         role="img"
-        aria-label="Évolution sur la période"
+        aria-label={ariaLabel}
+        aria-describedby={selected ? tooltipId : undefined}
         tabIndex={values.length ? 0 : undefined}
         onFocus={() => setActive(0)}
         onBlur={() => setActive(null)}
@@ -109,24 +148,12 @@ export default function LineChart({
             );
           }
         }}
-        onPointerMove={(event) => {
-          if (!values.length) return;
-          const position = event.currentTarget.createSVGPoint();
-          position.x = event.clientX;
-          position.y = event.clientY;
-          const matrix = event.currentTarget.getScreenCTM();
-          if (!matrix) return;
-          const x = position.matrixTransform(matrix.inverse()).x;
-          setActive(
-            Math.max(
-              0,
-              Math.min(
-                values.length - 1,
-                Math.round(((x - left) / (right - left)) * (values.length - 1)),
-              ),
-            ),
-          );
+        onPointerMove={selectDay}
+        onPointerDown={(event) => {
+          event.currentTarget.focus({ preventScroll: true });
+          selectDay(event);
         }}
+        onPointerCancel={() => setActive(null)}
       >
         <defs>
           <linearGradient
@@ -163,35 +190,41 @@ export default function LineChart({
           stroke="#ffffff47"
           fill="none"
         />
-        {last && (
-          <>
-            <path
-              d={`${path} L${right},${bottom} L${left},${bottom} Z`}
-              fill={`url(#${gradient})`}
-            />
-            <path
-              d={path}
-              fill="none"
-              stroke="var(--chart-color)"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-            />
-            <circle
-              cx={last.x}
-              cy={last.y}
-              r="7"
-              fill="var(--chart-color)"
-              opacity=".2"
-            />
-            <circle
-              cx={last.x}
-              cy={last.y}
-              r="4"
-              fill="var(--chart-color)"
-              stroke="#ffffffb3"
-              strokeWidth="1.5"
-            />
-          </>
+        {lines.map(
+          ({ label, path, last, color }, index) =>
+            last && (
+              <g key={label}>
+                {index === 0 && (
+                  <path
+                    d={`${path} L${right},${bottom} L${left},${bottom} Z`}
+                    fill={`url(#${gradient})`}
+                  />
+                )}
+                <path
+                  d={path}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth="2.5"
+                  strokeDasharray={index ? "4 4" : undefined}
+                  strokeLinecap="round"
+                />
+                <circle
+                  cx={last.x}
+                  cy={last.y}
+                  r="7"
+                  fill={color}
+                  opacity=".2"
+                />
+                <circle
+                  cx={last.x}
+                  cy={last.y}
+                  r={index ? 3 : 4}
+                  fill={color}
+                  stroke="#ffffffb3"
+                  strokeWidth="1.5"
+                />
+              </g>
+            ),
         )}
         {values.length > 0 &&
           indices.map((i) => {
@@ -232,7 +265,7 @@ export default function LineChart({
               </g>
             );
           })}
-        {selected && (
+        {selected && active !== null && (
           <g className="chart-highlight" pointerEvents="none">
             <path
               d={`M${selected.x},${top} V${bottom}`}
@@ -240,26 +273,34 @@ export default function LineChart({
               strokeDasharray="3 4"
               opacity=".7"
             />
-            <circle
-              cx={selected.x}
-              cy={selected.y}
-              r="10"
-              fill="var(--chart-color)"
-              opacity=".2"
-            />
-            <circle
-              cx={selected.x}
-              cy={selected.y}
-              r="4.5"
-              fill="var(--chart-color)"
-              stroke="white"
-              strokeWidth="2"
-            />
+            {lines.map(({ points, color, label }, index) => {
+              const point = points[active];
+              return (
+                <g key={label}>
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r="10"
+                    fill={color}
+                    opacity=".2"
+                  />
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r={index ? 3 : 4.5}
+                    fill={color}
+                    stroke="white"
+                    strokeWidth="2"
+                  />
+                </g>
+              );
+            })}
           </g>
         )}
       </svg>
       {selected && active !== null && (
         <div
+          id={tooltipId}
           className="chart-tooltip"
           role="tooltip"
           style={{
@@ -273,9 +314,13 @@ export default function LineChart({
               year: "numeric",
             })}
           </span>
-          <strong>
-            {values[active].toLocaleString("fr-FR")} {valueLabel}
-          </strong>
+          {lines.map(({ label, color, values: samples }) => (
+            <strong key={label} style={comparison ? { color } : undefined}>
+              {comparison
+                ? `${label} · ${samples[active].toLocaleString("fr-FR")}`
+                : `${samples[active].toLocaleString("fr-FR")} ${label}`}
+            </strong>
+          ))}
         </div>
       )}
     </div>

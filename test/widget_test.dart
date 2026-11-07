@@ -203,32 +203,6 @@ void main() {
     );
   });
 
-  testWidgets('authentication badges show every linked provider',
-      (tester) async {
-    final semantics = tester.ensureSemantics();
-
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: UserAuthProviderBadges(
-            providerIds: ['password', 'google.com'],
-          ),
-        ),
-      ),
-    );
-
-    expect(find.text('Google'), findsOneWidget);
-    expect(find.text('E-mail'), findsOneWidget);
-    expect(
-      find.bySemanticsLabel(
-        RegExp('Méthodes de connexion : Google, E-mail'),
-      ),
-      findsOneWidget,
-    );
-    expect(tester.takeException(), isNull);
-    semantics.dispose();
-  });
-
   testWidgets('prediction cards reorganize inputs on a narrow phone',
       (tester) async {
     tester.view.physicalSize = const Size(340, 720);

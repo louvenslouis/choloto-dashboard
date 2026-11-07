@@ -1691,18 +1691,33 @@ main {
   place-items: center;
   border-radius: 13px;
 }
+.overview {
+  container-type: inline-size;
+  --bingo-no-gain: #ffb47e;
+}
 .legacy-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
-  max-width: calc(1080px + 2 * var(--grid-gap));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: calc(1440px + 3 * var(--grid-gap));
   justify-items: center;
   gap: var(--grid-gap);
   margin-bottom: var(--section-gap);
 }
+@container (min-width: 1080px) {
+  .legacy-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@container (max-width: 539px) {
+  .legacy-stats {
+    grid-template-columns: minmax(0, 360px);
+    justify-content: center;
+  }
+}
 .legacy-stat {
   min-width: 0;
   width: 100%;
-  max-width: 360px;
+  max-height: 340px;
   aspect-ratio: 1.12;
   display: grid;
   grid-template-rows: auto auto minmax(120px, 1fr) auto;
@@ -1717,6 +1732,11 @@ main {
   );
   box-shadow: 0 8px 24px #12263f1a;
   color: white;
+}
+@container (1080px <= width < 1180px) {
+  .legacy-stat {
+    padding: 14px;
+  }
 }
 .legacy-stat-title {
   display: flex;
@@ -1785,6 +1805,31 @@ main {
   color: #b9c4ce;
   font-size: 12px;
   line-height: 24px;
+}
+.bingo-reaction-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 10px;
+  width: 100%;
+}
+.bingo-reaction-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.bingo-reaction-legend span::before {
+  content: "";
+  width: 14px;
+  border-top: 3px solid var(--chart-color);
+}
+.bingo-reaction-legend span + span::before {
+  border-top: 3px dashed var(--bingo-no-gain);
+}
+.bingo-reaction-legend b {
+  color: white;
+  font-variant-numeric: tabular-nums;
 }
 .vip-periods {
   display: flex;
@@ -2809,12 +2854,6 @@ dialog:has(.compensation-dialog) {
   color: var(--muted);
   font-size: 12px;
   margin-bottom: 20px;
-}
-.provider-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
 }
 @media (max-width: 991px) {
   .members-section-header {

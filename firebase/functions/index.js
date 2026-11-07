@@ -89,61 +89,6 @@ exports.ensureUserDocumentByEmail = functions
     };
   });
 
-exports.getUserAuthProviders = functions
-  .region("us-central1")
-  .https.onCall(async (data, context) => {
-    requireAdmin(context);
-
-    const requestedUids = data && data.uids;
-    if (!Array.isArray(requestedUids) ||
-        requestedUids.length === 0 ||
-        requestedUids.length > 100) {
-      throw new functions.https.HttpsError(
-        "invalid-argument",
-        "Between 1 and 100 user identifiers are required.",
-      );
-    }
-
-    const uids = [...new Set(requestedUids.map((value) =>
-      typeof value === "string" ? value.trim() : "",
-    ))];
-    if (uids.some((uid) => uid.length === 0 || uid.length > 128)) {
-      throw new functions.https.HttpsError(
-        "invalid-argument",
-        "Every user identifier must be valid.",
-      );
-    }
-
-    try {
-      const result = await admin.auth().getUsers(
-        uids.map((uid) => ({uid})),
-      );
-      const providers = {};
-
-      result.users.forEach((user) => {
-        providers[user.uid] = [...new Set(
-          user.providerData
-            .map((provider) => provider.providerId)
-            .filter((providerId) => typeof providerId === "string" &&
-              providerId.length > 0),
-        )];
-      });
-
-      return {
-        providers,
-        notFound: result.notFound
-          .map((identifier) => identifier.uid)
-          .filter((uid) => typeof uid === "string" && uid.length > 0),
-      };
-    } catch (error) {
-      functions.logger.error("Unable to retrieve auth providers", error);
-      throw new functions.https.HttpsError(
-        "internal",
-        "Unable to retrieve authentication providers.",
-      );
-    }
-  });
-
 const NY_OPEN_DATA_URL = "https://data.ny.gov/resource/hsys-3def.json";
 const NY_LOTTERY_API_URL =
   "https://nylottery.ny.gov/drupal-api/api/v2/winning_numbers";

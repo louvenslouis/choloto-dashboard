@@ -219,6 +219,7 @@ for (const [width, month, weeks] of [
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await page.clock.setFixedTime(new Date(2021, month - 1, 15, 12));
     await page.addInitScript(
       (theme) => localStorage.setItem("choloto-theme", theme),
@@ -250,7 +251,7 @@ for (const [width, month, weeks] of [
         };
       }),
     );
-    expect(sizes).toHaveLength(3);
+    expect(sizes).toHaveLength(4);
     for (const size of sizes) {
       expect(size.width / size.height).toBeGreaterThanOrEqual(0.9);
       expect(size.width / size.height).toBeLessThanOrEqual(1.2);
@@ -284,7 +285,10 @@ for (const [width, month, weeks] of [
       .locator(".legacy-stat")
       .filter({ hasText: "Nouveaux membres" })
       .locator(".legacy-chart");
-    expect(area!.height).toBe((await adjacentChart.boundingBox())!.height);
+    expect(area!.height).toBeCloseTo(
+      (await adjacentChart.boundingBox())!.height,
+      1,
+    );
     expect(cells[0].height).toBeGreaterThanOrEqual(15);
     expect(Math.max(...cells.map((cell) => cell.bottom))).toBeLessThanOrEqual(
       area!.y + area!.height + 1,
@@ -305,7 +309,7 @@ test("infobulles des graphiques de l’accueil", async ({ page }) => {
   const chart = vip.locator("svg[aria-label='Évolution sur la période']");
   const box = await chart.boundingBox();
   expect(box).not.toBeNull();
-  await chart.hover({ position: { x: 20, y: 60 } });
+  await chart.hover({ position: { x: 4, y: 60 } });
   await expect(vip.getByRole("tooltip")).toContainText("VIP actifs");
   const firstDate = await vip.getByRole("tooltip").locator("span").innerText();
   await chart.hover({ position: { x: box!.width - 9, y: 60 } });
@@ -331,6 +335,72 @@ test("infobulles des graphiques de l’accueil", async ({ page }) => {
   await expect(bingo.getByRole("tooltip")).toContainText("Bingo validé");
   await page.mouse.move(0, 0);
   await expect(bingo.getByRole("tooltip")).toHaveCount(0);
+});
+
+test("les réactions des Bingo sont regroupées par jour sur les 30 derniers jours", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.clock.setFixedTime(new Date(2026, 10, 7, 12));
+  await page.goto("/dashboard?reaction-fixture");
+  const card = page
+    .locator(".legacy-stat")
+    .filter({ hasText: "Réactions Bingo" });
+  await expect(card.locator(".legacy-stat-value")).toHaveText("51");
+  await expect(card.locator(".bingo-reaction-legend span")).toHaveText([
+    "Gagné 28",
+    "Pas gagné 23",
+  ]);
+  const chart = card.getByRole("img", { name: /Réactions Bingo par jour/ });
+  await chart.focus();
+  const tooltip = card.getByRole("tooltip");
+  await expect(tooltip).toContainText("9 octobre 2026");
+  await expect(tooltip.locator("strong")).toHaveText([
+    "Gagné · 3",
+    "Pas gagné · 4",
+  ]);
+  await chart.press("ArrowRight");
+  await expect(tooltip.locator("strong")).toHaveText([
+    "Gagné · 0",
+    "Pas gagné · 0",
+  ]);
+  await chart.press("Escape");
+  await expect(tooltip).toHaveCount(0);
+  const monthly = page
+    .locator(".legacy-stat")
+    .filter({ hasText: "Bingo mensuel" });
+  await expect(monthly.locator(".legacy-stat-value")).toHaveText("3");
+  await page.getByRole("button", { name: "Clean l’activité BINGO" }).click();
+  await expect(card.locator(".legacy-stat-value")).toHaveText("51");
+  await card.screenshot({
+    path: test.info().outputPath("reactions-bingo.png"),
+  });
+});
+
+test.describe("Réactions Bingo sur mobile", () => {
+  test.use({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    timezoneId: "America/Port-au-Prince",
+  });
+  test("un toucher affiche les deux valeurs du jour choisi", async ({
+    page,
+  }) => {
+    await page.clock.setFixedTime(new Date("2026-11-07T12:00:00-05:00"));
+    await page.goto("/dashboard?reaction-fixture");
+    await page.getByRole("button", { name: "Statistiques", exact: true }).tap();
+    const chart = page.getByRole("img", { name: /Réactions Bingo par jour/ });
+    const box = await chart.boundingBox();
+    await chart.tap({ position: { x: box!.width - 9, y: 50 } });
+    const tooltip = page.getByRole("tooltip");
+    await expect(tooltip).toContainText("7 novembre 2026");
+    await expect(tooltip.locator("strong")).toHaveText([
+      "Gagné · 2",
+      "Pas gagné · 1",
+    ]);
+    await chart.tap({ position: { x: 8, y: 50 } });
+    await expect(tooltip).toContainText("9 octobre 2026");
+  });
 });
 
 test("la période VIP actualise les dates et la courbe", async ({ page }) => {

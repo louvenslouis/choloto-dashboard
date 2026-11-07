@@ -13,7 +13,7 @@ import {
 import { db } from "./firebase";
 export type Row = DocumentData & { id: string };
 export function useCollection(
-  path: string,
+  path: string | null,
   sort = "date",
   count = 100,
   after = 0,
@@ -28,6 +28,7 @@ export function useCollection(
   }>({ rows: [], loading: true, error: "" });
   useEffect(() => {
     setState({ rows: [], loading: true, error: "" });
+    if (!path) return;
     return onSnapshot(
       query(
         collection(db, path),

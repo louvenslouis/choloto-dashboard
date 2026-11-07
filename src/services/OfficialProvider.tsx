@@ -31,6 +31,7 @@ type State = {
   setAutomatic: (value: boolean) => void;
   refresh: () => Promise<void>;
 };
+const refreshInterval = 10 * 60_000;
 const Context = createContext<State | null>(null);
 export function OfficialProvider({
   children,
@@ -52,11 +53,13 @@ export function OfficialProvider({
     [published, setPublished] = useState(new Set<string>()),
     [loading, setLoading] = useState(false);
   const auto = useRef(automatic),
+    lastSuccess = useRef(0),
     pending = useRef(false),
     mounted = useRef(false);
   const refresh = useCallback(async () => {
     if (pending.current) return;
     pending.current = true;
+    lastSuccess.current = 0;
     setLoading(true);
     try {
       const result = await fetchOfficial();
@@ -97,6 +100,7 @@ export function OfficialProvider({
           setPublished(new Set(ids));
         }
       }
+      if (!result.warnings.length) lastSuccess.current = Date.now();
     } catch (error) {
       if (mounted.current)
         setWarnings((previous) => [
@@ -111,9 +115,13 @@ export function OfficialProvider({
   useEffect(() => {
     mounted.current = true;
     void refresh();
-    const timer = setInterval(() => void refresh(), 600000);
+    const timer = setInterval(() => void refresh(), refreshInterval);
     const wake = () => {
-      if (document.visibilityState === "visible") void refresh();
+      if (
+        document.visibilityState === "visible" &&
+        Date.now() - lastSuccess.current >= refreshInterval
+      )
+        void refresh();
     };
     document.addEventListener("visibilitychange", wake);
     return () => {

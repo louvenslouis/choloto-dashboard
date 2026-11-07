@@ -25,13 +25,13 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { compareMembers, isVip, isNewMember } from "../services/members";
+import { useMemberDirectory } from "../services/MemberDirectory";
 import LineChart from "../components/TrendChart";
 import Calendar from "../components/Calendar";
 import CompensationDialog from "../components/CompensationDialog";
 import { exportReceipt } from "../services/receipt";
 import { exportMembers } from "../services/export";
 import { useNotificationTarget } from "../services/useNotificationTarget";
-import { callAdmin } from "../services/admin";
 import { db } from "../services/firebase";
 import {
   useCollection,
@@ -102,8 +102,7 @@ export default function Members() {
 }
 function Users() {
   const [view, setView] = useState("cards"),
-    [sort, setSort] = useState("name"),
-    [revision, setRevision] = useState(0);
+    [sort, setSort] = useState("name");
   const [search, setSearch] = useState(""),
     [filter, setFilter] = useState("all");
   const [selected, setSelected] = useState<Row | null>(null),
@@ -111,7 +110,7 @@ function Users() {
   const [compensation, setCompensation] = useState(false),
     [filtersOpen, setFiltersOpen] = useState(false),
     [actionsOpen, setActionsOpen] = useState(false);
-  const state = useCollection("user", "", 0, 0, "", "", revision),
+  const state = useMemberDirectory(),
     action = useAction();
   const now = Date.now(),
     vipCount = state.rows.filter((r) => isVip(r, now)).length;
@@ -159,7 +158,7 @@ function Users() {
     </select>
   );
   const refresh = () => {
-    setRevision((v) => v + 1);
+    state.refresh();
     setActionsOpen(false);
   };
   const exportRows = () => {
@@ -446,8 +445,7 @@ function MemberEditor({
     [phone, setPhone] = useState(row.phone_number || ""),
     [payment, setPayment] = useState(initialPayment),
     [cancel, setCancel] = useState(false),
-    [adjust, setAdjust] = useState(false),
-    [providers, setProviders] = useState<string[] | null>(null);
+    [adjust, setAdjust] = useState(false);
   const action = useAction();
   return (
     <>
@@ -576,41 +574,7 @@ function MemberEditor({
                 Annuler l’abonnement
               </button>
             )}
-            <button
-              disabled={action.busy}
-              onClick={() =>
-                void action.run(async () => {
-                  const data = await callAdmin("getUserAuthProviders", {
-                    uids: [row.id],
-                  });
-                  setProviders(data.providers?.[row.id] || []);
-                }, "")
-              }
-            >
-              Méthodes de connexion
-            </button>
           </div>
-          {providers && (
-            <div className="provider-badges">
-              {providers.length ? (
-                providers.map((provider) => (
-                  <span className="badge" key={provider}>
-                    {(
-                      {
-                        "google.com": "Google",
-                        "apple.com": "Apple",
-                        password: "E-mail",
-                        phone: "Téléphone",
-                      } as Record<string, string>
-                    )[provider] || provider}
-                  </span>
-                ))
-              ) : (
-                <small>Connexion inconnue</small>
-              )}
-            </div>
-          )}
-          {action.feedback}
         </div>
       ) : (
         <Form
@@ -652,21 +616,6 @@ function MemberEditor({
                 Annuler l’abonnement
               </button>
             )}
-            <button
-              type="button"
-              disabled={action.busy}
-              onClick={() =>
-                void action.run(async () => {
-                  const data = await callAdmin("getUserAuthProviders", {
-                    uids: [row.id],
-                  });
-                  setProviders(data.providers?.[row.id] || []);
-                }, "")
-              }
-            >
-              Méthodes de connexion
-            </button>
-            {providers && <p>{providers.join(" · ") || "Aucune méthode"}</p>}
           </div>
         </Form>
       )}
