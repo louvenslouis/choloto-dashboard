@@ -31,6 +31,7 @@ export const periods: Record<string, string[]> = {
   md: ["MIDDAY", "EVENING"],
   pa: ["DAY", "EVENING"],
 };
+export const predictionPeriods = ["Midi", "Soir"];
 export const predictionGroups = [
   ["boloto", "BOLOTO", 2],
   ["chif3", "3 CHIFFRES", 3],

@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { auth, db } from "../services/firebase";
 import { dateLabel, asDate, useCollection, type Row } from "../services/data";
-import { predictionGroups } from "../services/publications";
+import { predictionGroups, predictionPeriods } from "../services/publications";
 import {
   Form,
   Panel,
@@ -220,13 +220,20 @@ function PredictionForm({ row, done }: { row?: Row; done?: () => void }) {
       ]),
     ),
   );
-  const [period, setPeriod] = useState(row?.periode || "Matin"),
+  const [period, setPeriod] = useState<string>(
+      row
+        ? predictionPeriods.includes(row.periode)
+          ? row.periode
+          : ""
+        : predictionPeriods[0],
+    ),
     [percent, setPercent] = useState(row?.pourcentage ?? 80);
   const action = useAction();
   return (
     <Panel title="Prédictions">
       <Form
         onSubmit={() => {
+          if (!period) return;
           void action.run(async () => {
             const payload = {
               periode: period,
@@ -251,7 +258,7 @@ function PredictionForm({ row, done }: { row?: Row; done?: () => void }) {
       >
         <div className="prediction-controls">
           <div className="period-selector">
-            {["Matin", "Midi", "Soir"].map((p) => (
+            {predictionPeriods.map((p) => (
               <button
                 type="button"
                 aria-pressed={period === p}
@@ -349,7 +356,9 @@ function PredictionForm({ row, done }: { row?: Row; done?: () => void }) {
         </div>
         {action.feedback}
         <div className="publication-submit">
-          <Submit busy={action.busy}>{row ? "Enregistrer" : "Publier"}</Submit>
+          <Submit busy={action.busy} disabled={!period}>
+            {row ? "Enregistrer" : "Publier"}
+          </Submit>
         </div>
       </Form>
     </Panel>

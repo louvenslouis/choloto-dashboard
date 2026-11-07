@@ -30,7 +30,6 @@ const calendar = new Intl.DateTimeFormat("en-CA", {
 });
 const day = (date: Date) => calendar.format(date);
 function period(value: string) {
-  if (value === "MORNING") return "Matin";
   if (["MIDDAY", "DAY", "02:30 PM", "01:34 PM"].includes(value)) return "Midi";
   if (["EVENING", "NIGHT", "10:30 PM", "09:49 PM"].includes(value))
     return "Soir";

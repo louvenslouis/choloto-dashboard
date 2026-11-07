@@ -1,4 +1,18 @@
 import { test, expect } from "@playwright/test";
+test("prédictions uniquement à midi et le soir", async ({ page }) => {
+  await page.goto("/dashboard");
+  const status = page.locator('.operation-row[href="/predictions"]');
+  // The historical morning record in the fixture covers neither period.
+  await expect(status).toContainText("0/2");
+  await expect(status).toContainText("Midi · Soir");
+  await status.click();
+  const choices = page.locator(".period-selector button");
+  await expect(choices).toHaveText(["Midi", "Soir"]);
+  await expect(choices.first()).toHaveAttribute("aria-pressed", "true");
+  await choices.last().click();
+  await expect(choices.last()).toHaveAttribute("aria-pressed", "true");
+});
+
 for (const width of [390, 1440]) {
   test(`navigation et formulaires à ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 960 });
@@ -193,6 +207,48 @@ test("export Excel des membres", async ({ page }) => {
     "membre@example.test",
   );
 });
+
+for (const [width, month, weeks] of [
+  [360, 2, 4],
+  [820, 5, 6],
+  [1440, 4, 5],
+]) {
+  test(`le calendrier Bingo remplit la carte à ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.clock.setFixedTime(new Date(2021, month - 1, 15, 12));
+    await page.addInitScript(
+      (theme) => localStorage.setItem("choloto-theme", theme),
+      width === 820 ? "dark" : "light",
+    );
+    await page.goto("/dashboard");
+    if (width < 992)
+      await page
+        .getByRole("button", { name: "Statistiques", exact: true })
+        .click();
+    const calendar = page.getByLabel("BINGO du mois", { exact: true });
+    await expect(
+      calendar.getByText(`S${weeks}`, { exact: true }),
+    ).toBeVisible();
+    const card = page.locator(".legacy-stat").filter({ has: calendar });
+    const area = await card.locator(".legacy-chart").boundingBox();
+    const cells = await calendar
+      .locator(".bingo-day")
+      .evaluateAll((days) =>
+        days.map((day) => day.getBoundingClientRect().toJSON()),
+      );
+    const left = Math.min(...cells.map((cell) => cell.left));
+    const right = Math.max(...cells.map((cell) => cell.right));
+    expect(right - left).toBeGreaterThan(area!.width * 0.85);
+    expect(right).toBeLessThanOrEqual(area!.x + area!.width + 1);
+    expect(cells[0].height).toBeGreaterThanOrEqual(24);
+    expect(Math.max(...cells.map((cell) => cell.bottom))).toBeLessThanOrEqual(
+      area!.y + area!.height + 1,
+    );
+    await card.screenshot({ path: test.info().outputPath("bingo.png") });
+  });
+}
 
 test("infobulles des graphiques de l’accueil", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });

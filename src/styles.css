@@ -2331,14 +2331,21 @@ main {
   fill: #b9c4ce;
   font-size: 10px;
 }
-.legacy-chart .bingo-calendar {
-  width: 100%;
-  height: 100%;
-  max-width: none;
+.legacy-stat .legacy-chart:has(.bingo-calendar) {
+  height: auto;
 }
-.legacy-chart .bingo-calendar text {
-  fill: #98a4ae;
-  font-size: 9px;
+.bingo-calendar {
+  display: grid;
+  grid-template-columns: max-content repeat(7, minmax(0, 1fr));
+  grid-template-rows: auto;
+  grid-auto-rows: 28px;
+  gap: 4px;
+  color: #b9c4ce;
+  font-size: 12px;
+  text-align: center;
+}
+.bingo-calendar > span {
+  align-content: center;
 }
 /* Members: original compact directory, filters and profile. */
 .members-section-header {
@@ -4620,14 +4627,15 @@ dialog:has(> .bot-builder) > .modal-head h2 {
   left: max(0px, calc(50% - 85px));
 }
 .bingo-day {
-  transition:
-    stroke 140ms ease,
-    filter 140ms ease;
-  outline: none;
+  border: 1px solid;
+  border-radius: 4px;
+  cursor: crosshair;
+  transition: filter 140ms ease;
 }
-.bingo-day.is-active {
-  stroke: #fff;
-  stroke-width: 1.8px;
+.bingo-day.is-active,
+.bingo-day:focus-visible {
+  outline: 2px solid white;
+  outline-offset: -2px;
   filter: brightness(1.35) drop-shadow(0 0 3px #4ac77d80);
 }
 @keyframes chart-tooltip-in {

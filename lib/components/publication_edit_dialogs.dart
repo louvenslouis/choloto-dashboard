@@ -1,4 +1,5 @@
 import '/backend/backend.dart';
+import '/predictions/prediction_periods.dart';
 import '/components/admin_ui.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import 'package:flutter/material.dart';
@@ -481,8 +482,9 @@ class _PredictionEditDialogState extends State<_PredictionEditDialog> {
   @override
   void initState() {
     super.initState();
-    _period =
-        widget.publication.periode.isEmpty ? null : widget.publication.periode;
+    _period = predictionPeriods.contains(widget.publication.periode)
+        ? widget.publication.periode
+        : null;
     _percentageController = TextEditingController(
       text: widget.publication.hasPourcentage()
           ? widget.publication.pourcentage.toString()
@@ -543,13 +545,6 @@ class _PredictionEditDialogState extends State<_PredictionEditDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final periodOptions = <String>{
-      if (_period != null) _period!,
-      'Matin',
-      'Midi',
-      'Soir',
-    }.toList();
-
     return AdminDialogFrame(
       fullscreenOnMobile: true,
       footer: _EditDialogActions(
@@ -588,7 +583,9 @@ class _PredictionEditDialogState extends State<_PredictionEditDialog> {
                           initialValue: _period,
                           decoration:
                               _inputDecoration(context, label: 'Période'),
-                          items: periodOptions
+                          validator: (value) =>
+                              value == null ? 'Choisissez une période.' : null,
+                          items: predictionPeriods
                               .map(
                                 (period) => DropdownMenuItem(
                                   value: period,

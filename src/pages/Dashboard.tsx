@@ -1,3 +1,4 @@
+import { predictionPeriods } from "../services/publications";
 import LineChart from "../components/TrendChart";
 import { vipPeriodStart, vipHistory } from "../services/vipHistory";
 import {
@@ -156,7 +157,16 @@ export default function Dashboard() {
   const waiting = support.rows.filter(
     (r) => !["treated", "deleting"].includes(r.status),
   ).length;
-  const periods = new Set(predictions.rows.map((r) => r.periode));
+  const periods = new Set(
+    predictions.rows.map((r) =>
+      String(r.periode ?? "")
+        .trim()
+        .toLowerCase(),
+    ),
+  );
+  const missingPeriods = predictionPeriods.filter(
+    (p) => !periods.has(p.toLowerCase()),
+  );
   const activeBingo = monthBingo.some(
     (r) => (asDate(r.expiration)?.getTime() ?? 0) > now.getTime(),
   );
@@ -178,11 +188,14 @@ export default function Dashboard() {
       path: "/predictions",
       icon: ChartNoAxesCombined,
       color: "#6D5BD0",
-      ready: periods.size >= 3,
-      detail:
-        ["Matin", "Midi", "Soir"].filter((p) => !periods.has(p)).join(" · ") ||
-        "Matin · Midi · Soir",
-      status: periods.size >= 3 ? "Complet" : `${periods.size}/3`,
+      ready: missingPeriods.length === 0,
+      detail: (missingPeriods.length ? missingPeriods : predictionPeriods).join(
+        " · ",
+      ),
+      status:
+        missingPeriods.length === 0
+          ? "Complet"
+          : `${predictionPeriods.length - missingPeriods.length}/${predictionPeriods.length}`,
       state: predictions,
     },
     {
@@ -545,39 +558,22 @@ function MonthGrid({ now, rows }: { now: Date; rows: Row[] }) {
   );
   const maximum = Math.max(1, ...counts),
     weeks = Math.ceil((offset + days) / 7);
-  const cell = (260 - 25 - 6 * 5) / 7,
-    height = 18 + weeks * cell + (weeks - 1) * 5;
   const colors = ["#303941", "#194F35", "#267D4B", "#37A862", "#4AC77D"];
   return (
     <div
       className="interactive-chart"
       onPointerLeave={() => setActiveDay(null)}
     >
-      <svg
-        className="bingo-calendar"
-        viewBox={`0 0 260 ${height}`}
-        role="img"
-        aria-label="BINGO du mois"
-      >
+      <div className="bingo-calendar" role="group" aria-label="BINGO du mois">
         {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((label, i) => (
-          <text
-            key={label}
-            x={25 + i * (cell + 5) + cell / 2}
-            y="9"
-            textAnchor="middle"
-          >
+          <span key={label} style={{ gridColumn: i + 2, gridRow: 1 }}>
             {label}
-          </text>
+          </span>
         ))}
         {Array.from({ length: weeks }, (_, i) => (
-          <text
-            key={i}
-            x="0"
-            y={18 + i * (cell + 5) + cell / 2}
-            dominantBaseline="central"
-          >
+          <span key={i} style={{ gridColumn: 1, gridRow: i + 2 }}>
             S{i + 1}
-          </text>
+          </span>
         ))}
         {counts.map((count, i) => {
           const d = i + 1,
@@ -586,8 +582,9 @@ function MonthGrid({ now, rows }: { now: Date; rows: Row[] }) {
               count === 0 ? 0 : Math.min(4, Math.ceil((count / maximum) * 4));
           const label = `${String(d).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()} : ${future ? "à venir" : `${count} Bingo validé${count === 1 ? "" : "s"}`}`;
           return (
-            <rect
+            <span
               key={d}
+              role="img"
               className={`bingo-day${activeDay === d ? " is-active" : ""}`}
               tabIndex={0}
               onPointerEnter={() => setActiveDay(d)}
@@ -596,25 +593,22 @@ function MonthGrid({ now, rows }: { now: Date; rows: Row[] }) {
               onKeyDown={(event) => {
                 if (event.key === "Escape") setActiveDay(null);
               }}
-              x={25 + ((offset + i) % 7) * (cell + 5)}
-              y={18 + Math.floor((offset + i) / 7) * (cell + 5)}
-              width={cell}
-              height={cell}
-              rx="2.5"
-              fill={future ? "#30394140" : colors[level]}
-              stroke={
-                d === now.getDate()
-                  ? "#B8E9CB"
-                  : future
-                    ? "#6977801f"
-                    : "#69778033"
-              }
-              strokeWidth=".7"
+              style={{
+                gridColumn: 2 + ((offset + i) % 7),
+                gridRow: 2 + Math.floor((offset + i) / 7),
+                backgroundColor: future ? "#30394140" : colors[level],
+                borderColor:
+                  d === now.getDate()
+                    ? "#B8E9CB"
+                    : future
+                      ? "#6977801f"
+                      : "#69778033",
+              }}
               aria-label={label}
             />
           );
         })}
-      </svg>
+      </div>
       {activeDay !== null && (
         <div className="chart-tooltip calendar-tooltip" role="tooltip">
           <span>

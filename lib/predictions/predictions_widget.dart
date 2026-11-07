@@ -1,5 +1,6 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/predictions/prediction_periods.dart';
 import '/backend/schema/enums/enums.dart';
 import '/components/admin_ui.dart';
 import '/components/prediction_card_widget.dart';
@@ -435,11 +436,8 @@ class _PredictionsWidgetState extends State<PredictionsWidget>
                                                     const InputDecoration(
                                                         labelText: 'Période'),
                                                 items: [
-                                                  for (final value in [
-                                                    'Matin',
-                                                    'Midi',
-                                                    'Soir'
-                                                  ])
+                                                  for (final value
+                                                      in predictionPeriods)
                                                     DropdownMenuItem(
                                                         value: value,
                                                         child: Text(value))

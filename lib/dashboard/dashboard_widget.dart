@@ -5,6 +5,7 @@ import '/payments/payment_reviews_widget.dart';
 import '/support/support_inbox_widget.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/predictions/prediction_periods.dart';
 import '/components/admin_ui.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -1272,14 +1273,12 @@ class _DashboardData {
   final List<BingoRecord> activeBingos;
   final List<CroixRecord> todayCrosses;
 
-  static const expectedPredictionPeriods = ['Matin', 'Midi', 'Soir'];
-
   List<String> get missingPredictionPeriods {
     final published = todayPredictions
         .map((prediction) => prediction.periode.trim().toLowerCase())
         .where((period) => period.isNotEmpty)
         .toSet();
-    return expectedPredictionPeriods
+    return predictionPeriods
         .where((period) => !published.contains(period.toLowerCase()))
         .toList();
   }
@@ -1360,8 +1359,7 @@ class _TodayPublicationsPanel extends StatelessWidget {
     final theme = FlutterFlowTheme.of(context);
     final result = data.latestTodayResult;
     final missingPeriods = data.missingPredictionPeriods;
-    final predictionCount =
-        _DashboardData.expectedPredictionPeriods.length - missingPeriods.length;
+    final predictionCount = predictionPeriods.length - missingPeriods.length;
     final bingo = data.nextExpiringBingo;
     final cross = data.latestTodayCross;
 
@@ -1382,9 +1380,11 @@ class _TodayPublicationsPanel extends StatelessWidget {
       _PublicationStatusData(
         title: 'Prédictions',
         subtitle: missingPeriods.isEmpty
-            ? 'Matin, Midi et Soir sont disponibles'
+            ? 'Midi et Soir sont disponibles'
             : 'Manquantes : ${missingPeriods.join(', ')}',
-        status: missingPeriods.isEmpty ? 'Complet' : '$predictionCount/3',
+        status: missingPeriods.isEmpty
+            ? 'Complet'
+            : '$predictionCount/${predictionPeriods.length}',
         icon: Icons.auto_graph_rounded,
         color: const Color(0xFF6D5BD0),
         statusColor: missingPeriods.isEmpty ? theme.success : theme.warning,

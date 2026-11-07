@@ -128,7 +128,9 @@ void main() {
 
       await tester.tap(find.byType(DropdownButtonFormField<String>));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Matin').last);
+      expect(find.text('Matin'), findsNothing);
+      expect(find.text('Soir'), findsWidgets);
+      await tester.tap(find.text('Midi').last);
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField).first, '12');
       final save = find.widgetWithText(FilledButton, 'Publier les prédictions');
