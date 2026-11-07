@@ -21,7 +21,6 @@ import {
   Ticket,
   Newspaper,
   ChartNoAxesCombined,
-  Clover,
   Headphones,
   Users,
   Settings,
@@ -35,6 +34,7 @@ import {
 } from "lucide-react";
 import { auth, isAdministrator, login, logout } from "./services/firebase";
 import PushSettings from "./components/PushSettings";
+import { LuckyCross } from "./components/LuckyCross";
 import { forgetSessionPush, reconcilePush } from "./services/adminPush";
 import { OfficialProvider } from "./services/OfficialProvider";
 import { Panel, Status, useAction } from "./components/ui";
@@ -68,7 +68,7 @@ const links = [
     path: "/croix",
     label: "Croix de la chance",
     publication: "Croix",
-    icon: Clover,
+    icon: LuckyCross,
   },
   {
     path: "/support-inbox",

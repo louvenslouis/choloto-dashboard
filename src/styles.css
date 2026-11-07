@@ -1693,13 +1693,21 @@ main {
 }
 .legacy-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  max-width: calc(1080px + 2 * var(--grid-gap));
+  justify-items: center;
   gap: var(--grid-gap);
   margin-bottom: var(--section-gap);
 }
 .legacy-stat {
   min-width: 0;
-  padding: 20px;
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 1.12;
+  display: grid;
+  grid-template-rows: auto auto minmax(120px, 1fr) auto;
+  gap: 8px;
+  padding: 16px;
   border: 1px solid #ffffff17;
   border-radius: 24px;
   background: linear-gradient(
@@ -1735,16 +1743,19 @@ main {
 .legacy-stat-title > svg {
   color: #ffffff61;
 }
+.legacy-stat-summary {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
 .legacy-stat-value {
   font-size: 36px;
   font-weight: 700;
   letter-spacing: -1.2px;
-  margin-top: 12px;
 }
-.legacy-stat > small {
+.legacy-stat-summary small {
   color: #b9c4ce;
-  display: block;
-  margin-top: 6px;
 }
 .legacy-chart {
   height: 180px;
@@ -1759,8 +1770,8 @@ main {
   overflow: visible;
 }
 .legacy-stat .legacy-chart {
-  height: 120px;
-  margin-top: 12px;
+  height: auto;
+  margin: 0;
 }
 .legacy-chart svg text {
   fill: #9ba9b7;
@@ -1768,9 +1779,7 @@ main {
 }
 .legacy-stat-footer {
   border-top: 1px solid #ffffff1a;
-  margin-top: 12px;
-  padding-top: 8px;
-  min-height: 48px;
+  padding-top: 6px;
   display: flex;
   align-items: center;
   color: #b9c4ce;
@@ -1950,12 +1959,6 @@ main {
   font-weight: 800;
 }
 @media (min-width: 992px) and (max-width: 1199px) {
-  .legacy-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .legacy-stat:last-child {
-    grid-column: 1/-1;
-  }
   .task-tiles {
     grid-template-columns: 1fr;
   }
@@ -2140,18 +2143,9 @@ main {
   .operational-panels {
     grid-template-columns: 1fr;
   }
-  .legacy-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .legacy-stat:last-child {
-    grid-column: 1/-1;
-  }
 }
 @media (max-width: 699px) {
   .task-tiles {
-    grid-template-columns: 1fr;
-  }
-  .legacy-stats {
     grid-template-columns: 1fr;
   }
   .operation-row {

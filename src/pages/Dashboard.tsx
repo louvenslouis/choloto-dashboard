@@ -24,8 +24,8 @@ import {
   Settings,
   Ticket,
   ChartNoAxesCombined,
-  Clover,
 } from "lucide-react";
+import { LuckyCross } from "../components/LuckyCross";
 import { auth, db } from "../services/firebase";
 import { asDate, dateLabel, useCollection, type Row } from "../services/data";
 import { Panel, Status } from "../components/ui";
@@ -213,7 +213,7 @@ export default function Dashboard() {
     {
       label: "Croix de la chance",
       path: "/croix",
-      icon: Clover,
+      icon: LuckyCross,
       color: "#3A7CA5",
       ready: cross.rows.length > 0,
       detail: cross.rows[0]
@@ -540,8 +540,10 @@ function Stat({
         <strong>{title}</strong>
         <ArrowUpRight size={18} />
       </Link>
-      <div className="legacy-stat-value">{value}</div>
-      <small>{detail}</small>
+      <div className="legacy-stat-summary">
+        <strong className="legacy-stat-value">{value}</strong>
+        <small>{detail}</small>
+      </div>
       <div className="legacy-chart">{children}</div>
       <div className="legacy-stat-footer">{footer}</div>
     </section>

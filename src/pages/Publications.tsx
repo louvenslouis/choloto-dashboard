@@ -17,7 +17,6 @@ import {
   Star,
   Heart,
   Trophy,
-  Clover,
   Hash,
 } from "lucide-react";
 import { auth, db } from "../services/firebase";

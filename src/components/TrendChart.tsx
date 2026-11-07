@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 export default function LineChart({
   values,
   start,
-  height = 180,
+  height: initialHeight = 180,
   valueLabel = "membres",
   monthlyAxis = false,
 }: {
@@ -14,14 +14,18 @@ export default function LineChart({
 }) {
   const ref = useRef<SVGSVGElement>(null);
   const gradient = useId();
-  const [width, setWidth] = useState(310);
+  const [{ width, height }, setSize] = useState({
+    width: 310,
+    height: initialHeight,
+  });
   const [active, setActive] = useState<number | null>(null);
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
-    const observer = new ResizeObserver(([entry]) =>
-      setWidth(entry.contentRect.width),
-    );
+    const observer = new ResizeObserver(([{ contentRect }]) => {
+      if (contentRect.width && contentRect.height)
+        setSize({ width: contentRect.width, height: contentRect.height });
+    });
     observer.observe(element);
     return () => observer.disconnect();
   }, []);

@@ -209,6 +209,7 @@ test("export Excel des membres", async ({ page }) => {
 });
 
 for (const [width, month, weeks] of [
+  [320, 5, 6],
   [360, 2, 4],
   [360, 5, 6],
   [820, 5, 6],
@@ -233,6 +234,27 @@ for (const [width, month, weeks] of [
       calendar.getByText(`S${weeks}`, { exact: true }),
     ).toBeVisible();
     const card = page.locator(".legacy-stat").filter({ has: calendar });
+    const sizes = await page.locator(".legacy-stat").evaluateAll((cards) =>
+      cards.map((card) => {
+        const { width, height, bottom } = card.getBoundingClientRect();
+        const footer = card.querySelector(
+          ".legacy-stat-footer > :first-child",
+        )!;
+        return {
+          width,
+          height,
+          bottomGap: bottom - footer.getBoundingClientRect().bottom,
+        };
+      }),
+    );
+    expect(sizes).toHaveLength(3);
+    for (const size of sizes) {
+      expect(size.width / size.height).toBeGreaterThanOrEqual(0.9);
+      expect(size.width / size.height).toBeLessThanOrEqual(1.2);
+      expect(Math.abs(size.width - sizes[0].width)).toBeLessThanOrEqual(1);
+      expect(size.bottomGap).toBeGreaterThanOrEqual(0);
+      expect(Math.round(size.bottomGap)).toBeLessThanOrEqual(17);
+    }
     const area = await card.locator(".legacy-chart").boundingBox();
     const cells = await calendar
       .locator(".bingo-day")
@@ -253,6 +275,10 @@ for (const [width, month, weeks] of [
       area!.y + area!.height + 1,
     );
     await card.screenshot({ path: test.info().outputPath("bingo.png") });
+    if (width === 1440)
+      await page
+        .locator(".legacy-stats")
+        .screenshot({ path: test.info().outputPath("statistiques.png") });
   });
 }
 
