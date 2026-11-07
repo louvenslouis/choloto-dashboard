@@ -104,6 +104,20 @@ const rows: Record<string, Record<string, unknown>[]> = {
     },
   ],
 };
+if (new URLSearchParams(location.search).has("compensation-fixture")) {
+  const id = `compensation_operation1_${"member".repeat(20)}`;
+  rows.payment_transactions.push({
+    id,
+    user_uid: "member-1",
+    transaction_type: "adjustment",
+    receipt_code: `CH-${id}`,
+    user_display_name: "Membre Test",
+    user_email: "membre@example.test",
+    created_at: stamp,
+    previous_end_sub: stamp,
+    new_end_sub: { toDate: () => new Date(+now + 3 * 86400000) },
+  });
+}
 export const collection = (base: unknown, ...path: string[]) => ({
   path: [
     typeof base === "object" && base && "path" in base ? base.path : "",

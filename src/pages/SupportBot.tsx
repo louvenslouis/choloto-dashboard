@@ -20,6 +20,7 @@ import { db } from "../services/firebase";
 import { useDocument } from "../services/data";
 import {
   initialBot,
+  emptyNode,
   validateBot,
   type BotConfig,
   type BotNode,
@@ -108,7 +109,7 @@ function Editor({
     setEdit({
       kind: "nodes",
       value: {
-        ...initialBot.nodes[0],
+        ...emptyNode,
         id: crypto.randomUUID(),
         parent,
         label: "",

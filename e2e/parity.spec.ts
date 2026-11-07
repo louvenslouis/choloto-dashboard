@@ -56,7 +56,7 @@ for (const width of [390, 1440])
     ).toBeVisible();
     await page
       .getByRole("button", {
-        name: "Modifier Contacter le support",
+        name: "Modifier Konbyen VIP a koute? Kijan m ka abòne?",
       })
       .click();
     await page.getByLabel("Titre", { exact: true }).fill("Assistance");

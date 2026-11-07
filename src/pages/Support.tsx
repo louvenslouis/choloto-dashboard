@@ -21,6 +21,7 @@ import {
   Pencil,
   ArrowDown,
 } from "lucide-react";
+import { useNotificationTarget } from "../services/useNotificationTarget";
 import { db } from "../services/firebase";
 import {
   dateLabel,
@@ -84,7 +85,6 @@ function SupportAvatar({ row }: { row: Row }) {
 export default function Support() {
   const [botDirty, setBotDirty] = useState(false);
   const [count, setCount] = useState(40),
-    [selected, setSelected] = useState<string | null>(null),
     [filter, setFilter] = useState("all"),
     [search, setSearch] = useState(""),
     [bot, setBot] = useState(false);
@@ -100,7 +100,17 @@ export default function Support() {
         .toLowerCase()
         .includes(search.trim().toLowerCase()),
   );
-  const active = conversations.find((r) => r.id === selected);
+  const {
+    id: selected,
+    row,
+    select: setSelected,
+    error: targetError,
+  } = useNotificationTarget(
+    "conversation",
+    "support_conversations",
+    conversations,
+  );
+  const active = row?.status === "deleting" ? null : row;
   return (
     <div className={`support-workspace ${active ? "has-selection" : ""}`}>
       <section className="support-sidebar" aria-label="Conversations">
@@ -151,7 +161,7 @@ export default function Support() {
               </button>
             ))}
           </div>
-          <Status loading={state.loading} error={state.error} />
+          <Status loading={state.loading} error={state.error || targetError} />
           {!state.loading && !state.error && !rows.length && (
             <div className="support-no-results">
               <MessagesSquare size={32} />
@@ -256,12 +266,12 @@ function shortDate(value: unknown) {
 const cannedResponses = [
   "Bonjou fanmi! Byenveni sou CHOLOTO. Ou vle antre nan VIP a oswa renouvle plan ou?",
   "Nan ki peyi ou ye, tanpri? Konsa n ap ka ba ou pri ak mwayen peman ki disponib pou ou.",
-  "Ou vle peye pa MonCash, NatCash oswa Zelle? Di nou kiyès pou nou voye enfòmasyon peman yo ba ou.",
+  "Anlè chat la, peze « Voye yon prèv peman » pou wè pri a, dire abònman an ak mwayen peman ki disponib yo.",
   "Anvan ou voye kòb la, mande nou konfime nimewo ak non moun k ap resevwa peman an.",
   "Pou nou ka aktive VIP a sou kont ou, kreye yon kont CHOLOTO oswa konekte sou kont ou deja genyen an.",
-  "Lè ou fin peye, voye yon foto oswa yon kaptire ekran resi tranzaksyon an isit la. Fòk montan, dat ak referans tranzaksyon an parèt klè.",
+  "Lè ou fin peye, peze « Voye prèv peman an » pou voye resi a. Fòk montan, dat ak referans tranzaksyon an parèt klè.",
   "Mèsi pou enfòmasyon yo. N ap verifye peman an anvan nou konfime aktivasyon VIP ou a.",
-  "Si ou deja peye men VIP a toujou bloke, voye resi a ak yon kaptire ekran sa ki parèt sou kont ou pou nou verifye.",
+  "Si ou deja voye resi a, peze « Voye yon prèv peman » anlè chat la epi gade « Demann mwen yo ». Si peman an valide epi VIP toujou bloke, voye yon kaptire ekran sa ou wè a.",
   "Se sou kont CHOLOTO ou w ap jwenn kontni VIP a, tankou boul ak maryaj yo. Konekte sou kont ki gen abònman an.",
   "Ki mesaj erè ou wè sou ekran an? Voye yon kaptire ekran isit la pou nou ka ede ou.",
 ];

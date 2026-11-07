@@ -9,6 +9,7 @@ import {
 } from "react";
 import { onIdTokenChanged, type User } from "firebase/auth";
 import {
+  Link,
   Navigate,
   NavLink,
   Route,
@@ -25,16 +26,16 @@ import {
   Users,
   Settings,
   LogOut,
-  Menu,
-  X,
   Sun,
   Moon,
-  Shield,
   UserRound,
+  Check,
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
 import { auth, isAdministrator, login, logout } from "./services/firebase";
+import PushSettings from "./components/PushSettings";
+import { forgetSessionPush, reconcilePush } from "./services/adminPush";
 import { OfficialProvider } from "./services/OfficialProvider";
 import { Panel, Status, useAction } from "./components/ui";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -43,15 +44,43 @@ const Publications = lazy(() => import("./pages/Publications"));
 const Members = lazy(() => import("./pages/Members"));
 const Support = lazy(() => import("./pages/Support"));
 const links = [
-  { path: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
+  {
+    path: "/dashboard",
+    label: "Tableau de bord",
+    tab: "Accueil",
+    icon: LayoutDashboard,
+  },
   { path: "/tirages", label: "Tirages", icon: Ticket },
-  { path: "/publications", label: "Publications BINGO", icon: Newspaper },
-  { path: "/predictions", label: "Prédictions", icon: ChartNoAxesCombined },
-  { path: "/croix", label: "Croix de la chance", icon: Clover },
-  { path: "/support-inbox", label: "Service client", icon: Headphones },
-  { path: "/users", label: "Membres & Paiements", icon: Users },
+  {
+    path: "/publications",
+    label: "Publications BINGO",
+    tab: "Publications",
+    publication: "BINGO",
+    icon: Newspaper,
+  },
+  {
+    path: "/predictions",
+    label: "Prédictions",
+    publication: "Prédictions",
+    icon: ChartNoAxesCombined,
+  },
+  {
+    path: "/croix",
+    label: "Croix de la chance",
+    publication: "Croix",
+    icon: Clover,
+  },
+  {
+    path: "/support-inbox",
+    label: "Service client",
+    tab: "Support",
+    icon: Headphones,
+  },
+  { path: "/users", label: "Membres & Paiements", tab: "Membres", icon: Users },
   { path: "/settings", label: "Paramètres", icon: Settings },
 ];
+const memberPaths = ["/users", "/payments", "/payment-reviews"];
+
 export default function App() {
   const [user, setUser] = useState<User | null>(null),
     [loading, setLoading] = useState(true),
@@ -74,6 +103,9 @@ export default function App() {
           setError("Accès administrateur requis.");
           await logout();
         } else if (active === version) {
+          if (!current || authorizedUid !== current.uid) {
+            void reconcilePush(current?.uid ?? null).catch(() => {});
+          }
           authorizedUid = current?.uid ?? null;
           if (current) setError("");
           setUser(current);
@@ -134,10 +166,9 @@ function Login({ error }: { error: string }) {
 }
 function Shell({ user }: { user: User }) {
   const [collapsed, setCollapsed] = useState(false);
-  const [open, setOpen] = useState(false),
-    [theme, setTheme] = useState(
-      () => localStorage.getItem("choloto-theme") || "light",
-    );
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem("choloto-theme") || "light",
+  );
   const location = useLocation(),
     action = useAction();
   const cleanupStarted = useRef(false);
@@ -153,31 +184,29 @@ function Shell({ user }: { user: User }) {
     localStorage.setItem("choloto-theme", theme);
   }, [theme]);
   useEffect(() => {
-    setOpen(false);
+    document.documentElement.scrollTop = 0;
     document.querySelector("main")?.scrollTo(0, 0);
   }, [location.pathname]);
-  useEffect(() => {
-    const close = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, []);
+  const isMembers = memberPaths.includes(location.pathname);
+  const sectionPath = isMembers ? "/users" : location.pathname;
   const current =
-    links.find((l) => location.pathname.startsWith(l.path)) ||
-    (["\/payments", "/payment-reviews"].includes(location.pathname)
-      ? links[6]
-      : links[0]);
+    links.find(
+      ({ path }) => sectionPath === path || sectionPath.startsWith(path + "/"),
+    ) || links[0];
+  const mobileSection = current.publication
+    ? "/publications"
+    : current.tab
+      ? current.path
+      : "/dashboard";
+  const currentState = (path: string) =>
+    current.path === path
+      ? location.pathname === path
+        ? "page"
+        : "location"
+      : undefined;
   return (
     <div className={`app ${collapsed ? "sidebar-collapsed" : ""}`}>
-      {open && (
-        <button
-          className="overlay"
-          aria-label="Fermer le menu"
-          onClick={() => setOpen(false)}
-        />
-      )}
-      <aside className={open ? "open" : ""}>
+      <aside>
         <LinkBrand />
         <button
           className="collapse-sidebar"
@@ -186,13 +215,6 @@ function Shell({ user }: { user: User }) {
         >
           {collapsed ? <ChevronsRight size={19} /> : <ChevronsLeft size={19} />}
         </button>
-        <button
-          className="mobile-close"
-          aria-label="Fermer le menu"
-          onClick={() => setOpen(false)}
-        >
-          <X size={20} />
-        </button>
         <nav>
           {links.map((item, i) => (
             <div key={item.path}>
@@ -200,22 +222,15 @@ function Shell({ user }: { user: User }) {
               {i === 1 && <span className="nav-label">OPÉRATIONS</span>}
               {i === 5 && <span className="nav-label">COMMUNAUTÉ</span>}
               {i === 7 && <span className="nav-label">OUTILS</span>}
-              <NavLink
+              <Link
                 to={item.path}
                 aria-label={item.label}
-                className={({ isActive }) =>
-                  isActive ||
-                  (item.path === "/users" &&
-                    ["/payments", "/payment-reviews"].includes(
-                      location.pathname,
-                    ))
-                    ? "active"
-                    : ""
-                }
+                aria-current={currentState(item.path)}
+                className={current === item ? "active" : undefined}
               >
                 <item.icon size={20} />
                 <span>{item.label}</span>
-              </NavLink>
+              </Link>
             </div>
           ))}
         </nav>
@@ -224,7 +239,7 @@ function Shell({ user }: { user: User }) {
         {location.pathname !== "/dashboard" &&
           location.pathname !== "/support-inbox" && (
             <header
-              className={`section-header ${["/users", "/payments", "/payment-reviews"].includes(location.pathname) ? "members-section-header" : ""}`}
+              className={`section-header ${isMembers ? "members-section-header" : ""}`}
             >
               <span className="section-icon">
                 <current.icon size={26} />
@@ -251,9 +266,7 @@ function Shell({ user }: { user: User }) {
               ? "dashboard-main"
               : location.pathname === "/support-inbox"
                 ? "support-main"
-                : ["/users", "/payments", "/payment-reviews"].includes(
-                      location.pathname,
-                    )
+                : isMembers
                   ? "members-main"
                   : ""
           }
@@ -276,7 +289,7 @@ function Shell({ user }: { user: User }) {
                   element={<Publications key={path} />}
                 />
               ))}
-              {["/users", "/payments", "/payment-reviews"].map((path) => (
+              {memberPaths.map((path) => (
                 <Route key={path} path={path} element={<Members />} />
               ))}
               <Route path="/support-inbox" element={<Support />} />
@@ -320,13 +333,20 @@ function Shell({ user }: { user: User }) {
                         </button>
                       </div>
                     </Panel>
+                    <PushSettings uid={user.uid} />
                     <Panel title="Sécurité">
                       <button
                         className="danger"
                         disabled={action.busy}
                         onClick={() => {
                           if (confirm("Se déconnecter ?"))
-                            void action.run(logout, "");
+                            void action.run(async () => {
+                              try {
+                                await forgetSessionPush(user.uid);
+                              } finally {
+                                await logout();
+                              }
+                            }, "");
                         }}
                       >
                         <LogOut size={18} />
@@ -342,25 +362,121 @@ function Shell({ user }: { user: User }) {
         </main>
       </div>
       <nav className="bottom-nav" aria-label="Navigation mobile">
-        {[
-          { ...links[0], label: "Accueil" },
-          links[1],
-          links[3],
-          { ...links[6], label: "Membres" },
-        ].map((item) => (
-          <NavLink key={item.path} to={item.path}>
-            <item.icon size={23} />
-            <span>{item.label}</span>
-          </NavLink>
-        ))}
-        <button
-          aria-label="Ouvrir le menu"
-          aria-expanded={open}
-          onClick={() => setOpen(true)}
-        >
-          <Menu size={23} />
-          <span>Menu</span>
-        </button>
+        {links
+          .filter((item) => item.tab)
+          .map((item) =>
+            item.publication ? (
+              <PublicationPicker
+                key={item.path}
+                active={Boolean(current.publication)}
+                currentState={currentState}
+              />
+            ) : (
+              <Link
+                key={item.path}
+                className="bottom-nav-item"
+                to={item.path}
+                aria-current={
+                  mobileSection === item.path
+                    ? currentState(item.path) || "location"
+                    : undefined
+                }
+              >
+                <item.icon size={22} />
+                <span>{item.tab}</span>
+              </Link>
+            ),
+          )}
+      </nav>
+    </div>
+  );
+}
+function PublicationPicker({
+  active,
+  currentState,
+}: {
+  active: boolean;
+  currentState: (path: string) => "page" | "location" | undefined;
+}) {
+  const [open, setOpen] = useState(false);
+  const container = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const location = useLocation();
+  useEffect(() => setOpen(false), [location.key]);
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: PointerEvent) => {
+      if (
+        event.target instanceof Node &&
+        !container.current?.contains(event.target)
+      )
+        setOpen(false);
+    };
+    const desktop = window.matchMedia("(min-width: 992px)");
+    const onResize = () => {
+      if (desktop.matches) setOpen(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    desktop.addEventListener("change", onResize);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      desktop.removeEventListener("change", onResize);
+    };
+  }, [open]);
+  return (
+    <div
+      className="publication-picker"
+      ref={container}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+      }}
+      onKeyDown={(event) => {
+        if (open && event.key === "Escape") {
+          event.preventDefault();
+          setOpen(false);
+          trigger.current?.focus();
+        }
+      }}
+    >
+      <button
+        className="bottom-nav-item"
+        type="button"
+        ref={trigger}
+        aria-expanded={open}
+        aria-controls="publication-choices"
+        aria-current={active ? "location" : undefined}
+        onClick={() => setOpen(!open)}
+      >
+        <Newspaper size={22} />
+        <span>Publications</span>
+      </button>
+      <nav
+        id="publication-choices"
+        className="publication-choices"
+        aria-label="Types de publication"
+        hidden={!open}
+      >
+        {links
+          .filter((item) => item.publication)
+          .map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              aria-current={currentState(item.path)}
+              onClick={() => {
+                setOpen(false);
+                trigger.current?.focus();
+              }}
+            >
+              <span className="publication-choice-icon">
+                <item.icon size={18} />
+              </span>
+              {item.publication}
+              {currentState(item.path) && (
+                <Check size={16} aria-hidden="true" />
+              )}
+            </Link>
+          ))}
       </nav>
     </div>
   );

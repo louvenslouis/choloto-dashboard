@@ -20,6 +20,7 @@ import {
   ChevronRight,
   ArrowUpRight,
   RefreshCw,
+  Settings,
   Ticket,
   ChartNoAxesCombined,
   Clover,
@@ -232,9 +233,15 @@ export default function Dashboard() {
           >
             <RefreshCw size={19} />
           </button>
-          <span className="avatar">
+          <Link
+            className="avatar account-link"
+            to="/settings"
+            aria-label="Paramètres du compte"
+            title="Paramètres du compte"
+          >
             {(user?.email || "A")[0].toUpperCase()}
-          </span>
+            <Settings className="account-gear" size={16} aria-hidden="true" />
+          </Link>
           <span className="overview-email">{user?.email}</span>
         </div>
       </div>

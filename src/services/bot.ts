@@ -1,3 +1,5 @@
+import journey from "./supportJourney.json";
+
 export type BotNode = {
   id: string;
   parent: string;
@@ -34,24 +36,34 @@ export type BotConfig = {
   plans: Plan[];
   paymentMethods: Method[];
 };
+export const emptyNode: BotNode = {
+  id: "",
+  parent: "",
+  label: "",
+  answer: "",
+  requiresAuth: false,
+  requestImage: false,
+  requestPaymentProof: false,
+  paymentMethodId: "",
+};
 export const initialBot: BotConfig = {
   enabled: true,
-  greeting: "Bonjour ! Comment pouvons-nous vous aider ?",
+  greeting: journey.greeting,
   revision: 0,
-  nodes: [
-    {
-      id: "help",
-      parent: "",
-      label: "Contacter le support",
-      answer: "Écrivez votre message.",
-      requiresAuth: false,
-      requestImage: false,
-      requestPaymentProof: false,
-      paymentMethodId: "",
-    },
-  ],
+  nodes: journey.nodes.map((node) => ({ ...emptyNode, ...node })),
   plans: [],
-  paymentMethods: [],
+  paymentMethods: [
+    { id: "moncash", name: "MonCash", currency: "HTG" },
+    { id: "natcash", name: "NatCash", currency: "HTG" },
+    { id: "zelle", name: "Zelle", currency: "USD" },
+  ].map((method) => ({
+    ...method,
+    months: 1,
+    amountMinor: 0,
+    account: "",
+    recipient: "",
+    enabled: false,
+  })),
 };
 export function validateBot(config: BotConfig): BotConfig {
   if (

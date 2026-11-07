@@ -1,4 +1,5 @@
 import { asDate, type Row } from "./data";
+import { isCompensation } from "./payments";
 export async function receiptBytes(row: Row) {
   const [{ PDFDocument, rgb }, fontkit] = await Promise.all([
     import("pdf-lib"),
@@ -90,15 +91,16 @@ export async function receiptBytes(row: Row) {
   );
   text(row.user_email || "", 395, 132, 8, muted, false, 160);
   text(`Code : ${row.user_code || "—"}`, 395, 146, 8, purple, true, 160);
-  const type =
-    (
-      {
-        subscription: "Abonnement VIP",
-        renewal: "Renouvellement VIP",
-        adjustment: "Ajustement d’abonnement",
-        cancellation: "Annulation",
-      } as Record<string, string>
-    )[row.transaction_type] || "Paiement";
+  const type = isCompensation(row)
+    ? "Compensation"
+    : (
+        {
+          subscription: "Abonnement VIP",
+          renewal: "Renouvellement VIP",
+          adjustment: "Ajustement d’abonnement",
+          cancellation: "Annulation",
+        } as Record<string, string>
+      )[row.transaction_type] || "Paiement";
   const amount =
       row.transaction_type === "cancellation"
         ? row.refunded_amount
@@ -107,8 +109,9 @@ export async function receiptBytes(row: Row) {
       row.transaction_type === "cancellation"
         ? row.refund_currency
         : row.currency;
-  const total =
-    amount == null
+  const total = isCompensation(row)
+    ? "Sans frais"
+    : amount == null
       ? "Non renseigné"
       : `${Number(amount).toLocaleString("fr-FR")} ${currency || ""}`;
   gradient(42, 192, 511, 29);

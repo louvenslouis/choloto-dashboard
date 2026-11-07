@@ -11,7 +11,11 @@ import {
   type DocumentData,
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
-import { asDate } from "./data";
+import { asDate, type Row } from "./data";
+export const isCompensation = (row: Row) =>
+  row.transaction_type === "adjustment" && row.id.startsWith("compensation_");
+export const isPayment = (row: Row) =>
+  !["adjustment", "cancellation"].includes(row.transaction_type);
 export const paymentMethods = [
   "moncash",
   "natcash",
@@ -160,26 +164,6 @@ export async function rejectPayment(id: string, reason: string) {
     });
   });
 }
-export async function callAdmin(name: string, data: Record<string, unknown>) {
-  const token = await auth.currentUser?.getIdToken();
-  if (!token) throw new Error("Reconnectez-vous.");
-  const response = await fetch(
-    `https://us-central1-choloto-6aa5b.cloudfunctions.net/${name}`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ data }),
-    },
-  );
-  const payload = await response.json();
-  if (!response.ok || payload.error)
-    throw new Error(payload.error?.message || "Le serveur ne répond pas.");
-  return payload.data ?? payload.result;
-}
-
 export async function cancelMembership(
   uid: string,
   reason: string,

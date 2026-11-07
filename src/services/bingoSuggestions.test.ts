@@ -18,6 +18,63 @@ const prediction = {
   chif4: { boul: ["2789"] },
 };
 describe("BINGO suggestions", () => {
+  it.each([
+    [["468", "12", "34"], "68*12", "68X12", "MARYAJ", "68*12"],
+    [["116", "60", "00"], "06*00", "60X00", "MARIAGE", "06X00"],
+    [["133", "62", "79"], "79*26", "62X79", "MARIAGE", "62X79"],
+    [["41", "600", "96", "74"], "69*00", "00X96", "MARIAGE", "00X96"],
+    [["25", "430", "33", "61"], "16*33", "33X61", "MARIAGE", "61X33"],
+  ] as const)(
+    "replays the published marriage for %j",
+    (numeros, pair, expected, valeur, boul) => {
+      const florida = numeros.length === 4;
+      const result = { ...draw, tirage: florida ? "fl" : "ny", numeros };
+      const forecast = {
+        ...prediction,
+        mariage: { boul: [pair, pair.replace("*", "X")] },
+      };
+      const published = [
+        {
+          id: "manual",
+          date: now,
+          dataStack: [
+            {
+              valeur,
+              boul,
+              tirage: florida ? "FLORIDA" : "NEW YORK",
+              periode: "Soir",
+            },
+          ],
+        },
+      ];
+      const marriages = (posts: typeof published) =>
+        suggestBingo([result], [forecast], posts, now)
+          .flatMap((s) => s.items)
+          .filter((i) => i.valeur === "MARIAGE")
+          .map((i) => i.boul);
+      expect(marriages([])).toEqual([expected]);
+      expect(marriages(published)).toEqual([]);
+    },
+  );
+  it("requires an explicit pair and only accepts historically verified lot positions and reversals", () => {
+    const forecast = {
+      ...prediction,
+      mariage: {
+        boul: [
+          "59",
+          "27",
+          "59*89",
+          "95*72",
+          "59*59",
+          "359X27",
+          "59X27X89",
+          null,
+        ],
+      },
+    };
+    const items = suggestBingo([draw], [forecast], [], now)[0].items;
+    expect(items.some((item) => item.valeur === "MARIAGE")).toBe(false);
+  });
   it("does not propose a draw already published from a suggestion", () => {
     expect(
       suggestBingo(

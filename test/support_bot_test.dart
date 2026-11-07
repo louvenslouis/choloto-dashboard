@@ -148,10 +148,14 @@ void main() {
     final config = SupportBotConfig.fromJson(SupportBotConfig.initial.toJson());
     expect(config.children('').length, 5);
     expect(config.node('paid')!.requiresAuth, isTrue);
-    expect(config.node('paid')!.requestImage, isTrue);
+    expect(config.node('paid')!.requestsImage, isFalse);
+    expect(config.node('paid_receipt')!.requestsPaymentProof, isTrue);
+    expect(config.node('paid_status')!.requestsImage, isFalse);
+    expect(config.node('access_approved')!.requestsPaymentProof, isFalse);
+    expect(config.node('access_approved')!.requestsImage, isTrue);
     expect(config.node('renew')!.requiresAuth, isTrue);
     expect(config.children('renew').map((n) => n.label),
-        ['MonCash', 'NatCash', 'Zelle']);
+        ['Pri ak nimewo MonCash', 'Peye yon lòt fason']);
   });
   test('rejects orphan, duplicate and cyclic branches', () {
     for (final nodes in [

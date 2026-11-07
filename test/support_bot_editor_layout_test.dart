@@ -25,13 +25,13 @@ void main() {
     expect(find.text('Bonjour !'), findsNWidgets(2));
     await tester.tap(find.byKey(const ValueKey('preview-vip')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('preview-vip_haiti')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('preview-vip_haiti')));
-    await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('preview-vip_mon')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('preview-vip_mon')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('preview-vip_mon')), findsNothing);
     await tester.tap(find.text('Retour'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('preview-vip_haiti')), findsOneWidget);
+    expect(find.byKey(const ValueKey('preview-vip_mon')), findsOneWidget);
     await tester.tap(find.byTooltip('Recommencer'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('preview-vip')), findsOneWidget);
@@ -53,16 +53,16 @@ void main() {
       ));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      final branch = find.byKey(const ValueKey('vip_haiti'));
+      final branch = find.byKey(const ValueKey('vip_mon'));
       await tester.ensureVisible(branch);
-      await tester
-          .tap(find.descendant(of: branch, matching: find.text('Ayiti')));
+      await tester.tap(find.descendant(
+          of: branch, matching: find.text('Pri ak nimewo MonCash')));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       await tester.ensureVisible(find.byKey(const ValueKey('preview-vip')));
       await tester.tap(find.byKey(const ValueKey('preview-vip')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('preview-vip_haiti')), findsOneWidget);
+      expect(find.byKey(const ValueKey('preview-vip_mon')), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }

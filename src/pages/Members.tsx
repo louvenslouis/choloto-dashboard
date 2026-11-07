@@ -4,7 +4,7 @@ import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import {
   Download,
   Search,
-  Plus,
+  Gift,
   LayoutGrid,
   List,
   ArrowUpRight,
@@ -27,8 +27,11 @@ import {
 import { compareMembers, isVip, isNewMember } from "../services/members";
 import LineChart from "../components/TrendChart";
 import Calendar from "../components/Calendar";
+import CompensationDialog from "../components/CompensationDialog";
 import { exportReceipt } from "../services/receipt";
 import { exportMembers } from "../services/export";
+import { useNotificationTarget } from "../services/useNotificationTarget";
+import { callAdmin } from "../services/admin";
 import { db } from "../services/firebase";
 import {
   useCollection,
@@ -39,7 +42,6 @@ import {
   type Row,
 } from "../services/data";
 import {
-  callAdmin,
   cancelMembership,
   adjustMembership,
   newReceiptId,
@@ -47,6 +49,8 @@ import {
   recordPayment,
   rejectPayment,
   suggestedEnd,
+  isCompensation,
+  isPayment,
 } from "../services/payments";
 import {
   Badge,
@@ -104,7 +108,7 @@ function Users() {
     [filter, setFilter] = useState("all");
   const [selected, setSelected] = useState<Row | null>(null),
     [initialPayment, setInitialPayment] = useState(false);
-  const [create, setCreate] = useState(false),
+  const [compensation, setCompensation] = useState(false),
     [filtersOpen, setFiltersOpen] = useState(false),
     [actionsOpen, setActionsOpen] = useState(false);
   const state = useCollection("user", "", 0, 0, "", "", revision),
@@ -165,9 +169,12 @@ function Users() {
   return (
     <div className="members-directory">
       <div className="members-page-action">
-        <button onClick={() => setCreate(true)}>
-          <Plus size={16} />
-          Ajouter un utilisateur
+        <button
+          disabled={state.loading || !!state.error}
+          onClick={() => setCompensation(true)}
+        >
+          <Gift size={16} />
+          Compensation
         </button>
       </div>
       <div className="members-toolbar">
@@ -258,12 +265,13 @@ function Users() {
                   Exporter Excel
                 </button>
                 <button
+                  disabled={state.loading || !!state.error}
                   onClick={() => {
                     setActionsOpen(false);
-                    setCreate(true);
+                    setCompensation(true);
                   }}
                 >
-                  Ajouter un utilisateur
+                  Compensation
                 </button>
               </div>
             )}
@@ -374,15 +382,11 @@ function Users() {
           />
         </Modal>
       )}
-      {create && (
-        <Modal title="Ajouter un utilisateur" onClose={() => setCreate(false)}>
-          <CreateUser
-            done={() => {
-              setCreate(false);
-              setRevision((v) => v + 1);
-            }}
-          />
-        </Modal>
+      {compensation && (
+        <CompensationDialog
+          rows={state.rows}
+          onClose={() => setCompensation(false)}
+        />
       )}
     </div>
   );
@@ -427,33 +431,6 @@ function CopyValue({ value, label }: { value: string; label: string }) {
       </button>
       {action.feedback}
     </>
-  );
-}
-function CreateUser({ done }: { done: () => void }) {
-  const [email, setEmail] = useState("");
-  const action = useAction();
-  return (
-    <Form
-      onSubmit={() =>
-        void action.run(async () => {
-          await callAdmin("ensureUserDocumentByEmail", {
-            email: email.trim().toLowerCase(),
-          });
-          done();
-        }, "Compte vérifié et profil enregistré")
-      }
-    >
-      <Field label="Adresse e-mail">
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-      </Field>
-      {action.feedback}
-      <Submit busy={action.busy} />
-    </Form>
   );
 }
 function MemberEditor({
@@ -698,8 +675,7 @@ function MemberEditor({
 }
 function Reviews() {
   const [count, setCount] = useState(100),
-    [filter, setFilter] = useState("pending"),
-    [selected, setSelected] = useState<Row | null>(null);
+    [filter, setFilter] = useState("pending");
   const state = useCollection(
       "payment_requests",
       "created_at",
@@ -709,6 +685,11 @@ function Reviews() {
       filter,
     ),
     rows = state.rows.filter((r) => filter === "all" || r.status === filter);
+  const {
+    row: selected,
+    select: setSelected,
+    error: targetError,
+  } = useNotificationTarget("request", "payment_requests", rows);
   return (
     <Panel
       title="Paiements à vérifier"
@@ -725,13 +706,17 @@ function Reviews() {
         </select>
       }
     >
-      <Status {...state} empty={!rows.length} />
+      <Status
+        {...state}
+        error={state.error || targetError}
+        empty={!rows.length}
+      />
       <div className="proof-cards">
         {rows.map((r) => (
           <button
             className="proof-card"
             key={r.id}
-            onClick={() => setSelected(r)}
+            onClick={() => setSelected(r.id)}
           >
             <span className="proof-icon">
               <CreditCard size={24} />
@@ -991,11 +976,17 @@ function Transactions() {
       `${r.user_display_name || ""} ${r.user_email || ""} ${r.receipt_code || ""}`
         .toLowerCase()
         .includes(search.toLowerCase()) &&
-      (status === "all" || (status === "cancelled") === cancelled.has(r.id)) &&
+      (status === "all" ||
+        (status === "cancelled"
+          ? cancelled.has(r.id)
+          : isPayment(r) && !cancelled.has(r.id))) &&
       (method === "all" || r.payment_method === method),
   );
   const totals: Record<string, number> = {};
-  payments
+  const collected = payments.filter(
+    (r) => isPayment(r) && !cancelled.has(r.id),
+  );
+  collected
     .filter(
       (r) => !cancelled.has(r.id) && r.currency && Number.isFinite(r.amount),
     )
@@ -1013,7 +1004,7 @@ function Transactions() {
   const series = Array.from(
     { length: days },
     (_, i) =>
-      payments.filter(
+      collected.filter(
         (r) =>
           !cancelled.has(r.id) &&
           asDate(r.created_at)?.toDateString() ===
@@ -1030,9 +1021,7 @@ function Transactions() {
         <div>
           <h2>Transactions</h2>
           <strong>
-            {state.loading || state.error
-              ? "—"
-              : payments.filter((r) => !cancelled.has(r.id)).length}
+            {state.loading || state.error ? "—" : collected.length}
           </strong>
           <small>Paiements encaissés</small>
           <div className="payment-totals">
@@ -1164,8 +1153,18 @@ function Transactions() {
               </strong>
               <small>{r.payment_method}</small>
             </div>
-            <Badge tone={cancelled.has(r.id) ? "orange" : "green"}>
-              {cancelled.has(r.id) ? "Annulé" : "Encaissé"}
+            <Badge
+              tone={
+                cancelled.has(r.id) ? "orange" : isPayment(r) ? "green" : ""
+              }
+            >
+              {cancelled.has(r.id)
+                ? "Annulé"
+                : isCompensation(r)
+                  ? "Compensation"
+                  : isPayment(r)
+                    ? "Encaissé"
+                    : "Ajustement"}
             </Badge>
             <button
               onClick={() =>
@@ -1181,7 +1180,10 @@ function Transactions() {
         ))}
       </div>
       {selected && (
-        <Modal title="Reçu de paiement" onClose={() => setSelected(null)}>
+        <Modal
+          title={isCompensation(selected) ? "Compensation" : "Reçu de paiement"}
+          onClose={() => setSelected(null)}
+        >
           <div className="receipt">
             <img src={`${import.meta.env.BASE_URL}logo.png`} alt="CHOLOTO" />
             <h2>{selected.receipt_code}</h2>
@@ -1191,11 +1193,18 @@ function Transactions() {
               {selected.user_email}
             </p>
             <h2>
-              {selected.amount ?? "—"} {selected.currency}
+              {isCompensation(selected)
+                ? "Sans frais"
+                : `${selected.amount ?? "—"} ${selected.currency || ""}`}
             </h2>
             <div className="member-profile-tiles">
               {[
-                ["Type", transactionLabel(selected.transaction_type)],
+                [
+                  "Type",
+                  isCompensation(selected)
+                    ? "Compensation"
+                    : transactionLabel(selected.transaction_type),
+                ],
                 ["Moyen", selected.payment_method || "—"],
                 ["Enregistré le", dateLabel(selected.created_at, true)],
                 ["Échéance", dateLabel(selected.new_end_sub)],

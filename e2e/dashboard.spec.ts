@@ -163,8 +163,8 @@ for (const width of [390, 1440]) {
       await page
         .getByRole("button", { name: "Retour aux conversations" })
         .click();
-      await page.getByRole("button", { name: "Ouvrir le menu" }).click();
-      await page.getByRole("link", { name: "Paramètres", exact: true }).click();
+      await page.getByRole("link", { name: "Accueil", exact: true }).click();
+      await page.getByRole("link", { name: "Paramètres du compte" }).click();
       await expect(
         page.getByRole("heading", { name: "Apparence" }),
       ).toBeVisible();
@@ -237,6 +237,7 @@ test("la période VIP actualise les dates et la courbe", async ({ page }) => {
   const vip = page.locator(".legacy-stat").first();
   const chart = vip.locator("svg[aria-label='Évolution sur la période']");
   const dates = chart.locator('text[dominant-baseline="hanging"]');
+  await expect(dates.last()).toBeVisible();
   const initialDates = await dates.allTextContents();
   const initialPath = await chart
     .locator('path[stroke-width="2.5"]')
@@ -278,4 +279,76 @@ test("Clean remet l’activité BINGO à zéro et persiste au rechargement", asy
     "/publications/history",
   );
   await page.screenshot({ path: "test-results/bingo-clean-mobile.png" });
+});
+
+test("navigation mobile par rubrique", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await page.route(/https:\/\/(?!fonts\.).*/, (route) => route.abort());
+  await page.goto("/dashboard");
+  const bar = page.getByRole("navigation", { name: "Navigation mobile" });
+  await expect(bar.getByRole("link")).toHaveText([
+    "Accueil",
+    "Support",
+    "Membres",
+  ]);
+  await expect(
+    page.getByRole("heading", { name: "Actions rapides" }),
+  ).toBeHidden();
+  await page.getByRole("link", { name: /^Tirages\b/ }).click();
+  await expect(page).toHaveURL(/tirages$/);
+  const accueil = bar.getByRole("link", { name: "Accueil" });
+  await expect(accueil).toHaveAttribute("aria-current", "location");
+  await accueil.click();
+  await page.getByRole("link", { name: "Paramètres du compte" }).click();
+  await expect(page).toHaveURL(/settings$/);
+  await expect(bar.getByRole("link", { name: "Accueil" })).toHaveAttribute(
+    "aria-current",
+    "location",
+  );
+  const publications = bar.getByRole("button", { name: "Publications" });
+  await publications.click();
+  const types = page.getByRole("navigation", { name: "Types de publication" });
+  await expect(page).toHaveURL(/settings$/);
+  await expect(types.getByRole("link")).toHaveText([
+    "BINGO",
+    "Prédictions",
+    "Croix",
+  ]);
+  await page.keyboard.press("Tab");
+  await expect(types.getByRole("link", { name: "BINGO" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(publications).toBeFocused();
+  await expect(types).toBeHidden();
+  await publications.click();
+  await page.getByRole("heading", { name: "Apparence" }).click();
+  await expect(types).toBeHidden();
+  for (const [name, path] of [
+    ["BINGO", "/publications"],
+    ["Croix", "/croix"],
+    ["Prédictions", "/predictions"],
+  ]) {
+    await publications.click();
+    const link = types.getByRole("link", { name, exact: true });
+    await link.click();
+    await expect(page).toHaveURL(new RegExp(path + "$"));
+    await expect(types).toBeHidden();
+    await expect(publications).toHaveAttribute("aria-current", /page|location/);
+  }
+  await page.goto("/croix/history");
+  await publications.click();
+  await expect(types.getByRole("link", { name: "Croix" })).toHaveAttribute(
+    "aria-current",
+    "location",
+  );
+  await bar.getByRole("link", { name: "Support" }).click();
+  await expect(page).toHaveURL(/support-inbox$/);
+  await bar.getByRole("link", { name: "Membres" }).click();
+  await page.locator('main a[href="/payments"]').click();
+  await expect(bar.getByRole("link", { name: "Membres" })).toHaveAttribute(
+    "aria-current",
+    "location",
+  );
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await expect(bar).toBeHidden();
+  await expect(page.locator("aside nav a")).toHaveCount(8);
 });

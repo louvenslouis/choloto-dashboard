@@ -4,7 +4,7 @@ export const auth = {
     uid: "fixture-admin",
     email: "admin@example.test",
     displayName: "Administration",
-    getIdToken: async () => "",
+    getIdToken: async () => "fixture-token",
   },
 };
 export const db = {};

@@ -47,28 +47,30 @@ export function useCollection(
   }, [path, sort, count, after, equalField, equalValue, revision]);
   return state;
 }
-export function useDocument(path: string) {
+export function useDocument(path: string | null) {
   const [state, setState] = useState<{
+    path: string;
     data: Row | null;
-    loading: boolean;
     error: string;
-  }>({ data: null, loading: true, error: "" });
+  } | null>(null);
   useEffect(() => {
-    setState({ data: null, loading: true, error: "" });
+    if (!path) return;
     return onSnapshot(
       doc(db, path),
       (snapshot) =>
         setState({
+          path,
           data: snapshot.exists()
             ? { ...snapshot.data(), id: snapshot.id }
             : null,
-          loading: false,
           error: "",
         }),
-      (error) => setState({ data: null, loading: false, error: error.message }),
+      (error) => setState({ path, data: null, error: error.message }),
     );
   }, [path]);
-  return state;
+  return state && state.path === path
+    ? { data: state.data, loading: false, error: state.error }
+    : { data: null, loading: Boolean(path), error: "" };
 }
 export function asDate(value: unknown): Date | null {
   if (value instanceof Date) return value;

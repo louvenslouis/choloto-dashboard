@@ -11,6 +11,7 @@ export default defineConfig({
         replacement: local("./firebase.ts"),
       },
       { find: "firebase/firestore", replacement: local("./firestore.ts") },
+      { find: "firebase/messaging", replacement: local("./messaging.ts") },
       { find: "firebase/auth", replacement: local("./auth.ts") },
     ],
   },

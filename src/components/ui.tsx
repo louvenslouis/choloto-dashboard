@@ -1,5 +1,5 @@
 import {
-  useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
@@ -68,13 +68,15 @@ export function Field({
 }
 export function Submit({
   busy,
+  disabled = false,
   children = "Enregistrer",
 }: {
   busy: boolean;
+  disabled?: boolean;
   children?: ReactNode;
 }) {
   return (
-    <button className="primary" disabled={busy} type="submit">
+    <button className="primary" disabled={busy || disabled} type="submit">
       {busy && <LoaderCircle className="spin" size={16} />} {children}
     </button>
   );
@@ -127,28 +129,34 @@ export function Modal({
   title,
   onClose,
   children,
+  dismissible = true,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  dismissible?: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    dialog.current?.showModal();
+  useLayoutEffect(() => {
     const el = dialog.current;
+    el?.showModal();
     return () => el?.close();
   }, []);
   return (
     <dialog
       ref={dialog}
-      onCancel={onClose}
+      aria-label={title}
+      onCancel={(e) => {
+        e.preventDefault();
+        if (dismissible) onClose();
+      }}
       onClick={(e) => {
-        if (e.target === dialog.current) onClose();
+        if (dismissible && e.target === dialog.current) onClose();
       }}
     >
       <div className="modal-head">
         <h2>{title}</h2>
-        <button aria-label="Fermer" onClick={onClose}>
+        <button aria-label="Fermer" disabled={!dismissible} onClick={onClose}>
           <X size={20} />
         </button>
       </div>

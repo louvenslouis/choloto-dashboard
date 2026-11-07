@@ -45,11 +45,25 @@ function values(row: Row, keys: string[], width: number) {
     .filter((value: string) => value.length === width);
 }
 const reverse = (s: string) => s.split("").reverse().join("");
-function lot(value: string) {
-  const label = value.trim().toLowerCase();
+function marriagePair(value: unknown) {
+  if (typeof value !== "string") return null;
+  const match = /^\s*(\d{2})\s*[*x]\s*(\d{2})\s*$/i.exec(value);
+  return match ? [match[1], match[2]] : null;
+}
+const pairKey = (pair: string[]) => [...pair].sort().join("X");
+function matchesMarriage([a, b]: string[], first: string, second: string) {
+  // Published marriages support at most one reversed ball.
+  return (
+    (a === first && (b === second || reverse(b) === second)) ||
+    (reverse(a) === first && b === second)
+  );
+}
+function lot(value: string | undefined) {
+  const label = value?.trim().toLowerCase() ?? "";
   if (/^(1|premier)/.test(label)) return "1er lot";
   if (/^2(e|eme|ème)/.test(label)) return "2e lot";
   if (/^3(e|eme|ème)/.test(label)) return "3e lot";
+  if (label === "maryaj") return "mariage";
   return label;
 }
 
@@ -109,14 +123,18 @@ export function suggestBingo(
     ] as string[];
     const selected = values(prediction, ["boloto", "favori", "soutni"], 2);
     const items: BingoItem[] = [];
-    const add = (valeur: string, boul: string) => {
+    const add = (
+      valeur: string,
+      boul: string,
+      marriageAliases?: Set<string>,
+    ) => {
       const item = {
         valeur,
         boul,
         tirage: names[draw.tirage],
         periode: session,
       };
-      const key = `${day(date)}:${draw.tirage}:${draw.periode}:${valeur}:${boul}`;
+      const key = `${day(date)}:${draw.tirage}:${draw.periode}:${valeur}:${marriageAliases ? pairKey(boul.split("X")) : boul}`;
       const duplicate = published.some((b) => {
         const time = asDate(b.date);
         // Legacy evening wins were sometimes posted the next morning.
@@ -132,8 +150,10 @@ export function suggestBingo(
             (v: BingoItem) =>
               v.tirage?.trim().toUpperCase() === item.tirage &&
               v.periode === session &&
-              v.boul?.trim() === boul &&
-              lot(v.valeur) === lot(valeur),
+              lot(v.valeur) === lot(valeur) &&
+              (marriageAliases
+                ? marriageAliases.has(pairKey(marriagePair(v.boul) ?? []))
+                : v.boul?.trim() === boul),
           )
         );
       });
@@ -149,6 +169,29 @@ export function suggestBingo(
     if (values(prediction, ["chif3"], 3).includes(pick3)) add("LOTO 3", pick3);
     const pick4 = balls[1] + balls[2];
     if (values(prediction, ["chif4"], 4).includes(pick4)) add("LOTO 4", pick4);
+    if (Array.isArray(prediction.mariage?.boul)) {
+      const pairs = prediction.mariage.boul.map(marriagePair);
+      // The historical publications confirm lots 1+2 and 2+3.
+      for (const [first, second] of [
+        [balls[0], balls[1]],
+        [balls[1], balls[2]],
+      ]) {
+        const aliases = new Set<string>();
+        for (const pair of pairs) {
+          if (
+            pair &&
+            (matchesMarriage(pair, first, second) ||
+              matchesMarriage(pair, second, first))
+          )
+            aliases.add(pairKey(pair));
+        }
+        if (aliases.size) {
+          // Older posts used either the predicted pair or the drawn pair.
+          aliases.add(pairKey([first, second]));
+          add("MARIAGE", `${first}X${second}`, aliases);
+        }
+      }
+    }
     if (items.length)
       suggestions.push({
         id: draw.id,

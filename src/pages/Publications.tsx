@@ -6,9 +6,7 @@ import {
   deleteDoc,
   doc,
   serverTimestamp,
-  Timestamp,
   updateDoc,
-  runTransaction,
 } from "firebase/firestore";
 import {
   History,
@@ -26,7 +24,6 @@ import { auth, db } from "../services/firebase";
 import { dateLabel, asDate, useCollection, type Row } from "../services/data";
 import { predictionGroups } from "../services/publications";
 import {
-  Field,
   Form,
   Panel,
   Submit,
@@ -37,33 +34,9 @@ import {
 import Comments from "./comments";
 import BingoActivity from "./BingoActivity";
 import BingoSuggestions from "./BingoSuggestions";
-const bingoLotteries = [
-  "NEW YORK",
-  "GEORGIA",
-  "FLORIDA",
-  "NEW JERSEY",
-  "TEXAS",
-  "TENNESSEE",
-  "MARYLAND",
-  "PENNSYLVANIA",
-];
-const prizes = [
-  "1er lot",
-  "2e lot",
-  "3e lot",
-  "2 lots",
-  "LOTO 3",
-  "LOTO 4",
-  "2 Kabès",
-  "MARIAGE",
-  "BOLOTO",
-];
-const emptyBingo = () => ({
-  valeur: "1er lot",
-  tirage: "NEW YORK",
-  boul: "",
-  periode: "Midi",
-});
+import BingoForm from "./BingoForm";
+import type { BingoItem } from "../services/bingoSuggestions";
+import "./bingo.css";
 export default function Publications() {
   const path = useLocation().pathname;
   const kind = path.startsWith("/croix")
@@ -95,16 +68,29 @@ export default function Publications() {
           </button>
         </div>
       )}
-      {history ? (
-        <PublicationHistory kind={kind} />
-      ) : kind === "croix" ? (
-        <CroixForm />
-      ) : kind === "prediction" ? (
-        <PredictionForm />
-      ) : (
+      {kind === "bingo" ? (
         <>
-          <BingoSuggestions onChoose={setSuggestion} />
-          <BingoForm />
+          <nav className="bingo-navigation" aria-label="Publications BINGO">
+            <button
+              type="button"
+              aria-pressed={!history}
+              onClick={() => setHistory(false)}
+            >
+              <Plus size={18} /> Nouvelle publication
+            </button>
+            <button
+              type="button"
+              aria-pressed={history}
+              onClick={() => setHistory(true)}
+            >
+              <History size={18} /> Historique
+            </button>
+          </nav>
+          <div hidden={history}>
+            <BingoSuggestions onChoose={setSuggestion} />
+            <BingoForm />
+          </div>
+          {history && <PublicationHistory kind={kind} />}
           {suggestion && (
             <Modal
               title="Vérifier le BINGO"
@@ -118,8 +104,14 @@ export default function Publications() {
             </Modal>
           )}
         </>
+      ) : history ? (
+        <PublicationHistory kind={kind} />
+      ) : kind === "croix" ? (
+        <CroixForm />
+      ) : (
+        <PredictionForm />
       )}
-      {kind !== "prediction" && (
+      {kind === "croix" && (
         <button
           className="bingo-history-shortcut"
           onClick={() => setHistory(!history)}
@@ -363,125 +355,6 @@ function PredictionForm({ row, done }: { row?: Row; done?: () => void }) {
     </Panel>
   );
 }
-function BingoForm({
-  row,
-  initial,
-  done,
-}: {
-  row?: Row;
-  initial?: Row;
-  done?: () => void;
-}) {
-  const [items, setItems] = useState<ReturnType<typeof emptyBingo>[]>(
-    row?.dataStack || initial?.dataStack || [emptyBingo()],
-  );
-  const action = useAction();
-  const edit = (index: number, key: string, value: string) =>
-    setItems(items.map((r, i) => (i === index ? { ...r, [key]: value } : r)));
-  return (
-    <Panel
-      title="Publication BINGO"
-      action={<span className="badge">{items.length} / 32</span>}
-    >
-      <Form
-        onSubmit={() => {
-          void action.run(async () => {
-            const payload = { dataStack: items };
-            if (row) await updateDoc(doc(db, "bingo", row.id), payload);
-            else {
-              const now = new Date();
-              const publication = {
-                ...payload,
-                date: Timestamp.fromDate(now),
-                expiration: Timestamp.fromMillis(now.getTime() + 86400000),
-              };
-              if (initial) {
-                const ref = doc(db, "bingo", `suggested_${initial.id}`);
-                await runTransaction(db, async (transaction) => {
-                  if ((await transaction.get(ref)).exists())
-                    throw new Error("Ce BINGO a déjà été publié.");
-                  transaction.set(ref, publication);
-                });
-              } else await addDoc(collection(db, "bingo"), publication);
-              setItems([emptyBingo()]);
-            }
-            done?.();
-          }, "BINGO publié");
-        }}
-      >
-        <div className="stack">
-          {items.map((item, i) => (
-            <div className="bingo-form" key={i}>
-              <div className="bingo-result-title">
-                <Trophy size={18} />
-                <strong>Résultat {i + 1}</strong>
-              </div>
-              <Field label="Lot">
-                <select
-                  value={item.valeur}
-                  onChange={(e) => edit(i, "valeur", e.target.value)}
-                >
-                  {prizes.map((p) => (
-                    <option key={p}>{p}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Tirage">
-                <select
-                  value={item.tirage}
-                  onChange={(e) => edit(i, "tirage", e.target.value)}
-                >
-                  {bingoLotteries.map((p) => (
-                    <option key={p}>{p}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Numéro">
-                <input
-                  required
-                  maxLength={30}
-                  value={item.boul}
-                  onChange={(e) => edit(i, "boul", e.target.value)}
-                />
-              </Field>
-              <Field label="Période">
-                <select
-                  value={item.periode}
-                  onChange={(e) => edit(i, "periode", e.target.value)}
-                >
-                  {["Matin", "Midi", "Soir"].map((p) => (
-                    <option key={p}>{p}</option>
-                  ))}
-                </select>
-              </Field>
-              <button
-                type="button"
-                disabled={items.length === 1}
-                aria-label="Retirer le résultat"
-                onClick={() => setItems(items.filter((_, j) => j !== i))}
-              >
-                <Trash2 size={17} />
-              </button>
-            </div>
-          ))}
-        </div>
-        <div className="form-actions">
-          <button
-            type="button"
-            disabled={items.length >= 32}
-            onClick={() => setItems([...items, emptyBingo()])}
-          >
-            <Plus size={16} /> Ajouter un résultat
-          </button>
-          <Submit busy={action.busy}>
-            {row ? "Enregistrer" : "Publier le BINGO"}
-          </Submit>
-        </div>
-        {action.feedback}
-      </Form>
-    </Panel>
-  );
-}
 export function PublicationHistory({ kind }: { kind: string }) {
   const [count, setCount] = useState(50),
     [edit, setEdit] = useState<Row | null>(null),
@@ -583,17 +456,15 @@ export function PublicationHistory({ kind }: { kind: string }) {
               </div>
             ) : (
               <>
-                {row.dataStack?.map(
-                  (r: ReturnType<typeof emptyBingo>, i: number) => (
-                    <div className="result-line" key={i}>
-                      <span>
-                        {r.tirage} · {r.periode}
-                      </span>
-                      <strong>{r.boul}</strong>
-                      <span>{r.valeur}</span>
-                    </div>
-                  ),
-                )}
+                {row.dataStack?.map((r: BingoItem, i: number) => (
+                  <div className="result-line" key={i}>
+                    <span>
+                      {r.tirage} · {r.periode}
+                    </span>
+                    <strong>{r.boul}</strong>
+                    <span>{r.valeur}</span>
+                  </div>
+                ))}
                 <BingoActivity id={row.id} />
               </>
             )}

@@ -1,0 +1,107 @@
+{
+  "greeting": "Bonjou fanmi! Kijan nou ka ede ou?",
+  "nodes": [
+    {
+      "id": "vip",
+      "parent": "",
+      "label": "Konbyen VIP a koute? Kijan m ka abòne?",
+      "answer": "Chwazi yon mwayen peman pou wè pri a ak dire abònman an."
+    },
+    {
+      "id": "vip_mon",
+      "parent": "vip",
+      "label": "Pri ak nimewo MonCash",
+      "answer": "Verifye montan an, nimewo a ak non moun k ap resevwa kòb la anvan ou fè transfè a. Lè ou fin peye, voye resi a ak bouton ki anba a.",
+      "paymentMethodId": "moncash",
+      "requiresAuth": true,
+      "requestImage": true,
+      "requestPaymentProof": true
+    },
+    {
+      "id": "vip_other",
+      "parent": "vip",
+      "label": "Peye yon lòt fason",
+      "answer": "Konekte sou kont ou. Nan chat la, peze « Voye yon prèv peman » pou wè mwayen peman ki disponib yo anvan ou peye. Si ou pa jwenn youn ou ka itilize, peze « Pale ak ekip la » epi di nou nan ki peyi ou ye."
+    },
+    {
+      "id": "renew",
+      "parent": "",
+      "label": "Mwen vle renouvle VIP mwen",
+      "answer": "Sèvi ak menm kont CHOLOTO ki gen abònman w lan. Chwazi fason ou vle peye a.",
+      "requiresAuth": true
+    },
+    {
+      "id": "renew_mon",
+      "parent": "renew",
+      "label": "Pri ak nimewo MonCash",
+      "answer": "Verifye montan an, nimewo a ak non moun k ap resevwa kòb la anvan ou fè transfè a. Lè ou fin peye, voye resi a ak bouton ki anba a.",
+      "paymentMethodId": "moncash",
+      "requiresAuth": true,
+      "requestImage": true,
+      "requestPaymentProof": true
+    },
+    {
+      "id": "renew_other",
+      "parent": "renew",
+      "label": "Peye yon lòt fason",
+      "answer": "Konekte sou kont ou. Nan chat la, peze « Voye yon prèv peman » pou wè mwayen peman ki disponib yo anvan ou peye. Si ou pa jwenn youn ou ka itilize, peze « Pale ak ekip la » epi di nou nan ki peyi ou ye."
+    },
+    {
+      "id": "paid",
+      "parent": "",
+      "label": "Mwen deja peye",
+      "answer": "Èske ou deja voye resi a nan fòm prèv peman an?",
+      "requiresAuth": true
+    },
+    {
+      "id": "paid_receipt",
+      "parent": "paid",
+      "label": "Mwen bezwen voye resi a",
+      "answer": "Peze « Voye prèv peman an ». Chwazi yon foto resi a kote montan, dat ak referans tranzaksyon an parèt klè, epi peze « Voye ».",
+      "requiresAuth": true,
+      "requestImage": true,
+      "requestPaymentProof": true
+    },
+    {
+      "id": "paid_status",
+      "parent": "paid",
+      "label": "Mwen deja voye resi a",
+      "answer": "Anlè chat la, peze « Voye yon prèv peman » epi desann nan « Demann mwen yo ». Si demann nan ap tann verifikasyon, ekip la deja resevwa li. Si li refize, li rezon ki sou demann nan. Si peman an valide, ouvri VIP sou menm kont lan.",
+      "requiresAuth": true
+    },
+    {
+      "id": "access",
+      "parent": "",
+      "label": "Mwen pa ka antre nan VIP",
+      "answer": "Kisa ki parèt sou ekran w lan?"
+    },
+    {
+      "id": "access_approved",
+      "parent": "access",
+      "label": "Peman mwen valide, men VIP toujou bloke",
+      "answer": "Anlè chat la, peze « Voye yon prèv peman ». Nan « Demann mwen yo », verifye dat « VIP jiska » a. Si dat la poko pase, ouvri VIP sou kont kote peman an valide a. Si li toujou bloke, voye ekip la yon kaptire ekran sa ou wè a.",
+      "requiresAuth": true,
+      "requestImage": true
+    },
+    {
+      "id": "access_login",
+      "parent": "access",
+      "label": "Mwen pa ka konekte sou kont mwen",
+      "answer": "Konekte menm jan ou te fè lè ou te abòne a. Si ou jwenn yon mesaj erè, voye yon kaptire ekran mesaj la bay ekip la.",
+      "requestImage": true
+    },
+    {
+      "id": "access_error",
+      "parent": "access",
+      "label": "Mwen wè yon mesaj erè",
+      "answer": "Voye yon kaptire ekran mesaj erè a epi di nou ki etap ou t ap fè lè li parèt.",
+      "requestImage": true
+    },
+    {
+      "id": "content",
+      "parent": "",
+      "label": "Ki kote m jwenn boul ak maryaj yo?",
+      "answer": "Konekte sou kont ki gen abònman an epi ouvri VIP. Gade dat ak peryòd prediksyon an anlè paj la. Boul yo ak maryaj la parèt anba dat la."
+    }
+  ]
+}

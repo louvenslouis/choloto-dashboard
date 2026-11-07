@@ -239,113 +239,102 @@ class SupportBotConfig {
         SupportBotNode(
             id: 'vip',
             parent: '',
-            label: 'Mwen vle antre nan VIP a',
-            answer:
-                'Byenveni! Kreye yon kont CHOLOTO oswa konekte sou kont ou deja genyen an. Nan ki peyi ou ye?'),
-        SupportBotNode(
-            id: 'vip_haiti',
-            requiresAuth: true,
-            parent: 'vip',
-            label: 'Ayiti',
-            answer: 'Ki mwayen peman ou vle itilize?'),
-        SupportBotNode(
-            id: 'vip_abroad',
-            requiresAuth: true,
-            parent: 'vip',
-            label: 'Yon lòt peyi',
-            answer:
-                'Ou ka chwazi Zelle. Si ou bezwen yon lòt mwayen peman, pale ak ekip la.'),
+            label: 'Konbyen VIP a koute? Kijan m ka abòne?',
+            answer: 'Chwazi yon mwayen peman pou wè pri a ak dire abònman an.'),
         SupportBotNode(
             id: 'vip_mon',
-            parent: 'vip_haiti',
-            label: 'MonCash',
+            parent: 'vip',
+            label: 'Pri ak nimewo MonCash',
             answer:
-                'Lè ou fin peye, peze bouton pou voye prèv peman an epi ranpli fòm nan. Ekip la ap verifye demann ou an.',
+                'Verifye montan an, nimewo a ak non moun k ap resevwa kòb la anvan ou fè transfè a. Lè ou fin peye, voye resi a ak bouton ki anba a.',
             paymentMethodId: 'moncash',
-            requestImage: true),
+            requiresAuth: true,
+            requestImage: true,
+            requestPaymentProof: true),
         SupportBotNode(
-            id: 'vip_nat',
-            parent: 'vip_haiti',
-            label: 'NatCash',
+            id: 'vip_other',
+            parent: 'vip',
+            label: 'Peye yon lòt fason',
             answer:
-                'Lè ou fin peye, peze bouton pou voye prèv peman an epi ranpli fòm nan. Ekip la ap verifye demann ou an.',
-            paymentMethodId: 'natcash',
-            requestImage: true),
-        SupportBotNode(
-            id: 'vip_zelle',
-            parent: 'vip_abroad',
-            label: 'Zelle',
-            answer:
-                'Lè ou fin peye, peze bouton pou voye prèv peman an epi ranpli fòm nan. Ekip la ap verifye demann ou an.',
-            paymentMethodId: 'zelle',
-            requestImage: true),
+                'Konekte sou kont ou. Nan chat la, peze « Voye yon prèv peman » pou wè mwayen peman ki disponib yo anvan ou peye. Si ou pa jwenn youn ou ka itilize, peze « Pale ak ekip la » epi di nou nan ki peyi ou ye.'),
         SupportBotNode(
             id: 'renew',
-            requiresAuth: true,
             parent: '',
             label: 'Mwen vle renouvle VIP mwen',
             answer:
-                'Konekte sou kont CHOLOTO ki gen abònman ou a. Ki mwayen peman ou vle itilize?'),
+                'Sèvi ak menm kont CHOLOTO ki gen abònman w lan. Chwazi fason ou vle peye a.',
+            requiresAuth: true),
         SupportBotNode(
             id: 'renew_mon',
+            parent: 'renew',
+            label: 'Pri ak nimewo MonCash',
+            answer:
+                'Verifye montan an, nimewo a ak non moun k ap resevwa kòb la anvan ou fè transfè a. Lè ou fin peye, voye resi a ak bouton ki anba a.',
             paymentMethodId: 'moncash',
+            requiresAuth: true,
             requestImage: true,
-            parent: 'renew',
-            label: 'MonCash',
-            answer:
-                'Lè ou fin peye, peze bouton pou voye prèv peman an epi ranpli fòm nan. Ekip la ap verifye demann ou an.'),
+            requestPaymentProof: true),
         SupportBotNode(
-            id: 'renew_nat',
-            paymentMethodId: 'natcash',
-            requestImage: true,
+            id: 'renew_other',
             parent: 'renew',
-            label: 'NatCash',
+            label: 'Peye yon lòt fason',
             answer:
-                'Lè ou fin peye, peze bouton pou voye prèv peman an epi ranpli fòm nan. Ekip la ap verifye demann ou an.'),
-        SupportBotNode(
-            id: 'renew_zelle',
-            paymentMethodId: 'zelle',
-            requestImage: true,
-            parent: 'renew',
-            label: 'Zelle',
-            answer:
-                'Lè ou fin peye, peze bouton pou voye prèv peman an epi ranpli fòm nan. Ekip la ap verifye demann ou an.'),
+                'Konekte sou kont ou. Nan chat la, peze « Voye yon prèv peman » pou wè mwayen peman ki disponib yo anvan ou peye. Si ou pa jwenn youn ou ka itilize, peze « Pale ak ekip la » epi di nou nan ki peyi ou ye.'),
         SupportBotNode(
             id: 'paid',
-            requestPaymentProof: true,
-            requestImage: true,
-            requiresAuth: true,
             parent: '',
             label: 'Mwen deja peye',
+            answer: 'Èske ou deja voye resi a nan fòm prèv peman an?',
+            requiresAuth: true),
+        SupportBotNode(
+            id: 'paid_receipt',
+            parent: 'paid',
+            label: 'Mwen bezwen voye resi a',
             answer:
-                'Peze bouton pou voye prèv peman an. Nan fòm nan, ajoute yon foto resi a kote montan, dat ak referans tranzaksyon an parèt klè. Ekip la ap verifye peman an anvan li konfime aktivasyon an.'),
+                'Peze « Voye prèv peman an ». Chwazi yon foto resi a kote montan, dat ak referans tranzaksyon an parèt klè, epi peze « Voye ».',
+            requiresAuth: true,
+            requestImage: true,
+            requestPaymentProof: true),
+        SupportBotNode(
+            id: 'paid_status',
+            parent: 'paid',
+            label: 'Mwen deja voye resi a',
+            answer:
+                'Anlè chat la, peze « Voye yon prèv peman » epi desann nan « Demann mwen yo ». Si demann nan ap tann verifikasyon, ekip la deja resevwa li. Si li refize, li rezon ki sou demann nan. Si peman an valide, ouvri VIP sou menm kont lan.',
+            requiresAuth: true),
         SupportBotNode(
             id: 'access',
             parent: '',
-            label: 'VIP mwen bloke',
-            answer: 'Ki pwoblèm ou genyen?'),
+            label: 'Mwen pa ka antre nan VIP',
+            answer: 'Kisa ki parèt sou ekran w lan?'),
         SupportBotNode(
-            id: 'access_paid',
-            requestPaymentProof: true,
-            requestImage: true,
-            requiresAuth: true,
+            id: 'access_approved',
             parent: 'access',
-            label: 'Mwen peye men VIP a pa aktive',
+            label: 'Peman mwen valide, men VIP toujou bloke',
             answer:
-                'Konekte sou kont ou te itilize pou abònman an. Si VIP a toujou bloke, peze bouton pou voye prèv peman an. Ou ka verifye tou si yon demann deja ap tann nan lis demann ou yo.'),
+                'Anlè chat la, peze « Voye yon prèv peman ». Nan « Demann mwen yo », verifye dat « VIP jiska » a. Si dat la poko pase, ouvri VIP sou kont kote peman an valide a. Si li toujou bloke, voye ekip la yon kaptire ekran sa ou wè a.',
+            requiresAuth: true,
+            requestImage: true),
+        SupportBotNode(
+            id: 'access_login',
+            parent: 'access',
+            label: 'Mwen pa ka konekte sou kont mwen',
+            answer:
+                'Konekte menm jan ou te fè lè ou te abòne a. Si ou jwenn yon mesaj erè, voye yon kaptire ekran mesaj la bay ekip la.',
+            requestImage: true),
         SupportBotNode(
             id: 'access_error',
-            requestImage: true,
             parent: 'access',
             label: 'Mwen wè yon mesaj erè',
             answer:
-                'Voye mesaj erè a oswa yon kaptire ekran nan chat la. Di ekip la tou ki etap ou te fè anvan pwoblèm nan parèt.'),
+                'Voye yon kaptire ekran mesaj erè a epi di nou ki etap ou t ap fè lè li parèt.',
+            requestImage: true),
         SupportBotNode(
             id: 'content',
             parent: '',
-            label: 'Ki kote kontni VIP a ye?',
+            label: 'Ki kote m jwenn boul ak maryaj yo?',
             answer:
-                'Se sou kont CHOLOTO ou w ap jwenn kontni VIP a, tankou boul ak maryaj yo. Konekte sou kont ki gen abònman an.'),
+                'Konekte sou kont ki gen abònman an epi ouvri VIP. Gade dat ak peryòd prediksyon an anlè paj la. Boul yo ak maryaj la parèt anba dat la.'),
       ]);
 }
 

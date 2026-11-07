@@ -75,11 +75,14 @@ describe("Paiements", () => {
   });
 });
 describe("Bot compatible avec les clients existants", () => {
+  it("valide le parcours initial et ses moyens de paiement", () => {
+    expect(validateBot(initialBot)).toEqual(initialBot);
+  });
   it("refuse une arborescence cyclique", () =>
     expect(() =>
       validateBot({
         ...initialBot,
-        nodes: [{ ...initialBot.nodes[0], parent: "help" }],
+        nodes: [{ ...initialBot.nodes[0], parent: initialBot.nodes[0].id }],
       }),
     ).toThrow("hiérarchie"));
   it("refuse une référence vers un paiement supprimé", () =>
