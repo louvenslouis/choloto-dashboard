@@ -558,6 +558,28 @@ service cloud.firestore {
           (exists(/databases/$(database)/documents/support_bot/config) && request.resource.data.revision == resource.data.revision + 1));
     }
 
+    match /vip_badges/config {
+      function validTier(tier, previousDays) {
+        return tier is map && tier.keys().hasOnly(['name', 'days']) &&
+            tier.name is string && tier.name.size() <= 80 &&
+            tier.name.matches('\\S(.*\\S)?') &&
+            tier.days is int && tier.days > previousDays && tier.days <= 36500;
+      }
+
+      function validConfig(data) {
+        let tiers = data.tiers;
+        return data.keys().hasOnly(['tiers']) && tiers is list && tiers.size() == 8 &&
+            validTier(tiers[0], -1) && tiers[0].days == 0 &&
+            validTier(tiers[1], tiers[0].days) && validTier(tiers[2], tiers[1].days) &&
+            validTier(tiers[3], tiers[2].days) && validTier(tiers[4], tiers[3].days) &&
+            validTier(tiers[5], tiers[4].days) && validTier(tiers[6], tiers[5].days) &&
+            validTier(tiers[7], tiers[6].days);
+      }
+
+      allow get: if signedIn();
+      allow create, update: if isAdmin() && validConfig(request.resource.data);
+    }
+
     match /settings/{document} {
       allow read: if true;
       allow create: if isAdmin() && validSettings(request.resource.data);

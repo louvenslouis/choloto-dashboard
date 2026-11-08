@@ -1,8 +1,5 @@
 import { asDate, localDateInput, type Row } from "./data";
-export async function exportMembers(
-  rows: Row[],
-  duration: (row: Row) => string,
-) {
+export async function exportMembers(rows: Row[]) {
   const { Workbook } = await import("exceljs");
   const workbook = new Workbook();
   const sheet = workbook.addWorksheet("Membres");
@@ -19,6 +16,7 @@ export async function exportMembers(
     ["Anniversaire", "birthday", 20],
     ["Profil", "profile", 24],
     ["UID", "uid", 32],
+    ["Badge CHOLOTO", "vipBadge", 35],
   ].map(([header, key, width]) => ({
     header: String(header),
     key: String(key),
@@ -27,7 +25,6 @@ export async function exportMembers(
   rows.forEach((row) => {
     const output: Record<string, unknown> = {
       ...row,
-      vipDuration: duration(row),
       uid: row.uid || row.id,
       status:
         (asDate(row.end_sub)?.getTime() || 0) >= Date.now()
@@ -44,7 +41,7 @@ export async function exportMembers(
     pattern: "solid",
     fgColor: { argb: "FF10243A" },
   };
-  sheet.autoFilter = { from: "A1", to: "L1" };
+  sheet.autoFilter = { from: "A1", to: "M1" };
   sheet.views = [{ state: "frozen", ySplit: 1 }];
   for (const key of ["end_sub", "created_time", "birthday"])
     sheet.getColumn(key).numFmt = "dd/mm/yyyy";

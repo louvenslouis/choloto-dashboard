@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { auth, isAdministrator, login, logout } from "./services/firebase";
 import PushSettings from "./components/PushSettings";
+import VipBadgeSettings from "./components/VipBadgeSettings";
 import { LuckyCross } from "./components/LuckyCross";
 import { forgetSessionPush, reconcilePush } from "./services/adminPush";
 import { MemberDirectoryProvider } from "./services/MemberDirectory";
@@ -337,6 +338,7 @@ function Shell({ user }: { user: User }) {
                       </div>
                     </Panel>
                     <PushSettings uid={user.uid} />
+                    <VipBadgeSettings />
                     <Panel title="Sécurité">
                       <button
                         className="danger"

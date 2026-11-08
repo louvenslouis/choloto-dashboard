@@ -197,6 +197,21 @@ const snapshot = (path: string) => ({
   })),
   empty: !rows[path]?.length,
 });
+const badgeConfigPath = "vip_badges/config";
+const badgeStorageKey = "e2e.vipBadgeConfig";
+function documentSnapshot(path: string) {
+  const [name, id] = path.split("/");
+  const row =
+    path === badgeConfigPath
+      ? JSON.parse(sessionStorage.getItem(badgeStorageKey) || "null")
+      : rows[name]?.find((r) => r.id === id);
+  return {
+    id,
+    exists: () => !!row,
+    data: () => row,
+    metadata: { fromCache: false, hasPendingWrites: false },
+  };
+}
 export const onSnapshot = (
   ref: { path: string },
   optionsOrCallback: object | ((s: unknown) => void),
@@ -206,9 +221,7 @@ export const onSnapshot = (
     typeof optionsOrCallback === "function" ? optionsOrCallback : next!;
   queueMicrotask(() => {
     if (ref.path.split("/").length % 2 === 0) {
-      const [collection, id] = ref.path.split("/");
-      const row = rows[collection]?.find((r) => r.id === id);
-      callback({ id, exists: () => !!row, data: () => row });
+      callback(documentSnapshot(ref.path));
     } else callback(snapshot(ref.path));
   });
   return () => {};
@@ -237,5 +250,25 @@ export const addDoc = async () => {
 };
 export const updateDoc = addDoc;
 export const deleteDoc = addDoc;
-export const runTransaction = addDoc;
+export const runTransaction = async (
+  _db: unknown,
+  work: (tx: unknown) => Promise<void>,
+) => {
+  if (!new URLSearchParams(location.search).has("badge-settings-fixture"))
+    return addDoc();
+  type Ref = { path: string };
+  const check = (ref: Ref) => {
+    if (ref.path !== badgeConfigPath) throw new Error("Écriture désactivée");
+  };
+  await work({
+    get: (ref: Ref) => {
+      check(ref);
+      return documentSnapshot(ref.path);
+    },
+    set: (ref: Ref, data: unknown) => {
+      check(ref);
+      sessionStorage.setItem(badgeStorageKey, JSON.stringify(data));
+    },
+  });
+};
 export const writeBatch = () => ({ delete: () => {}, commit: addDoc });

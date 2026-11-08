@@ -2666,21 +2666,30 @@ dialog:has(.compensation-dialog) {
   background: #7c3aed;
   color: #ffd447;
 }
-.new-member {
-  position: absolute;
-  bottom: -7px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 7px;
-  letter-spacing: 0.2px;
-  padding: 3px 5px;
-  border-radius: 6px;
-  background: #16805c;
-  color: white;
-  font-weight: 800;
-  white-space: nowrap;
-  border: 1px solid var(--panel);
+.member-rank {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  max-width: 100%;
+  margin-block: 4px;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--rank-accent) 40%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--rank-accent) 13%, var(--panel));
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 600;
+  text-align: start;
+  overflow-wrap: anywhere;
+  --rank-accent: var(--muted);
 }
+.member-rank svg { flex-shrink: 0; }
+.member-rank[data-tier="1"], .member-rank[data-tier="2"] { --rank-accent: #239d81; }
+.member-rank[data-tier="3"], .member-rank[data-tier="4"] { --rank-accent: #488ac7; }
+.member-rank[data-tier="5"], .member-rank[data-tier="6"] { --rank-accent: #9b72d4; }
+.member-rank[data-tier="7"] { --rank-accent: #dba61e; }
 .member-card-top .member-identity {
   flex: 1;
   min-width: 0;

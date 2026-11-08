@@ -46,7 +46,8 @@ Le workflow GitHub Pages utilise Node et React, conserve son horaire de rafraîc
 
 - Routes existantes conservées : tableau de bord, tirages, prédictions, BINGO, croix, historiques, membres, paiements, support et paramètres.
 - Google Authentication ; accès réservé au compte administrateur existant ou au claim Firebase `admin`.
-- Schémas Firestore conservés, sans migration des documents ni changement des règles.
+- Les profils et reçus existants servent au calcul de la durée VIP et des badges. Dans **Paramètres → Badges VIP**, les administrateurs peuvent modifier les noms et les seuils en jours cumulés. L’application et le dashboard utilisent les huit paliers par défaut tant que le document `vip_badges/config` est absent.
+- Pour activer les badges en production, publier d’abord les règles Firestore depuis le dépôt de l’application **choloto app**, qui contient le jeu de règles des clients mobiles, puis les nouvelles versions du dashboard et de l’application.
 - Transactions atomiques pour les paiements et révisions du bot.
 - Compensation en jours depuis Membres : tous les VIP actifs au lancement ou membres sélectionnés. Prolongation de l’échéance (ou départ du jour courant si expirée), historique sans encaissement ni renouvellement, reprise dans le même onglet sans double attribution après interruption.
 - Publication automatique des tirages toutes les dix minutes pendant une session ouverte, après activation dans Tirages. Historique vérifié sur le serveur avant toute publication automatique.

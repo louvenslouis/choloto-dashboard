@@ -174,5 +174,8 @@ expectStatus(
 
 console.log('Dashboard payment transaction rules checks passed.');
 
+const {testVipBadges} = await import('./vip_badges_rules.mjs');
+await testVipBadges({admin, owner});
+
 const {testPaymentRequests} = await import('./payment_requests_rules.mjs');
 await testPaymentRequests({admin});

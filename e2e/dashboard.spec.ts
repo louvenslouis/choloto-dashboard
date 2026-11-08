@@ -92,7 +92,7 @@ for (const width of [390, 1440]) {
     ).toBeVisible();
     await page.getByRole("button", { name: "Réinitialiser" }).click();
     await expect(page.locator(".member-card")).toHaveCount(1);
-    await expect(page.locator(".new-member")).toBeVisible();
+    await expect(page.locator(".member-rank")).toHaveText("Nouveau Membre CHOLOTO");
     await page.getByRole("button", { name: /^Membre Test/ }).click();
     await expect(
       page.getByRole("heading", { name: "Profil du membre" }),
@@ -242,6 +242,31 @@ test("modification en jours de l’échéance VIP", async ({ page }) => {
   await expect(form.getByRole("button", { name: "Enregistrer" })).toBeEnabled();
 });
 
+test("réattribue le badge du profil après modification des règles", async ({
+  page,
+}) => {
+  await page.route(/^https:/, (route) => route.abort());
+  await page.goto("/users?vip-duration-fixture");
+  await expect(page.locator(".member-rank")).toHaveText(
+    "Membre initié CHOLOTO",
+  );
+  await page.goto("/settings?badge-settings-fixture");
+  await page.getByRole("button", { name: "Modifier les badges" }).click();
+  const dialog = page.getByRole("dialog", { name: "Badges VIP" });
+  await dialog.getByLabel("Nom du badge 3").fill("Membre Prestige CHOLOTO");
+  await dialog.getByLabel("Jours VIP du badge 3").fill("35");
+  await dialog.getByRole("button", { name: "Enregistrer" }).click();
+  await expect(dialog).not.toBeVisible();
+  await page.goto("/users?vip-duration-fixture");
+  await expect(page.locator(".member-rank")).toHaveText(
+    "Membre Prestige CHOLOTO",
+  );
+  await page.getByRole("button", { name: "Profil", exact: true }).click();
+  await expect(page.getByRole("dialog").locator(".member-rank")).toHaveText(
+    "Membre Prestige CHOLOTO",
+  );
+});
+
 test("export Excel des membres", async ({ page }) => {
   await page.route(/https:\/\/(?!fonts\.).*/, (route) => route.abort());
   await page.goto("/users?vip-duration-fixture");
@@ -263,6 +288,7 @@ test("export Excel des membres", async ({ page }) => {
   await workbook.xlsx.readFile(path!);
   expect(workbook.getWorksheet("Membres")!.getCell("F1").value).toBe("Durée VIP");
   expect(workbook.getWorksheet("Membres")!.getCell("F2").value).toBe("1 mois 5 j");
+  expect(workbook.getWorksheet("Membres")!.getCell("M2").value).toBe("Membre initié CHOLOTO");
   expect(workbook.getWorksheet("Membres")!.getCell("B2").value).toBe(
     "membre@example.test",
   );

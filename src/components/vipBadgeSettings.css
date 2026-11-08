@@ -1,0 +1,22 @@
+.vip-badge-fields {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+.vip-badge-fields-heading,
+.vip-badge-fields-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6em;
+  align-items: center;
+  gap: 8px;
+}
+.vip-badge-fields-heading {
+  font-size: 0.88rem;
+}
+.vip-badge-fields-row input {
+  min-width: 0;
+  width: 100%;
+}

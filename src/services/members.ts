@@ -1,12 +1,16 @@
 import { asDate, type Row } from "./data";
 export const isVip = (row: Row, now = Date.now()) =>
   (asDate(row.end_sub)?.getTime() ?? -Infinity) >= now;
-export const isNewMember = (row: Row, now = Date.now()) => {
-  const created = asDate(row.created_time)?.getTime();
-  return (
-    created !== undefined && created <= now && now - created < 6 * 86400000
-  );
-};
+export function vipBadgeIndex(
+  days: number,
+  tiers: readonly { days: number }[],
+) {
+  // Rules are validated in ascending order. Even an unverified history earns tier zero.
+  for (let i = tiers.length - 1; i >= 0; i--) {
+    if (days >= tiers[i].days) return i;
+  }
+  return -1;
+}
 export function compareMembers(a: Row, b: Row, sort: string, now = Date.now()) {
   const alphabetical = () =>
     String(a.display_name?.trim() || a.email || "").localeCompare(

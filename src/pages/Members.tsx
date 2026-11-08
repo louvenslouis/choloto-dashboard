@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import {
+  Sprout,
+  ShieldCheck,
+  Compass,
+  HeartHandshake,
+  Star,
+  Trophy,
   Download,
   Search,
   Gift,
@@ -24,8 +30,9 @@ import {
   Pencil,
   ArrowLeft,
 } from "lucide-react";
-import { compareMembers, isVip, isNewMember } from "../services/members";
-import { vipDuration } from "../services/vipDuration";
+import { compareMembers, isVip, vipBadgeIndex } from "../services/members";
+import { useVipBadgeTiers } from "../services/vipBadges";
+import { formatVipTime, measureVipTime } from "../services/vipDuration";
 import { useVipHistory } from "../services/useVipHistory";
 import { useMemberDirectory } from "../services/MemberDirectory";
 import LineChart from "../components/TrendChart";
@@ -125,8 +132,22 @@ function Users() {
     return () => window.clearInterval(timer);
   }, []);
   const now = Date.now();
-  const duration = (member: Row) =>
-    history ? vipDuration(member, history.get(member.id) ?? [], now) : "—";
+  const { tiers, loading: badgesLoading, error: badgeError } = useVipBadgeTiers();
+  const membership = new Map(
+    state.rows.map((member) => {
+      const time =
+        history && measureVipTime(member, history.get(member.id) ?? [], now);
+      const rank = time ? vipBadgeIndex(time.days, tiers) : -1;
+      return [
+        member.id,
+        {
+          duration: time ? formatVipTime(time) : "—",
+          rank,
+          badge: tiers[rank]?.name ?? "",
+        },
+      ];
+    }),
+  );
   const vipCount = state.rows.filter((r) => isVip(r, now)).length;
   const rows = state.rows
     .filter(
@@ -179,10 +200,25 @@ function Users() {
     setActionsOpen(false);
   };
   const exportDisabled =
-    action.busy || state.loading || !!state.error || !history || !rows.length;
+    action.busy ||
+    state.loading ||
+    !!state.error ||
+    !history ||
+    badgesLoading ||
+    !rows.length;
   const exportRows = () => {
     setActionsOpen(false);
-    void action.run(() => exportMembers(rows, duration), "");
+    void action.run(
+      () =>
+        exportMembers(
+          rows.map((row) => ({
+            ...row,
+            vipDuration: membership.get(row.id)?.duration,
+            vipBadge: membership.get(row.id)?.badge,
+          })),
+        ),
+      "",
+    );
   };
   return (
     <div className="members-directory">
@@ -287,7 +323,10 @@ function Users() {
         </div>
       </div>
       {action.feedback}
-      <Status loading={state.loading} error={state.error || historyError} />
+      <Status
+        loading={state.loading}
+        error={state.error || historyError || badgeError}
+      />
       {(state.error || historyError) && (
         <button onClick={refresh}>Réessayer</button>
       )}
@@ -322,6 +361,7 @@ function Users() {
               <MemberAvatar row={r} />
               <button className="member-identity" onClick={() => open(r)}>
                 <strong>{r.display_name || "Membre CHOLOTO"}</strong>
+                <MemberRank membership={membership.get(r.id)} />
                 <small className="member-phone">
                   {r.phone_number || "Téléphone non renseigné"}
                 </small>
@@ -354,7 +394,7 @@ function Users() {
               </div>
               <div>
                 <small>Durée VIP</small>
-                <strong>{duration(r)}</strong>
+                <strong>{membership.get(r.id)?.duration}</strong>
               </div>
             </div>
             <div className="member-card-actions">
@@ -388,7 +428,7 @@ function Users() {
         >
           <MemberEditor
             row={selectedMember}
-            duration={duration(selectedMember)}
+            membership={membership.get(selectedMember.id)}
             initialPayment={initialPayment}
           />
         </Modal>
@@ -402,6 +442,29 @@ function Users() {
     </div>
   );
 }
+type Membership = { duration: string; rank: number; badge: string };
+const rankIcons = [
+  UserRound,
+  Sprout,
+  ShieldCheck,
+  Compass,
+  HeartHandshake,
+  Crown,
+  Star,
+  Trophy,
+];
+
+function MemberRank({ membership }: { membership?: Membership }) {
+  if (!membership?.badge) return null;
+  const Icon = rankIcons[membership.rank];
+  return (
+    <span className="member-rank" data-tier={membership.rank}>
+      <Icon size={14} aria-hidden="true" />
+      <span>{membership.badge}</span>
+    </span>
+  );
+}
+
 function MemberAvatar({ row }: { row: Row }) {
   const [failed, setFailed] = useState(false);
   return (
@@ -418,7 +481,6 @@ function MemberAvatar({ row }: { row: Row }) {
           <Crown size={13} />
         </span>
       )}
-      {isNewMember(row) && <span className="new-member">NOUVEAU</span>}
     </span>
   );
 }
@@ -446,11 +508,11 @@ function CopyValue({ value, label }: { value: string; label: string }) {
 }
 function MemberEditor({
   row,
-  duration,
+  membership,
   initialPayment = false,
 }: {
   row: Row;
-  duration: string;
+  membership?: Membership;
   initialPayment?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
@@ -481,7 +543,7 @@ function MemberEditor({
       {plan ? (
         <CurrentPlan
           row={row}
-          duration={duration}
+          duration={membership?.duration ?? "—"}
           renew={() => setPlan(false)}
           adjust={() => {
             setPlan(false);
@@ -510,6 +572,7 @@ function MemberEditor({
             <MemberAvatar row={row} />
             <div>
               <h3>{row.display_name || "Membre CHOLOTO"}</h3>
+              <MemberRank membership={membership} />
               <div className="profile-email">
                 <span>{row.email || "E-mail non renseigné"}</span>
                 {row.email && (
@@ -525,7 +588,7 @@ function MemberEditor({
             {[
               {
                 label: "Durée VIP",
-                value: duration,
+                value: membership?.duration ?? "—",
                 icon: CalendarDays,
               },
               {

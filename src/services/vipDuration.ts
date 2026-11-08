@@ -12,10 +12,13 @@ export function groupVipHistory(receipts: Row[]) {
     if (history) history.push(receipt);
     else histories.set(uid, [receipt]);
   }
-  for (const history of histories.values())
-    history.sort(
-      (a, b) => (time(a.created_at) ?? 0) - (time(b.created_at) ?? 0),
-    );
+  for (const history of histories.values()) {
+    history.sort((a, b) => {
+      const byTime = (time(a.created_at) ?? 0) - (time(b.created_at) ?? 0);
+      if (byTime || a.id === b.id) return byTime;
+      return a.id < b.id ? -1 : 1;
+    });
+  }
   return histories;
 }
 
@@ -29,14 +32,22 @@ function initialExpiry(profile: Row, expiry: number | null) {
   );
 }
 
-export function vipDuration(profile: Row, history: Row[], now: number) {
+type VipTime = { days: number; partial: boolean; hasElapsed: boolean };
+
+export function measureVipTime(
+  profile: Row,
+  history: Row[],
+  now: number,
+): VipTime {
   const currentEnd = time(profile.end_sub);
   const currentCount = Number(profile.member_time ?? 0);
   const first = history[0];
   if (!first) {
-    return currentCount === 0 && initialExpiry(profile, currentEnd)
-      ? "0 j"
-      : "Indéterminée";
+    return {
+      days: 0,
+      partial: currentCount !== 0 || !initialExpiry(profile, currentEnd),
+      hasElapsed: false,
+    };
   }
 
   let partial =
@@ -49,7 +60,8 @@ export function vipDuration(profile: Row, history: Row[], now: number) {
     const next = history[i + 1];
     const nextStart = next ? time(next.created_at) : now;
     // An undated change could interrupt any of the recorded periods.
-    if (start === null || nextStart === null) return "Indéterminée";
+    if (start === null || nextStart === null)
+      return { days: 0, partial: true, hasElapsed: false };
     if (start > now) break;
 
     const end = time(event.new_end_sub);
@@ -70,18 +82,28 @@ export function vipDuration(profile: Row, history: Row[], now: number) {
     }
     elapsed += Math.max(0, Math.min(now, nextStart, end) - start);
   }
-  if (partial && elapsed === 0) return "Indéterminée";
   // Expiry is calculated on validation; Firestore timestamps the receipt on commit.
   // Display completed totals to the nearest minute before converting to whole days.
   const finished = currentEnd === null || currentEnd <= now;
   const displayedTime =
     finished && !partial ? Math.round(elapsed / 60_000) * 60_000 : elapsed;
-  const days = Math.floor(displayedTime / day);
-  if (!days) return partial ? "Indéterminée" : elapsed ? "< 1 j" : "0 j";
+  return {
+    days: Math.floor(displayedTime / day),
+    partial,
+    hasElapsed: elapsed > 0,
+  };
+}
+
+export function formatVipTime({ days, partial, hasElapsed }: VipTime) {
+  if (!days) return partial ? "Indéterminée" : hasElapsed ? "< 1 j" : "0 j";
   const months = Math.floor(days / 30);
   const remainder = days % 30;
   const duration = [months && `${months} mois`, remainder && `${remainder} j`]
     .filter(Boolean)
     .join(" ");
   return partial ? `≥ ${duration}` : duration;
+}
+
+export function vipDuration(profile: Row, history: Row[], now: number) {
+  return formatVipTime(measureVipTime(profile, history, now));
 }
