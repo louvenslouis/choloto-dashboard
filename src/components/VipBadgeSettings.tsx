@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Award } from "lucide-react";
 import { Form, Modal, Panel, Status, Submit, useAction } from "./ui";
+import VipMedal from "./VipMedal";
 import {
   sameVipBadgeTiers,
   saveVipBadgeTiers,
@@ -9,8 +10,12 @@ import {
 } from "../services/vipBadges";
 import "./vipBadgeSettings.css";
 
-function BadgeEditor({ onClose }: { onClose: () => void }) {
-  const { tiers, loading, error } = useVipBadgeTiers();
+function BadgeEditor({
+  tiers,
+  loading,
+  error,
+  onClose,
+}: ReturnType<typeof useVipBadgeTiers> & { onClose: () => void }) {
   const [draft, setDraft] = useState<{
     previous: VipBadgeTier[];
     tiers: VipBadgeTier[];
@@ -58,6 +63,15 @@ function BadgeEditor({ onClose }: { onClose: () => void }) {
             </div>
             {shown.map((tier, i) => (
               <div className="vip-badge-fields-row" key={i}>
+                <VipMedal
+                  rank={i}
+                  tier={tier}
+                  disabled={
+                    !tier.name.trim() ||
+                    !Number.isInteger(tier.days) ||
+                    tier.days < 0
+                  }
+                />
                 <input
                   type="text"
                   aria-label={`Nom du badge ${i + 1}`}
@@ -113,13 +127,24 @@ function BadgeEditor({ onClose }: { onClose: () => void }) {
 
 export default function VipBadgeSettings() {
   const [open, setOpen] = useState(false);
+  const settings = useVipBadgeTiers();
   return (
-    <Panel title="Badges VIP">
-      <button type="button" onClick={() => setOpen(true)}>
-        <Award size={18} />
-        Modifier les badges
-      </button>
-      {open && <BadgeEditor onClose={() => setOpen(false)} />}
+    <Panel
+      title="Badges VIP"
+      action={
+        <button type="button" onClick={() => setOpen(true)}>
+          <Award size={18} />
+          Modifier les badges
+        </button>
+      }
+    >
+      <Status loading={settings.loading} error={settings.error} />
+      <div className="vip-badge-collection">
+        {settings.tiers.map((tier, rank) => (
+          <VipMedal key={rank} rank={rank} tier={tier} />
+        ))}
+      </div>
+      {open && <BadgeEditor {...settings} onClose={() => setOpen(false)} />}
     </Panel>
   );
 }

@@ -147,6 +147,7 @@ export function Modal({
       ref={dialog}
       aria-label={title}
       onCancel={(e) => {
+        if (e.target !== dialog.current) return;
         e.preventDefault();
         if (dismissible) onClose();
       }}

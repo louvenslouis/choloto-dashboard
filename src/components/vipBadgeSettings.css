@@ -1,3 +1,20 @@
+.vip-badge-collection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.vip-badge-collection .vip-medal-button {
+  width: 54px;
+  height: 54px;
+}
+@media (max-width: 559px) {
+  .vip-badge-collection {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    justify-items: center;
+  }
+}
 .vip-badge-fields {
   border: 0;
   margin: 0;
@@ -9,12 +26,15 @@
 .vip-badge-fields-heading,
 .vip-badge-fields-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 6em;
+  grid-template-columns: 46px minmax(0, 1fr) clamp(3.75em, 15vw, 6em);
   align-items: center;
   gap: 8px;
 }
 .vip-badge-fields-heading {
   font-size: 0.88rem;
+}
+.vip-badge-fields-heading > :first-child {
+  grid-column: 2;
 }
 .vip-badge-fields-row input {
   min-width: 0;

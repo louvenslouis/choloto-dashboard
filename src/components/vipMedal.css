@@ -1,0 +1,97 @@
+button.vip-medal-button {
+  display: inline-grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  flex: 0 0 auto;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  vertical-align: middle;
+}
+.vip-medal-button img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: transform 0.15s ease-out;
+}
+.vip-medal-button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .vip-medal-button:hover img {
+    transform: scale(1.1);
+  }
+}
+dialog:has(> .vip-medal-details) {
+  width: min(355px, calc(100% - 32px));
+}
+dialog:has(> .vip-medal-details) > .modal-head h2 {
+  overflow-wrap: anywhere;
+}
+dialog:has(> .vip-medal-details) > .modal-head button {
+  flex-shrink: 0;
+}
+.vip-medal-details {
+  --medal-tint: #1963B8;
+}
+.vip-medal-details[data-rank="2"] {
+  --medal-tint: #01B9D5;
+}
+.vip-medal-details[data-rank="3"] {
+  --medal-tint: #01BEA8;
+}
+.vip-medal-details[data-rank="4"] {
+  --medal-tint: #FDC100;
+}
+.vip-medal-details[data-rank="5"] {
+  --medal-tint: #D65B20;
+}
+.vip-medal-details[data-rank="6"] {
+  --medal-tint: #B3305A;
+}
+.vip-medal-details[data-rank="7"] {
+  --medal-tint: #BE0201;
+}
+.vip-medal-details[data-rank="8"] {
+  --medal-tint: #6125C1;
+}
+.vip-medal-display {
+  display: grid;
+  place-items: center;
+  min-height: 186px;
+  background: radial-gradient(
+    ellipse closest-side,
+    color-mix(in srgb, var(--medal-tint) 17%, transparent),
+    transparent
+  );
+}
+.vip-medal-display img {
+  width: min(164px, 100%);
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+.vip-medal-details dl {
+  margin: 12px 0 0;
+}
+.vip-medal-details dl > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.vip-medal-details dt {
+  color: var(--muted);
+}
+.vip-medal-details dd {
+  margin: 0;
+  font-weight: 600;
+}

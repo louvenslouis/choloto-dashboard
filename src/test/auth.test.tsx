@@ -24,6 +24,9 @@ vi.mock("../services/OfficialProvider", () => ({
   OfficialProvider: ({ children }: { children: unknown }) => children,
 }));
 vi.mock("../services/support", () => ({ cleanExpiredSupport: async () => {} }));
+vi.mock("../services/vipBadges", () => ({
+  useVipBadgeTiers: () => ({ tiers: [], loading: false, error: "" }),
+}));
 import App from "../App";
 beforeEach(() => {
   mocks.user = null;

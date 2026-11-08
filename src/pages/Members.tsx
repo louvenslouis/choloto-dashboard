@@ -2,12 +2,6 @@ import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import {
-  Sprout,
-  ShieldCheck,
-  Compass,
-  HeartHandshake,
-  Star,
-  Trophy,
   Download,
   Search,
   Gift,
@@ -31,7 +25,8 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { compareMembers, isVip, vipBadgeIndex } from "../services/members";
-import { useVipBadgeTiers } from "../services/vipBadges";
+import VipMedal from "../components/VipMedal";
+import { useVipBadgeTiers, type VipBadgeTier } from "../services/vipBadges";
 import { formatVipTime, measureVipTime } from "../services/vipDuration";
 import { useVipHistory } from "../services/useVipHistory";
 import { useMemberDirectory } from "../services/MemberDirectory";
@@ -143,7 +138,7 @@ function Users() {
         {
           duration: time ? formatVipTime(time) : "—",
           rank,
-          badge: tiers[rank]?.name ?? "",
+          tier: tiers[rank],
         },
       ];
     }),
@@ -214,7 +209,7 @@ function Users() {
           rows.map((row) => ({
             ...row,
             vipDuration: membership.get(row.id)?.duration,
-            vipBadge: membership.get(row.id)?.badge,
+            vipBadge: membership.get(row.id)?.tier?.name,
           })),
         ),
       "",
@@ -358,10 +353,16 @@ function Users() {
         {rows.map((r) => (
           <article className="member-card" key={r.id}>
             <div className="member-card-top">
-              <MemberAvatar row={r} />
+              <button
+                type="button"
+                className="member-avatar-button"
+                aria-label={`Voir le profil de ${r.display_name || r.email || "ce membre"}`}
+                onClick={() => open(r)}
+              >
+                <MemberAvatar row={r} />
+              </button>
               <button className="member-identity" onClick={() => open(r)}>
                 <strong>{r.display_name || "Membre CHOLOTO"}</strong>
-                <MemberRank membership={membership.get(r.id)} />
                 <small className="member-phone">
                   {r.phone_number || "Téléphone non renseigné"}
                 </small>
@@ -372,13 +373,7 @@ function Users() {
                   {r.end_sub && <span> · {dateLabel(r.end_sub)}</span>}
                 </span>
               </button>
-              <button
-                className="member-profile-arrow"
-                aria-label={`Voir le profil de ${r.display_name || r.email}`}
-                onClick={() => open(r)}
-              >
-                <ArrowUpRight size={18} />
-              </button>
+              <MemberRank membership={membership.get(r.id)} />
             </div>
             <div className="member-contact">
               <Mail size={16} />
@@ -442,26 +437,16 @@ function Users() {
     </div>
   );
 }
-type Membership = { duration: string; rank: number; badge: string };
-const rankIcons = [
-  UserRound,
-  Sprout,
-  ShieldCheck,
-  Compass,
-  HeartHandshake,
-  Crown,
-  Star,
-  Trophy,
-];
+type Membership = { duration: string; rank: number; tier?: VipBadgeTier };
 
 function MemberRank({ membership }: { membership?: Membership }) {
-  if (!membership?.badge) return null;
-  const Icon = rankIcons[membership.rank];
+  if (!membership?.tier) return null;
   return (
-    <span className="member-rank" data-tier={membership.rank}>
-      <Icon size={14} aria-hidden="true" />
-      <span>{membership.badge}</span>
-    </span>
+    <VipMedal
+      tier={membership.tier}
+      rank={membership.rank}
+      duration={membership.duration}
+    />
   );
 }
 
@@ -572,7 +557,6 @@ function MemberEditor({
             <MemberAvatar row={row} />
             <div>
               <h3>{row.display_name || "Membre CHOLOTO"}</h3>
-              <MemberRank membership={membership} />
               <div className="profile-email">
                 <span>{row.email || "E-mail non renseigné"}</span>
                 {row.email && (
@@ -583,6 +567,7 @@ function MemberEditor({
                 {isVip(row) ? "ABONNEMENT ACTIF" : "ABONNEMENT INACTIF"}
               </Badge>
             </div>
+            <MemberRank membership={membership} />
           </div>
           <div className="member-profile-tiles">
             {[

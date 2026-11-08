@@ -2293,11 +2293,6 @@ main {
   display: block;
   margin-top: 5px;
 }
-.member-card-top button {
-  padding: 8px;
-  border: 0;
-  background: #f6c74429;
-}
 .member-contact {
   display: flex;
   align-items: center;
@@ -2666,30 +2661,18 @@ dialog:has(.compensation-dialog) {
   background: #7c3aed;
   color: #ffd447;
 }
-.member-rank {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  width: fit-content;
-  max-width: 100%;
-  margin-block: 4px;
-  padding: 3px 8px;
-  border: 1px solid color-mix(in srgb, var(--rank-accent) 40%, transparent);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--rank-accent) 13%, var(--panel));
-  color: var(--text);
-  font-size: 11px;
-  line-height: 1.35;
-  font-weight: 600;
-  text-align: start;
-  overflow-wrap: anywhere;
-  --rank-accent: var(--muted);
+.member-card-top .member-avatar-button {
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  flex: 0 0 auto;
 }
-.member-rank svg { flex-shrink: 0; }
-.member-rank[data-tier="1"], .member-rank[data-tier="2"] { --rank-accent: #239d81; }
-.member-rank[data-tier="3"], .member-rank[data-tier="4"] { --rank-accent: #488ac7; }
-.member-rank[data-tier="5"], .member-rank[data-tier="6"] { --rank-accent: #9b72d4; }
-.member-rank[data-tier="7"] { --rank-accent: #dba61e; }
+.member-profile-identity > .vip-medal-button {
+  margin-inline-start: auto;
+  width: 58px;
+  height: 58px;
+}
 .member-card-top .member-identity {
   flex: 1;
   min-width: 0;
@@ -2702,9 +2685,6 @@ dialog:has(.compensation-dialog) {
 }
 .member-identity strong {
   font-weight: 600;
-}
-.member-card-top .member-profile-arrow {
-  flex-shrink: 0;
 }
 .member-contact > svg {
   flex-shrink: 0;
@@ -2740,9 +2720,6 @@ dialog:has(.compensation-dialog) {
   gap: 16px;
   box-shadow: none;
   padding: 14px;
-}
-.list-view .member-profile-arrow {
-  display: none;
 }
 .list-view .member-contact {
   margin: 0;
@@ -2815,6 +2792,11 @@ dialog:has(.compensation-dialog) {
 .member-profile-identity h3 {
   margin-bottom: 3px;
   font-size: 18px;
+  overflow-wrap: anywhere;
+}
+.member-profile-identity .badge {
+  max-width: 100%;
+  white-space: normal;
 }
 .member-profile-identity .member-avatar {
   width: 58px;
@@ -2988,7 +2970,6 @@ dialog:has(.compensation-dialog) {
     font-size: 14px;
     font-weight: 800;
   }
-  .members-results .member-profile-arrow,
   .members-results .member-phone,
   .members-results .member-contact,
   .members-results .member-metrics,

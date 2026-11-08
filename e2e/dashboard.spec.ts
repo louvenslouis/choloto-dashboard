@@ -92,7 +92,9 @@ for (const width of [390, 1440]) {
     ).toBeVisible();
     await page.getByRole("button", { name: "Réinitialiser" }).click();
     await expect(page.locator(".member-card")).toHaveCount(1);
-    await expect(page.locator(".member-rank")).toHaveText("Nouveau Membre CHOLOTO");
+    await expect(
+      page.getByRole("button", { name: "Ouvrir le badge Nouveau Membre CHOLOTO" }),
+    ).toBeVisible();
     await page.getByRole("button", { name: /^Membre Test/ }).click();
     await expect(
       page.getByRole("heading", { name: "Profil du membre" }),
@@ -247,9 +249,9 @@ test("réattribue le badge du profil après modification des règles", async ({
 }) => {
   await page.route(/^https:/, (route) => route.abort());
   await page.goto("/users?vip-duration-fixture");
-  await expect(page.locator(".member-rank")).toHaveText(
-    "Membre initié CHOLOTO",
-  );
+  await expect(
+    page.getByRole("button", { name: "Ouvrir le badge Membre initié CHOLOTO" }),
+  ).toBeVisible();
   await page.goto("/settings?badge-settings-fixture");
   await page.getByRole("button", { name: "Modifier les badges" }).click();
   const dialog = page.getByRole("dialog", { name: "Badges VIP" });
@@ -258,13 +260,23 @@ test("réattribue le badge du profil après modification des règles", async ({
   await dialog.getByRole("button", { name: "Enregistrer" }).click();
   await expect(dialog).not.toBeVisible();
   await page.goto("/users?vip-duration-fixture");
-  await expect(page.locator(".member-rank")).toHaveText(
-    "Membre Prestige CHOLOTO",
-  );
+  const name = "Membre Prestige CHOLOTO";
+  const opener = { name: `Ouvrir le badge ${name}`, exact: true };
+  const medal = page.getByRole("button", opener);
+  const detail = page.getByRole("dialog", { name, exact: true });
+  await medal.focus();
+  await page.keyboard.press("Enter");
+  await expect(detail.getByText("35 jours VIP")).toBeVisible();
+  await expect(detail.getByText("1 mois 5 j")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(medal).toBeFocused();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.getByRole("button", { name: "Profil", exact: true }).click();
-  await expect(page.getByRole("dialog").locator(".member-rank")).toHaveText(
-    "Membre Prestige CHOLOTO",
-  );
+  const profile = page.getByRole("dialog", { name: "Profil du membre" });
+  await profile.getByRole("button", opener).click();
+  await expect(detail.getByText("35 jours VIP")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(profile.getByRole("button", opener)).toBeFocused();
 });
 
 test("export Excel des membres", async ({ page }) => {
