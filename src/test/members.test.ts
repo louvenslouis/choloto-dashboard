@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { compareMembers, vipBadgeIndex, isVip } from "../services/members";
+import { compareMembers, isVip } from "../services/members";
 import type { Row } from "../services/data";
 const now = Date.UTC(2026, 9, 3);
 const row = (id: string, end?: number): Row => ({
@@ -40,19 +40,7 @@ describe("Tri des membres", () => {
     ).toBeLessThan(0);
   });
 });
-describe("Badges des membres", () => {
-  it("attribue automatiquement le rang le plus élevé atteint en jours VIP", () => {
-    const tiers = [0, 30, 60, 180, 365, 730, 1095, 1460].map((days) => ({
-      days,
-    }));
-    for (const [rank, tier] of tiers.entries()) {
-      expect(vipBadgeIndex(tier.days, tiers)).toBe(rank);
-      if (rank) expect(vipBadgeIndex(tier.days - 1, tiers)).toBe(rank - 1);
-    }
-    expect(vipBadgeIndex(5000, tiers)).toBe(7);
-    expect(vipBadgeIndex(30, [{ days: 0 }, { days: 31 }])).toBe(0);
-    expect(vipBadgeIndex(30, [])).toBe(-1);
-  });
+describe("Statut des membres", () => {
   it("calcule le statut à partir de l’échéance", () => {
     expect(isVip(row("actif", now), now)).toBe(true);
     expect(isVip(row("expiré", now - 1), now)).toBe(false);

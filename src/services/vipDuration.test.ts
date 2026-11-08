@@ -1,5 +1,11 @@
 import { expect, it, vi } from "vitest";
-import { groupVipHistory, vipDuration } from "./vipDuration";
+import {
+  groupVipHistory,
+  measureVipTime,
+  vipBadgeIndex,
+  vipDuration,
+} from "./vipDuration";
+import { isVip } from "./members";
 import type { Row } from "./data";
 
 vi.mock("./data", () => ({
@@ -109,5 +115,63 @@ it("ne valide pas un intervalle quand une modification de l’échéance manque"
   expect(vipDuration(profile(90, 3), events, +at(44))).toBe("≥ 4 j");
   expect(vipDuration(profile(null, 1), events.slice(0, 1), +at(44))).toBe(
     "Indéterminée",
+  );
+});
+
+const tiers = [0, 30, 60, 180, 365, 730, 1095, 1460].map((days) => ({ days }));
+const rankAt = (member: Row, receipts: Row[], asOf: number) =>
+  vipBadgeIndex(
+    measureVipTime(member, receipts, asOf),
+    tiers,
+    isVip(member, asOf),
+  );
+
+it("attribue le rang atteint aux VIP actifs, dès la première activation", () => {
+  const member = profile(6000, 1);
+  const receipts = [receipt(0, null, 6000, 0, 1)];
+  for (const [rank, tier] of tiers.entries()) {
+    expect(rankAt(member, receipts, +at(tier.days))).toBe(rank);
+    if (rank)
+      expect(rankAt(member, receipts, +at(tier.days - 1))).toBe(rank - 1);
+  }
+  expect(rankAt(member, receipts, +at(5000))).toBe(7);
+  expect(rankAt(member, [], +at(20))).toBe(0);
+  const time = measureVipTime(member, receipts, +at(30));
+  expect(vipBadgeIndex(time, [{ days: 0 }, { days: 31 }], true)).toBe(0);
+  expect(vipBadgeIndex(time, [], true)).toBe(-1);
+});
+
+it("conserve le badge gratuit seulement après plus de 14 jours VIP vérifiés, sans arrondi", () => {
+  const member = profile(14, 1);
+  const first = receipt(0, null, 14, 0, 1);
+  expect(rankAt(profile(null, 0), [], +at(20))).toBe(-1);
+  expect(rankAt({ ...profile(1, 0), created_time: at(1) }, [], +at(0))).toBe(
+    -1,
+  );
+  expect(
+    rankAt({ ...profile(1, 0), onboarding_completed_at: at(1) }, [], +at(0)),
+  ).toBe(-1);
+  expect(rankAt(member, [first], +at(14))).toBe(0);
+  for (const [offsetMs, rank] of [
+    [-1, 0],
+    [0, -1],
+    [1, -1],
+  ]) {
+    const recorded = { ...first, created_at: new Date(+at(0) + offsetMs) };
+    expect(rankAt(member, [recorded], +at(14) + 1)).toBe(rank);
+  }
+  expect(rankAt(profile(90, 1), [receipt(0, null, 90, 0, 1)], +at(91))).toBe(2);
+});
+
+it("cumule les périodes disjointes et conserve uniquement les durées vérifiables d’un historique incomplet", () => {
+  expect(rankAt(profile(20, 2), [], +at(35))).toBe(-1);
+  const first = receipt(0, null, 8, 0, 1);
+  const renewed = receipt(20, 8, 26.5, 1, 2);
+  expect(rankAt(profile(26.5, 2), [first, renewed], +at(35))).toBe(0);
+  const broken = { ...renewed, previous_end_sub: at(7) };
+  expect(rankAt(profile(26.5, 2), [first, broken], +at(35))).toBe(-1);
+  const compensation = receipt(30, 26.5, 40, 2, 2, "adjustment");
+  expect(rankAt(profile(40, 2), [first, broken, compensation], +at(45))).toBe(
+    0,
   );
 });

@@ -1,15 +1,18 @@
 import { asDate, type Row } from "./data";
-export const isVip = (row: Row, now = Date.now()) =>
-  (asDate(row.end_sub)?.getTime() ?? -Infinity) >= now;
-export function vipBadgeIndex(
-  days: number,
-  tiers: readonly { days: number }[],
-) {
-  // Rules are validated in ascending order. Even an unverified history earns tier zero.
-  for (let i = tiers.length - 1; i >= 0; i--) {
-    if (days >= tiers[i].days) return i;
-  }
-  return -1;
+
+// Signup and onboarding can initialize end_sub without granting VIP access.
+export function initialExpiry(profile: Row, expiry: number | null) {
+  if (expiry === null) return true;
+  const created = asDate(profile.created_time)?.getTime();
+  return (
+    (created !== undefined && expiry <= created) ||
+    expiry === asDate(profile.onboarding_completed_at)?.getTime()
+  );
+}
+
+export function isVip(row: Row, now = Date.now()) {
+  const end = asDate(row.end_sub)?.getTime();
+  return end !== undefined && end >= now && !initialExpiry(row, end);
 }
 export function compareMembers(a: Row, b: Row, sort: string, now = Date.now()) {
   const alphabetical = () =>

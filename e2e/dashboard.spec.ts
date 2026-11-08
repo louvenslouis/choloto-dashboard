@@ -92,20 +92,44 @@ for (const width of [390, 1440]) {
     ).toBeVisible();
     await page.getByRole("button", { name: "Réinitialiser" }).click();
     await expect(page.locator(".member-card")).toHaveCount(1);
-    await expect(
-      page.getByRole("button", { name: "Ouvrir le badge Nouveau Membre CHOLOTO" }),
-    ).toBeVisible();
-    await page.getByRole("button", { name: /^Membre Test/ }).click();
+    const avatar = page.locator(".member-card .member-avatar");
+    const medal = avatar.getByRole("button", {
+      name: "Ouvrir le badge Nouveau Membre CHOLOTO",
+    });
+    await expect(medal).toBeVisible();
+    await expect(page.locator(".member-card .vip-medal-button")).toHaveCount(1);
+    const anchor = await medal.evaluate((button) => {
+      const portrait = button.parentElement!.getBoundingClientRect();
+      const icon = button.querySelector("img")!.getBoundingClientRect();
+      return {
+        width: icon.width,
+        right: portrait.right - (icon.left + icon.width / 2),
+        top: icon.top + icon.height / 2 - portrait.top,
+      };
+    });
+    expect(anchor.width).toBe(23);
+    expect(anchor.right).toBeCloseTo(8.5, 0);
+    expect(anchor.top).toBeCloseTo(8.5, 0);
+    await medal.click();
+    await page
+      .getByRole("dialog", { name: "Nouveau Membre CHOLOTO" })
+      .getByRole("button", { name: "Fermer" })
+      .click();
+    await avatar.getByRole("button", { name: /^Voir le profil/ }).click();
     await expect(
       page.getByRole("heading", { name: "Profil du membre" }),
     ).toBeVisible();
     await expect(page.getByText("CH-0001", { exact: true })).toBeVisible();
+    await expect(
+      page.locator(".member-profile .member-avatar .vip-medal-button"),
+    ).toHaveCount(1);
     await expect(
       page.getByText("ABONNEMENT ACTIF", { exact: true }),
     ).toBeVisible();
     await page.screenshot({
       path: `test-results/member-profile-${width}.png`,
       fullPage: true,
+      animations: "disabled",
     });
     await page.getByRole("button", { name: "Fermer", exact: true }).click();
     await page.screenshot({
@@ -192,14 +216,18 @@ for (const width of [390, 1440]) {
   });
 }
 
-test("forfait en jours depuis un paiement manuel et une preuve", async ({ page }) => {
+test("forfait en jours depuis un paiement manuel et une preuve", async ({
+  page,
+}) => {
   await page.route(/^https:/, (route) => route.abort());
   await page.clock.install({ time: new Date("2028-02-01T12:00:00Z") });
   for (const path of ["/users", "/payment-reviews"]) {
     await page.goto(path);
     if (path === "/users") {
       await page.getByRole("button", { name: "Paiement", exact: true }).click();
-      await page.getByRole("button", { name: "Prolonger l’abonnement" }).click();
+      await page
+        .getByRole("button", { name: "Prolonger l’abonnement" })
+        .click();
     } else {
       await page.locator(".proof-card").first().click();
     }
@@ -215,7 +243,9 @@ test("forfait en jours depuis un paiement manuel et une preuve", async ({ page }
     await expect(end).toHaveValue("2028-02-18");
     await days.fill("25");
     await expect(end).toHaveValue("2028-03-07");
-    await expect(form.locator(".calendar-days [aria-pressed=true]")).toHaveText("7");
+    await expect(form.locator(".calendar-days [aria-pressed=true]")).toHaveText(
+      "7",
+    );
     await end.fill("2028-04-15");
     await expect(plan).toHaveValue("custom");
     await plan.selectOption("month");
@@ -238,7 +268,9 @@ test("modification en jours de l’échéance VIP", async ({ page }) => {
   await days.fill("25");
   await expect(end).toHaveValue("2028-03-07");
   await mode.selectOption("remove");
-  await expect(form.getByRole("button", { name: "Enregistrer" })).toBeDisabled();
+  await expect(
+    form.getByRole("button", { name: "Enregistrer" }),
+  ).toBeDisabled();
   await days.fill("4");
   await expect(end).toHaveValue("2028-02-07");
   await expect(form.getByRole("button", { name: "Enregistrer" })).toBeEnabled();
@@ -279,13 +311,88 @@ test("réattribue le badge du profil après modification des règles", async ({
   await expect(profile.getByRole("button", opener)).toBeFocused();
 });
 
+test("retire le badge d’un VIP court quand son accès expire sur la page ouverte", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.clock.install({ time: new Date("2028-02-01T12:00:00Z") });
+  await page.clock.pauseAt(new Date("2028-02-01T12:01:00Z"));
+  await page.goto("/users?expiring-badge-fixture");
+  const medal = page.getByRole("button", {
+    name: "Ouvrir le badge Nouveau Membre CHOLOTO",
+  });
+  await medal.click();
+  await expect(
+    page.getByRole("dialog", { name: "Nouveau Membre CHOLOTO" }),
+  ).toBeVisible();
+  await page.clock.fastForward(10_001);
+  await expect(medal).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.locator(".member-identity").getByText("Gratuit", { exact: true }),
+  ).toBeVisible();
+});
+
+test("grise la médaille conservée à l’expiration, y compris dans la fiche ouverte", async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date("2028-02-01T12:00:00Z") });
+  await page.clock.pauseAt(new Date("2028-02-01T12:01:00Z"));
+  await page.goto("/users?vip-duration-fixture&expiring-badge-fixture");
+  const name = "Membre initié CHOLOTO";
+  const opener = { name: `Ouvrir le badge ${name}` };
+  const card = page
+    .locator(".member-card")
+    .getByRole("button", opener)
+    .locator("img");
+  await expect(card).toHaveCSS("filter", "none");
+  await page.getByRole("button", { name: "Profil", exact: true }).click();
+  const profileMedal = page
+    .getByRole("dialog", { name: "Profil du membre" })
+    .getByRole("button", opener);
+  await profileMedal.click();
+  const display = page
+    .getByRole("dialog", { name, exact: true })
+    .locator(".vip-medal-display");
+  await expect(display).toHaveCSS("filter", "none");
+  await page.clock.fastForward(10_001);
+  await expect(display).toHaveCSS("filter", "grayscale(1)");
+  await page.keyboard.press("Escape");
+  await expect(profileMedal.locator("img")).toHaveCSS("filter", "grayscale(1)");
+  await page.keyboard.press("Escape");
+  await expect(card).toHaveCSS("filter", "grayscale(1)");
+});
+
 test("export Excel des membres", async ({ page }) => {
   await page.route(/https:\/\/(?!fonts\.).*/, (route) => route.abort());
-  await page.goto("/users?vip-duration-fixture");
-  await expect(page.locator(".member-metrics").getByText("1 mois 5 j")).toBeVisible();
+  await page.goto("/users?vip-duration-fixture&free-badge-fixture");
+  const active = page
+    .locator(".member-card")
+    .filter({ hasText: "Membre Test" });
+  await expect(
+    active.locator(".member-metrics").getByText("1 mois 5 j"),
+  ).toBeVisible();
   for (const name of ["Profil", "Paiement"]) {
-    await page.getByRole("button", { name, exact: true }).click();
-    await expect(page.getByRole("dialog").getByText("1 mois 5 j")).toBeVisible();
+    await active.getByRole("button", { name, exact: true }).click();
+    await expect(
+      page.getByRole("dialog").getByText("1 mois 5 j"),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Fermer", exact: true }).click();
+  }
+  for (const [label, count] of [
+    ["Profil gratuit", 0],
+    ["Profil ancien 14 jours", 0],
+    ["Profil ancien 14 jours et une heure", 1],
+  ] as const) {
+    const card = page
+      .locator(".member-card")
+      .filter({ has: page.getByText(label, { exact: true }) });
+    const badge = { name: "Ouvrir le badge Nouveau Membre CHOLOTO" };
+    await expect(card.getByRole("button", badge)).toHaveCount(count);
+    await card.getByRole("button", { name: "Profil", exact: true }).click();
+    await expect(
+      page.getByRole("dialog").getByRole("button", badge),
+    ).toHaveCount(count);
     await page.getByRole("button", { name: "Fermer", exact: true }).click();
   }
   await expect(page.getByText("membre@example.test").first()).toBeVisible();
@@ -298,11 +405,22 @@ test("export Excel des membres", async ({ page }) => {
   const ExcelJS = createRequire(import.meta.url)("exceljs");
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(path!);
-  expect(workbook.getWorksheet("Membres")!.getCell("F1").value).toBe("Durée VIP");
-  expect(workbook.getWorksheet("Membres")!.getCell("F2").value).toBe("1 mois 5 j");
-  expect(workbook.getWorksheet("Membres")!.getCell("M2").value).toBe("Membre initié CHOLOTO");
-  expect(workbook.getWorksheet("Membres")!.getCell("B2").value).toBe(
-    "membre@example.test",
+  const sheet = workbook.getWorksheet("Membres")!;
+  expect(sheet.getCell("F1").value).toBe("Durée VIP");
+  expect(sheet.getCell("F2").value).toBe("1 mois 5 j");
+  expect(sheet.getCell("M2").value).toBe("Membre initié CHOLOTO");
+  expect(sheet.getCell("B2").value).toBe("membre@example.test");
+  const freeRanks = new Map<string, string | null>();
+  for (let i = 3; i <= sheet.rowCount; i++) {
+    expect(sheet.getCell("D" + i).value).toBe("Accès gratuit");
+    freeRanks.set(sheet.getCell("L" + i).value, sheet.getCell("M" + i).value);
+  }
+  expect(freeRanks).toEqual(
+    new Map([
+      ["free", null],
+      ["expired-14", null],
+      ["expired-14-plus", "Nouveau Membre CHOLOTO"],
+    ]),
   );
 });
 

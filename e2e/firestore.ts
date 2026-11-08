@@ -120,6 +120,35 @@ if (new URLSearchParams(location.search).has("vip-duration-fixture")) {
     member_time_after: 1,
   });
 }
+if (new URLSearchParams(location.search).has("free-badge-fixture")) {
+  const day = 86_400_000;
+  const end = new Date(+now - day);
+  rows.user.push({ id: "free", display_name: "Profil gratuit" });
+  for (const [id, label, duration] of [
+    ["expired-14", "Profil ancien 14 jours", 14 * day],
+    [
+      "expired-14-plus",
+      "Profil ancien 14 jours et une heure",
+      14 * day + 3_600_000,
+    ],
+  ] as const) {
+    rows.user.push({ id, display_name: label, end_sub: end, member_time: 1 });
+    rows.payment_transactions.push({
+      id: "receipt-" + id,
+      user_uid: id,
+      created_at: new Date(+end - duration),
+      new_end_sub: end,
+      transaction_type: "subscription",
+      member_time_before: 0,
+      member_time_after: 1,
+    });
+  }
+}
+if (new URLSearchParams(location.search).has("expiring-badge-fixture")) {
+  rows.user[0].end_sub = new Date(+now + 10_000);
+  if (new URLSearchParams(location.search).has("vip-duration-fixture"))
+    rows.payment_transactions[0].new_end_sub = rows.user[0].end_sub;
+}
 if (new URLSearchParams(location.search).has("reaction-fixture")) {
   for (const [i, [offset, wins, misses]] of [
     [-30, 50, 50],

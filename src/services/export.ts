@@ -1,5 +1,7 @@
 import { asDate, localDateInput, type Row } from "./data";
-export async function exportMembers(rows: Row[]) {
+import { isVip } from "./members";
+
+export async function exportMembers(rows: Row[], asOf = Date.now()) {
   const { Workbook } = await import("exceljs");
   const workbook = new Workbook();
   const sheet = workbook.addWorksheet("Membres");
@@ -26,10 +28,7 @@ export async function exportMembers(rows: Row[]) {
     const output: Record<string, unknown> = {
       ...row,
       uid: row.uid || row.id,
-      status:
-        (asDate(row.end_sub)?.getTime() || 0) >= Date.now()
-          ? "VIP actif"
-          : "Accès gratuit",
+      status: isVip(row, asOf) ? "VIP actif" : "Accès gratuit",
     };
     for (const field of ["end_sub", "created_time", "birthday"])
       output[field] = asDate(row[field]);

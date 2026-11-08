@@ -1,3 +1,6 @@
+.vip-medal-retained {
+  filter: grayscale(1);
+}
 button.vip-medal-button {
   display: inline-grid;
   place-items: center;

@@ -27,7 +27,7 @@ export function validateVipBadgeTiers(value: unknown): VipBadgeTier[] {
     if (!name || name.length > 80)
       throw new Error(`Vérifiez le nom du badge ${index + 1}.`);
     if (index === 0 && days !== 0)
-      throw new Error("Le premier badge est attribué à l’inscription.");
+      throw new Error("Le premier badge est attribué dès l’activation VIP.");
     if (!Number.isInteger(days) || days <= previous || days > 36500)
       throw new Error(
         `Le seuil de « ${name} » doit être un entier entre ${previous + 1} et 36 500 jours.`,

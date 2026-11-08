@@ -24,10 +24,14 @@ import {
   Pencil,
   ArrowLeft,
 } from "lucide-react";
-import { compareMembers, isVip, vipBadgeIndex } from "../services/members";
+import { compareMembers, isVip } from "../services/members";
 import VipMedal from "../components/VipMedal";
 import { useVipBadgeTiers, type VipBadgeTier } from "../services/vipBadges";
-import { formatVipTime, measureVipTime } from "../services/vipDuration";
+import {
+  formatVipTime,
+  measureVipTime,
+  vipBadgeIndex,
+} from "../services/vipDuration";
 import { useVipHistory } from "../services/useVipHistory";
 import { useMemberDirectory } from "../services/MemberDirectory";
 import LineChart from "../components/TrendChart";
@@ -122,26 +126,37 @@ function Users() {
   const [historyRevision, setHistoryRevision] = useState(0);
   const { history, error: historyError } = useVipHistory(historyRevision);
   const [, tick] = useState(0);
-  useEffect(() => {
-    const timer = window.setInterval(() => tick((n) => n + 1), 60_000);
-    return () => window.clearInterval(timer);
-  }, []);
   const now = Date.now();
-  const { tiers, loading: badgesLoading, error: badgeError } = useVipBadgeTiers();
+  const nextUpdate = state.rows.reduce((next, row) => {
+    const end = asDate(row.end_sub)?.getTime();
+    return end !== undefined && end >= now ? Math.min(next, end + 1) : next;
+  }, now + 60_000);
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => tick((n) => n + 1),
+      Math.max(0, nextUpdate - Date.now()),
+    );
+    return () => window.clearTimeout(timer);
+  }, [nextUpdate]);
+  const {
+    tiers,
+    loading: badgesLoading,
+    error: badgeError,
+  } = useVipBadgeTiers();
+  function membershipAt(member: Row, asOf: number): Membership {
+    const time =
+      history && measureVipTime(member, history.get(member.id) ?? [], asOf);
+    const active = isVip(member, asOf);
+    const rank = time ? vipBadgeIndex(time, tiers, active) : -1;
+    return {
+      active,
+      duration: time ? formatVipTime(time) : "—",
+      rank,
+      tier: tiers[rank],
+    };
+  }
   const membership = new Map(
-    state.rows.map((member) => {
-      const time =
-        history && measureVipTime(member, history.get(member.id) ?? [], now);
-      const rank = time ? vipBadgeIndex(time.days, tiers) : -1;
-      return [
-        member.id,
-        {
-          duration: time ? formatVipTime(time) : "—",
-          rank,
-          tier: tiers[rank],
-        },
-      ];
-    }),
+    state.rows.map((member) => [member.id, membershipAt(member, now)]),
   );
   const vipCount = state.rows.filter((r) => isVip(r, now)).length;
   const rows = state.rows
@@ -203,14 +218,19 @@ function Users() {
     !rows.length;
   const exportRows = () => {
     setActionsOpen(false);
+    const exportedAt = Date.now();
     void action.run(
       () =>
         exportMembers(
-          rows.map((row) => ({
-            ...row,
-            vipDuration: membership.get(row.id)?.duration,
-            vipBadge: membership.get(row.id)?.tier?.name,
-          })),
+          rows.map((row) => {
+            const member = membershipAt(row, exportedAt);
+            return {
+              ...row,
+              vipDuration: member.duration,
+              vipBadge: member.tier?.name,
+            };
+          }),
+          exportedAt,
         ),
       "",
     );
@@ -353,14 +373,11 @@ function Users() {
         {rows.map((r) => (
           <article className="member-card" key={r.id}>
             <div className="member-card-top">
-              <button
-                type="button"
-                className="member-avatar-button"
-                aria-label={`Voir le profil de ${r.display_name || r.email || "ce membre"}`}
-                onClick={() => open(r)}
-              >
-                <MemberAvatar row={r} />
-              </button>
+              <MemberAvatar
+                row={r}
+                membership={membership.get(r.id)}
+                onProfile={() => open(r)}
+              />
               <button className="member-identity" onClick={() => open(r)}>
                 <strong>{r.display_name || "Membre CHOLOTO"}</strong>
                 <small className="member-phone">
@@ -373,7 +390,6 @@ function Users() {
                   {r.end_sub && <span> · {dateLabel(r.end_sub)}</span>}
                 </span>
               </button>
-              <MemberRank membership={membership.get(r.id)} />
             </div>
             <div className="member-contact">
               <Mail size={16} />
@@ -437,34 +453,53 @@ function Users() {
     </div>
   );
 }
-type Membership = { duration: string; rank: number; tier?: VipBadgeTier };
+type Membership = {
+  active: boolean;
+  duration: string;
+  rank: number;
+  tier?: VipBadgeTier;
+};
 
-function MemberRank({ membership }: { membership?: Membership }) {
-  if (!membership?.tier) return null;
-  return (
-    <VipMedal
-      tier={membership.tier}
-      rank={membership.rank}
-      duration={membership.duration}
-    />
-  );
-}
-
-function MemberAvatar({ row }: { row: Row }) {
+function MemberAvatar({
+  row,
+  membership,
+  onProfile,
+}: {
+  row: Row;
+  membership?: Membership;
+  onProfile?: () => void;
+}) {
   const [failed, setFailed] = useState(false);
+  const portrait = (
+    <span className="member-avatar-image">
+      {row.photo_url && !failed ? (
+        <img src={row.photo_url} alt="" onError={() => setFailed(true)} />
+      ) : (
+        (row.display_name || row.email || "M")[0].toUpperCase()
+      )}
+    </span>
+  );
   return (
     <span className={`member-avatar ${isVip(row) ? "is-vip" : ""}`}>
-      <span className="member-avatar-image">
-        {row.photo_url && !failed ? (
-          <img src={row.photo_url} alt="" onError={() => setFailed(true)} />
-        ) : (
-          (row.display_name || row.email || "M")[0].toUpperCase()
-        )}
-      </span>
-      {isVip(row) && (
-        <span className="vip-medal" title="Membre VIP">
-          <Crown size={13} />
-        </span>
+      {onProfile ? (
+        <button
+          type="button"
+          className="member-avatar-button"
+          aria-label={`Voir le profil de ${row.display_name || row.email || "ce membre"}`}
+          onClick={onProfile}
+        >
+          {portrait}
+        </button>
+      ) : (
+        portrait
+      )}
+      {membership?.tier && (
+        <VipMedal
+          tier={membership.tier}
+          rank={membership.rank}
+          retained={!membership.active}
+          duration={membership.duration}
+        />
       )}
     </span>
   );
@@ -554,7 +589,7 @@ function MemberEditor({
       ) : !editing ? (
         <div className="member-profile">
           <div className="member-profile-identity">
-            <MemberAvatar row={row} />
+            <MemberAvatar row={row} membership={membership} />
             <div>
               <h3>{row.display_name || "Membre CHOLOTO"}</h3>
               <div className="profile-email">
@@ -567,7 +602,6 @@ function MemberEditor({
                 {isVip(row) ? "ABONNEMENT ACTIF" : "ABONNEMENT INACTIF"}
               </Badge>
             </div>
-            <MemberRank membership={membership} />
           </div>
           <div className="member-profile-tiles">
             {[

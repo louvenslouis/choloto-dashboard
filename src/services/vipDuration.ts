@@ -1,4 +1,5 @@
 import { asDate, type Row } from "./data";
+import { initialExpiry } from "./members";
 
 const day = 86_400_000;
 const time = (value: unknown) => asDate(value)?.getTime() ?? null;
@@ -22,17 +23,7 @@ export function groupVipHistory(receipts: Row[]) {
   return histories;
 }
 
-// The app can initialize end_sub at signup or onboarding, without granting VIP.
-function initialExpiry(profile: Row, expiry: number | null) {
-  if (expiry === null) return true;
-  const created = time(profile.created_time);
-  return (
-    (created !== null && expiry <= created) ||
-    expiry === time(profile.onboarding_completed_at)
-  );
-}
-
-type VipTime = { days: number; partial: boolean; hasElapsed: boolean };
+type VipTime = { days: number; partial: boolean; elapsedMs: number };
 
 export function measureVipTime(
   profile: Row,
@@ -46,7 +37,7 @@ export function measureVipTime(
     return {
       days: 0,
       partial: currentCount !== 0 || !initialExpiry(profile, currentEnd),
-      hasElapsed: false,
+      elapsedMs: 0,
     };
   }
 
@@ -61,7 +52,7 @@ export function measureVipTime(
     const nextStart = next ? time(next.created_at) : now;
     // An undated change could interrupt any of the recorded periods.
     if (start === null || nextStart === null)
-      return { days: 0, partial: true, hasElapsed: false };
+      return { days: 0, partial: true, elapsedMs: 0 };
     if (start > now) break;
 
     const end = time(event.new_end_sub);
@@ -90,12 +81,24 @@ export function measureVipTime(
   return {
     days: Math.floor(displayedTime / day),
     partial,
-    hasElapsed: elapsed > 0,
+    elapsedMs: elapsed,
   };
 }
 
-export function formatVipTime({ days, partial, hasElapsed }: VipTime) {
-  if (!days) return partial ? "Indéterminée" : hasElapsed ? "< 1 j" : "0 j";
+export function vipBadgeIndex(
+  time: VipTime,
+  tiers: readonly { days: number }[],
+  active: boolean,
+) {
+  if (!active && time.elapsedMs <= 14 * day) return -1;
+  for (let i = tiers.length - 1; i >= 0; i--) {
+    if (time.days >= tiers[i].days) return i;
+  }
+  return -1;
+}
+
+export function formatVipTime({ days, partial, elapsedMs }: VipTime) {
+  if (!days) return partial ? "Indéterminée" : elapsedMs > 0 ? "< 1 j" : "0 j";
   const months = Math.floor(days / 30);
   const remainder = days % 30;
   const duration = [months && `${months} mois`, remainder && `${remainder} j`]

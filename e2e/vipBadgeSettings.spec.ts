@@ -26,7 +26,7 @@ test("édition et validation des seuils des huit badges sur mobile", async ({
   });
   await medals.first().click();
   const welcome = page.getByRole("dialog", { name: "Nouveau Membre CHOLOTO" });
-  await expect(welcome.getByText("Dès l’inscription")).toBeVisible();
+  await expect(welcome.getByText("Dès l’activation VIP")).toBeVisible();
   await welcome.getByRole("button", { name: "Fermer" }).click();
   await expect(medals.first()).toBeFocused();
   await page.getByRole("button", { name: "Modifier les badges" }).click();
