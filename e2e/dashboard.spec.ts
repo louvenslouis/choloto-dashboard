@@ -190,9 +190,67 @@ for (const width of [390, 1440]) {
   });
 }
 
+test("forfait en jours depuis un paiement manuel et une preuve", async ({ page }) => {
+  await page.route(/^https:/, (route) => route.abort());
+  await page.clock.install({ time: new Date("2028-02-01T12:00:00Z") });
+  for (const path of ["/users", "/payment-reviews"]) {
+    await page.goto(path);
+    if (path === "/users") {
+      await page.getByRole("button", { name: "Paiement", exact: true }).click();
+      await page.getByRole("button", { name: "Prolonger l’abonnement" }).click();
+    } else {
+      await page.locator(".proof-card").first().click();
+    }
+    const form = page.getByRole("dialog");
+    const plan = form.getByRole("combobox", { name: /Forfait/ });
+    const end = form.getByLabel("Fin d’abonnement");
+    await expect(end).toHaveValue("2028-03-11");
+    await plan.selectOption("days");
+    const days = form.getByLabel("Nombre de jours");
+    await days.fill("0");
+    await expect(end).toHaveValue("");
+    await days.fill("7");
+    await expect(end).toHaveValue("2028-02-18");
+    await days.fill("25");
+    await expect(end).toHaveValue("2028-03-07");
+    await expect(form.locator(".calendar-days [aria-pressed=true]")).toHaveText("7");
+    await end.fill("2028-04-15");
+    await expect(plan).toHaveValue("custom");
+    await plan.selectOption("month");
+    await expect(end).toHaveValue("2028-03-11");
+  }
+});
+
+test("modification en jours de l’échéance VIP", async ({ page }) => {
+  await page.route(/^https:/, (route) => route.abort());
+  await page.clock.install({ time: new Date("2028-02-01T12:00:00Z") });
+  await page.goto("/users");
+  await page.getByRole("button", { name: "Paiement", exact: true }).click();
+  await page.getByRole("button", { name: "Modifier le plan actuel" }).click();
+  const form = page.getByRole("dialog");
+  const mode = form.getByRole("combobox", { name: /Ajustement/ });
+  const end = form.getByLabel("Fin d’abonnement");
+  const days = form.getByLabel("Nombre de jours");
+  await expect(end).toHaveValue("2028-02-11");
+  await mode.selectOption("add");
+  await days.fill("25");
+  await expect(end).toHaveValue("2028-03-07");
+  await mode.selectOption("remove");
+  await expect(form.getByRole("button", { name: "Enregistrer" })).toBeDisabled();
+  await days.fill("4");
+  await expect(end).toHaveValue("2028-02-07");
+  await expect(form.getByRole("button", { name: "Enregistrer" })).toBeEnabled();
+});
+
 test("export Excel des membres", async ({ page }) => {
   await page.route(/https:\/\/(?!fonts\.).*/, (route) => route.abort());
-  await page.goto("/users");
+  await page.goto("/users?vip-duration-fixture");
+  await expect(page.locator(".member-metrics").getByText("1 mois 5 j")).toBeVisible();
+  for (const name of ["Profil", "Paiement"]) {
+    await page.getByRole("button", { name, exact: true }).click();
+    await expect(page.getByRole("dialog").getByText("1 mois 5 j")).toBeVisible();
+    await page.getByRole("button", { name: "Fermer", exact: true }).click();
+  }
   await expect(page.getByText("membre@example.test").first()).toBeVisible();
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Exporter Excel" }).click();
@@ -203,6 +261,8 @@ test("export Excel des membres", async ({ page }) => {
   const ExcelJS = createRequire(import.meta.url)("exceljs");
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(path!);
+  expect(workbook.getWorksheet("Membres")!.getCell("F1").value).toBe("Durée VIP");
+  expect(workbook.getWorksheet("Membres")!.getCell("F2").value).toBe("1 mois 5 j");
   expect(workbook.getWorksheet("Membres")!.getCell("B2").value).toBe(
     "membre@example.test",
   );
@@ -212,6 +272,7 @@ for (const [width, month, weeks] of [
   [320, 5, 6],
   [360, 2, 4],
   [360, 5, 6],
+  [640, 5, 6],
   [820, 5, 6],
   [1024, 5, 6],
   [1440, 4, 5],
@@ -240,7 +301,12 @@ for (const [width, month, weeks] of [
       "Nouveaux membres",
     ]);
     const lastCard = strip.locator(".legacy-stat").last();
-    if (width < 1440) {
+    if (width < 700) {
+      expect(
+        await strip.evaluate((el) => el.scrollWidth <= el.clientWidth),
+      ).toBe(true);
+      await lastCard.scrollIntoViewIfNeeded();
+    } else if (width < 1440) {
       await expect(lastCard).not.toBeInViewport();
       await strip.hover();
       await page.mouse.wheel(2000, 0);
@@ -274,8 +340,11 @@ for (const [width, month, weeks] of [
       }),
     );
     expect(sizes).toHaveLength(4);
+    const rowTops = sizes.map((size) => size.top);
+    const rowCount = width < 600 ? 4 : width < 700 ? 2 : 1;
+    expect(new Set(rowTops).size).toBe(rowCount);
+    expect(rowTops).toEqual([...rowTops].sort((a, b) => a - b));
     for (const size of sizes) {
-      expect(size.top).toBe(sizes[0].top);
       expect(size.width / size.height).toBeGreaterThanOrEqual(0.9);
       expect(size.width / size.height).toBeLessThanOrEqual(1.2);
       expect(Math.abs(size.width - sizes[0].width)).toBeLessThanOrEqual(1);

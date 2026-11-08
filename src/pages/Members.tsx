@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import {
@@ -25,6 +25,8 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { compareMembers, isVip, isNewMember } from "../services/members";
+import { vipDuration } from "../services/vipDuration";
+import { useVipHistory } from "../services/useVipHistory";
 import { useMemberDirectory } from "../services/MemberDirectory";
 import LineChart from "../components/TrendChart";
 import Calendar from "../components/Calendar";
@@ -44,11 +46,14 @@ import {
 import {
   cancelMembership,
   adjustMembership,
+  adjustmentEnd,
+  type ExpiryAdjustment,
   newReceiptId,
   paymentMethods,
   recordPayment,
+  paymentEnd,
+  type PaymentTerm,
   rejectPayment,
-  suggestedEnd,
   isCompensation,
   isPayment,
 } from "../services/payments";
@@ -112,8 +117,17 @@ function Users() {
     [actionsOpen, setActionsOpen] = useState(false);
   const state = useMemberDirectory(),
     action = useAction();
-  const now = Date.now(),
-    vipCount = state.rows.filter((r) => isVip(r, now)).length;
+  const [historyRevision, setHistoryRevision] = useState(0);
+  const { history, error: historyError } = useVipHistory(historyRevision);
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => tick((n) => n + 1), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const now = Date.now();
+  const duration = (member: Row) =>
+    history ? vipDuration(member, history.get(member.id) ?? [], now) : "—";
+  const vipCount = state.rows.filter((r) => isVip(r, now)).length;
   const rows = state.rows
     .filter(
       (r) =>
@@ -127,6 +141,8 @@ function Users() {
     setInitialPayment(payment);
     setSelected(r);
   };
+  const selectedMember =
+    selected && (state.rows.find((r) => r.id === selected.id) || selected);
   const filters = (
     <div className="member-filter-chips">
       {[
@@ -159,11 +175,14 @@ function Users() {
   );
   const refresh = () => {
     state.refresh();
+    setHistoryRevision((revision) => revision + 1);
     setActionsOpen(false);
   };
+  const exportDisabled =
+    action.busy || state.loading || !!state.error || !history || !rows.length;
   const exportRows = () => {
     setActionsOpen(false);
-    void action.run(() => exportMembers(rows), "");
+    void action.run(() => exportMembers(rows, duration), "");
   };
   return (
     <div className="members-directory">
@@ -223,9 +242,7 @@ function Users() {
           <button
             aria-label="Exporter Excel"
             title="Exporter Excel"
-            disabled={
-              action.busy || state.loading || !!state.error || !rows.length
-            }
+            disabled={exportDisabled}
             onClick={exportRows}
           >
             <Download size={18} />
@@ -252,15 +269,7 @@ function Users() {
                 <button disabled={state.loading} onClick={refresh}>
                   Actualiser
                 </button>
-                <button
-                  disabled={
-                    action.busy ||
-                    state.loading ||
-                    !!state.error ||
-                    !rows.length
-                  }
-                  onClick={exportRows}
-                >
+                <button disabled={exportDisabled} onClick={exportRows}>
                   Exporter Excel
                 </button>
                 <button
@@ -278,8 +287,10 @@ function Users() {
         </div>
       </div>
       {action.feedback}
-      <Status loading={state.loading} error={state.error} />
-      {state.error && <button onClick={refresh}>Réessayer</button>}
+      <Status loading={state.loading} error={state.error || historyError} />
+      {(state.error || historyError) && (
+        <button onClick={refresh}>Réessayer</button>
+      )}
       {!state.loading && !state.error && !rows.length && (
         <div className="members-empty">
           <UserRound size={32} />
@@ -342,8 +353,8 @@ function Users() {
                 </strong>
               </div>
               <div>
-                <small>Mois actifs</small>
-                <strong>{r.member_time ?? 0}</strong>
+                <small>Durée VIP</small>
+                <strong>{duration(r)}</strong>
               </div>
             </div>
             <div className="member-card-actions">
@@ -370,13 +381,14 @@ function Users() {
           </div>
         </Modal>
       )}
-      {selected && (
+      {selectedMember && (
         <Modal
           title={initialPayment ? "Paiement" : "Profil du membre"}
           onClose={() => setSelected(null)}
         >
           <MemberEditor
-            row={state.rows.find((r) => r.id === selected.id) || selected}
+            row={selectedMember}
+            duration={duration(selectedMember)}
             initialPayment={initialPayment}
           />
         </Modal>
@@ -434,9 +446,11 @@ function CopyValue({ value, label }: { value: string; label: string }) {
 }
 function MemberEditor({
   row,
+  duration,
   initialPayment = false,
 }: {
   row: Row;
+  duration: string;
   initialPayment?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
@@ -467,6 +481,7 @@ function MemberEditor({
       {plan ? (
         <CurrentPlan
           row={row}
+          duration={duration}
           renew={() => setPlan(false)}
           adjust={() => {
             setPlan(false);
@@ -509,8 +524,8 @@ function MemberEditor({
           <div className="member-profile-tiles">
             {[
               {
-                label: "Mois actifs",
-                value: row.member_time ?? 0,
+                label: "Durée VIP",
+                value: duration,
                 icon: CalendarDays,
               },
               {
@@ -790,8 +805,24 @@ function PaymentForm({
     [method, setMethod] = useState(
       request?.payment_method || currentMethod || "moncash",
     ),
-    [end, setEnd] = useState(localDateInput(suggestedEnd(previous)));
+    [mode, setMode] = useState("month"),
+    [days, setDays] = useState(""),
+    [customDate, setCustomDate] = useState("");
+  const term: PaymentTerm =
+    mode === "days"
+      ? { days: Number(days) }
+      : mode === "custom"
+        ? { end: new Date(`${customDate}T23:59:59`) }
+        : { months: 1 };
+  const expiry = paymentEnd(term, previous);
+  const end =
+    mode === "custom" ? customDate : expiry ? localDateInput(expiry) : "";
+  const chooseDate = (value: string) => {
+    setCustomDate(value);
+    setMode("custom");
+  };
   const action = useAction();
+  if (action.success) return action.feedback;
   return (
     <Form
       onSubmit={() =>
@@ -803,7 +834,7 @@ function PaymentForm({
             amount: Number(amount),
             currency,
             method,
-            end: new Date(`${end}T23:59:59`),
+            ...term,
           });
           done?.();
         }, "Paiement enregistré")
@@ -811,8 +842,9 @@ function PaymentForm({
     >
       <div className="payment-editor-layout">
         <Calendar
+          key={end.slice(0, 7)}
           value={end}
-          onChange={setEnd}
+          onChange={chooseDate}
           min={localDateInput(
             new Date(Math.max(Date.now(), previous?.getTime() || 0) + 86400000),
           )}
@@ -845,18 +877,43 @@ function PaymentForm({
               ))}
             </select>
           </Field>
+          <Field label="Forfait">
+            <select
+              value={mode}
+              onChange={(event) => {
+                if (event.target.value === "custom") chooseDate(end);
+                else setMode(event.target.value);
+              }}
+            >
+              <option value="month">1 mois</option>
+              <option value="days">Durée en jours</option>
+              <option value="custom">Date personnalisée</option>
+            </select>
+          </Field>
+          {mode === "days" && (
+            <Field label="Nombre de jours">
+              <input
+                type="number"
+                min="1"
+                step="1"
+                required
+                value={days}
+                onChange={(event) => setDays(event.target.value)}
+              />
+            </Field>
+          )}
           <Field label="Fin d’abonnement">
             <input
               type="date"
               required
               value={end}
-              onChange={(e) => setEnd(e.target.value)}
+              onChange={(e) => chooseDate(e.target.value)}
             />
           </Field>
         </div>
       </div>
       {action.feedback}
-      <Submit busy={action.busy || !!action.success}>
+      <Submit busy={action.busy} disabled={!end}>
         {request ? "Approuver le paiement" : "Enregistrer le paiement"}
       </Submit>
     </Form>
@@ -1282,41 +1339,93 @@ function transactionLabel(type: string) {
   );
 }
 function AdjustForm({ row }: { row: Row }) {
-  const [id] = useState(newReceiptId),
-    [end, setEnd] = useState(
-      localDateInput(asDate(row.end_sub) || suggestedEnd(null)),
-    );
-  const [method, setMethod] = useState(row.method || "");
+  const [id] = useState(newReceiptId);
+  const [mode, setMode] = useState("date");
+  const [date, setDate] = useState<string | null>(null);
+  const [days, setDays] = useState("");
+  const [method, setMethod] = useState<string>();
+  const previous = asDate(row.end_sub);
+  const signedDays =
+    Number(days) > 0 ? Number(days) * (mode === "remove" ? -1 : 1) : 0;
+  const change: ExpiryAdjustment =
+    mode !== "date"
+      ? { shiftDays: signedDays }
+      : date === null
+        ? null
+        : new Date(`${date}T23:59:59`);
+  const expiry = adjustmentEnd(change, previous);
+  const end =
+    mode === "date" && date !== null
+      ? date
+      : expiry
+        ? localDateInput(expiry)
+        : "";
+  const chooseDate = (value: string) => {
+    setDate(value);
+    setMode("date");
+  };
   const action = useAction();
+  if (action.success) return action.feedback;
   return (
     <Form
       onSubmit={() =>
         void action.run(
-          () =>
-            adjustMembership(row.id, new Date(`${end}T23:59:59`), id, method),
+          () => adjustMembership(row.id, change, id, method),
           "Échéance ajustée",
         )
       }
     >
       <Field label="Méthode de paiement">
-        <select value={method} onChange={(e) => setMethod(e.target.value)}>
+        <select
+          value={method ?? row.method ?? ""}
+          onChange={(e) => setMethod(e.target.value)}
+        >
           <option value="">Aucune méthode</option>
           {paymentMethods.map((m) => (
             <option key={m}>{m}</option>
           ))}
         </select>
       </Field>
-      <Calendar value={end} onChange={setEnd} min={localDateInput()} />
+      <Field label="Ajustement">
+        <select value={mode} onChange={(event) => setMode(event.target.value)}>
+          <option value="date">Choisir une date</option>
+          <option value="add">Ajouter des jours</option>
+          <option value="remove">Retirer des jours</option>
+        </select>
+      </Field>
+      {mode !== "date" && (
+        <Field label="Nombre de jours">
+          <input
+            type="number"
+            min="1"
+            step="1"
+            required
+            value={days}
+            max={
+              mode === "remove" && previous
+                ? Math.ceil((previous.getTime() - Date.now()) / 86_400_000) - 1
+                : undefined
+            }
+            onChange={(event) => setDays(event.target.value)}
+          />
+        </Field>
+      )}
+      <Calendar
+        key={end.slice(0, 7)}
+        value={end}
+        onChange={chooseDate}
+        min={localDateInput()}
+      />
       <Field label="Fin d’abonnement">
         <input
           type="date"
           required
           value={end}
-          onChange={(e) => setEnd(e.target.value)}
+          onChange={(e) => chooseDate(e.target.value)}
         />
       </Field>
       {action.feedback}
-      <Submit busy={action.busy || !!action.success} />
+      <Submit busy={action.busy} disabled={!expiry} />
     </Form>
   );
 }
@@ -1338,11 +1447,13 @@ function ReceiptDownload({ row }: { row: Row }) {
 }
 function CurrentPlan({
   row,
+  duration,
   renew,
   adjust,
   cancel,
 }: {
   row: Row;
+  duration: string;
   renew: () => void;
   adjust: () => void;
   cancel: () => void;
@@ -1375,7 +1486,7 @@ function CurrentPlan({
         {[
           ["Échéance actuelle", dateLabel(row.end_sub)],
           ["Méthode actuelle", row.method || "Non renseignée"],
-          ["Ancienneté VIP", `${row.member_time || 0} mois`],
+          ["Durée VIP", duration],
         ].map(([label, value]) => (
           <div key={label}>
             <div>

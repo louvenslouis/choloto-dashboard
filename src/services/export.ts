@@ -1,5 +1,8 @@
 import { asDate, localDateInput, type Row } from "./data";
-export async function exportMembers(rows: Row[]) {
+export async function exportMembers(
+  rows: Row[],
+  duration: (row: Row) => string,
+) {
   const { Workbook } = await import("exceljs");
   const workbook = new Workbook();
   const sheet = workbook.addWorksheet("Membres");
@@ -9,7 +12,7 @@ export async function exportMembers(rows: Row[]) {
     ["Téléphone", "phone_number", 20],
     ["Statut", "status", 18],
     ["Échéance", "end_sub", 20],
-    ["Renouvellements", "member_time", 20],
+    ["Durée VIP", "vipDuration", 20],
     ["Méthode", "method", 18],
     ["Code personnel", "code_personnel", 20],
     ["Création", "created_time", 20],
@@ -24,6 +27,7 @@ export async function exportMembers(rows: Row[]) {
   rows.forEach((row) => {
     const output: Record<string, unknown> = {
       ...row,
+      vipDuration: duration(row),
       uid: row.uid || row.id,
       status:
         (asDate(row.end_sub)?.getTime() || 0) >= Date.now()

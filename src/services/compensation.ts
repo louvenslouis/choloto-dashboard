@@ -11,7 +11,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { asDate, errorMessage } from "./data";
-import { newReceiptId } from "./payments";
+import { newReceiptId, paymentEnd } from "./payments";
 
 export type CompensationScope = "vip" | "selected";
 export type Compensation = {
@@ -28,7 +28,6 @@ export type CompensationResult = {
   failed: number;
   error: string;
 };
-const dayMs = 86400000;
 
 export function validateCompensationDays(days: number) {
   if (!Number.isSafeInteger(days) || days < 1 || days > 3650)
@@ -41,10 +40,8 @@ export function compensationEnd(
   now: Date,
 ) {
   validateCompensationDays(days);
-  const base = Math.max(previous?.getTime() || 0, now.getTime());
-  const end = new Date(base + days * dayMs);
-  if (!Number.isFinite(end.getTime()) || end.getUTCFullYear() > 9999)
-    throw new Error("Échéance invalide.");
+  const end = paymentEnd({ days }, previous, now);
+  if (!end) throw new Error("Échéance invalide.");
   return end;
 }
 

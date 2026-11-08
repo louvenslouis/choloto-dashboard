@@ -37,6 +37,25 @@ export function suggestedEnd(previous: Date | null, now = new Date()) {
     59,
   );
 }
+export type PaymentTerm = { days: number } | { months: 1 } | { end: Date };
+
+function shiftDays(base: Date, days: number) {
+  if (!Number.isSafeInteger(days) || days === 0) return null;
+  const end = new Date(base.getTime() + days * 86_400_000);
+  const year = end.getUTCFullYear();
+  return year >= 1 && year <= 9999 ? end : null;
+}
+
+export function paymentEnd(
+  term: PaymentTerm,
+  previous: Date | null,
+  now = new Date(),
+) {
+  if ("end" in term) return term.end;
+  if ("months" in term) return suggestedEnd(previous, now);
+  if (term.days < 1) return null;
+  return shiftDays(previous && previous > now ? previous : now, term.days);
+}
 export function validatePayment(
   amount: number,
   currency: string,
@@ -63,23 +82,17 @@ export function validatePayment(
       "La nouvelle échéance doit dépasser l’échéance actuelle et la date du jour.",
     );
 }
-export async function recordPayment({
-  requestId,
-  uid,
-  amount,
-  currency,
-  method,
-  end,
-  id,
-}: {
-  requestId?: string;
-  uid: string;
-  amount: number;
-  currency: string;
-  method: string;
-  end: Date;
-  id: string;
-}) {
+export async function recordPayment(
+  input: {
+    requestId?: string;
+    uid: string;
+    amount: number;
+    currency: string;
+    method: string;
+    id: string;
+  } & PaymentTerm,
+) {
+  const { requestId, uid, amount, currency, method, id } = input;
   const request = requestId ? doc(db, "payment_requests", requestId) : null;
   const receipt = doc(
     db,
@@ -103,7 +116,10 @@ export async function recordPayment({
     const data = snapshot.data(),
       previous = asDate(data.end_sub),
       count = Number(data.member_time) || 0;
-    validatePayment(amount, currency, method, end, previous);
+    const now = new Date();
+    const end = paymentEnd(input, previous, now);
+    if (!end) throw new Error("Durée de forfait invalide.");
+    validatePayment(amount, currency, method, end, previous, now);
     const details: DocumentData = {
       user_ref: profile,
       user_uid: uid,
@@ -255,16 +271,28 @@ export async function cancelMembership(
   });
 }
 
+export type ExpiryAdjustment = Date | { shiftDays: number } | null;
+
+export function adjustmentEnd(
+  change: ExpiryAdjustment,
+  previous: Date | null,
+  now = new Date(),
+) {
+  if (change instanceof Date) return change > now ? change : null;
+  if (!previous || previous <= now) return null;
+  if (change === null) return previous;
+  const shifted = shiftDays(previous, change.shiftDays);
+  return shifted && shifted > now ? shifted : null;
+}
+
 export async function adjustMembership(
   uid: string,
-  end: Date,
+  change: ExpiryAdjustment,
   id: string,
   method?: string,
 ) {
   if (method !== undefined && method !== "" && !paymentMethods.includes(method))
     throw new Error("Moyen de paiement invalide.");
-  if (!Number.isFinite(end.getTime()) || end <= new Date())
-    throw new Error("Échéance invalide.");
   const profile = doc(db, "user", uid),
     receipt = doc(db, "payment_transactions", id);
   await runTransaction(db, async (tx) => {
@@ -275,12 +303,17 @@ export async function adjustMembership(
     const data = snapshot.data(),
       previous = asDate(data.end_sub),
       count = Number(data.member_time) || 0;
+    const end = adjustmentEnd(change, previous);
+    if (!end) throw new Error("L’échéance ajustée doit être dans le futur.");
+    // Keep the original Firestore timestamp (including microseconds) on method-only edits.
+    const recordedEnd =
+      change === null ? data.end_sub : Timestamp.fromDate(end);
     const payload: DocumentData = {
       user_ref: profile,
       user_uid: uid,
       receipt_code: `CH-${id}`,
       transaction_type: "adjustment",
-      new_end_sub: Timestamp.fromDate(end),
+      new_end_sub: recordedEnd,
       member_time_before: count,
       member_time_after: count,
       created_at: serverTimestamp(),
@@ -293,11 +326,11 @@ export async function adjustMembership(
       ["code_personnel", "user_code"],
     ])
       if (typeof data[source] === "string") payload[target] = data[source];
-    if (previous) payload.previous_end_sub = Timestamp.fromDate(previous);
+    if (previous) payload.previous_end_sub = data.end_sub;
     const updatedMethod = method === undefined ? data.method : method;
     if (updatedMethod) payload.payment_method = updatedMethod;
     tx.update(profile, {
-      end_sub: Timestamp.fromDate(end),
+      end_sub: recordedEnd,
       ...(method === undefined ? {} : { method: method || deleteField() }),
       updated_time: serverTimestamp(),
     });

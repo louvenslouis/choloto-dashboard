@@ -10,7 +10,7 @@ export default function Calendar({
   onChange: (value: string) => void;
   min?: string;
 }) {
-  const initial = new Date(`${value}T12:00:00`);
+  const initial = value ? new Date(`${value}T12:00:00`) : new Date();
   const [month, setMonth] = useState(
     new Date(initial.getFullYear(), initial.getMonth(), 1),
   );
@@ -76,9 +76,11 @@ export default function Calendar({
       <div className="calendar-selection">
         <small>Nouvelle échéance</small>
         <strong>
-          {new Date(`${value}T12:00:00`).toLocaleDateString("fr-FR", {
-            dateStyle: "long",
-          })}
+          {value
+            ? new Date(`${value}T12:00:00`).toLocaleDateString("fr-FR", {
+                dateStyle: "long",
+              })
+            : "—"}
         </strong>
       </div>
     </div>

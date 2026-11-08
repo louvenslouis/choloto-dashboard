@@ -2196,6 +2196,16 @@ main {
   }
 }
 @media (max-width: 699px) {
+  .legacy-stats {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 272px), 1fr));
+    justify-items: center;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+  .legacy-stat {
+    max-width: 380px;
+  }
   .task-tiles {
     grid-template-columns: 1fr;
   }

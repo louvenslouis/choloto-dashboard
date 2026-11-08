@@ -106,6 +106,20 @@ const rows: Record<string, Record<string, unknown>[]> = {
     },
   ],
 };
+if (new URLSearchParams(location.search).has("vip-duration-fixture")) {
+  const daysAgo = (days: number) => ({
+    toDate: () => new Date(+now - days * 86_400_000),
+  });
+  rows.user[0].created_time = daysAgo(60);
+  rows.user[0].end_sub = daysAgo(-10);
+  Object.assign(rows.payment_transactions[0], {
+    created_at: daysAgo(35),
+    new_end_sub: rows.user[0].end_sub,
+    transaction_type: "subscription",
+    member_time_before: 0,
+    member_time_after: 1,
+  });
+}
 if (new URLSearchParams(location.search).has("reaction-fixture")) {
   for (const [i, [offset, wins, misses]] of [
     [-30, 50, 50],
@@ -175,6 +189,7 @@ export const Timestamp = {
 export const serverTimestamp = () => stamp;
 export const deleteField = () => null;
 const snapshot = (path: string) => ({
+  metadata: { fromCache: false, hasPendingWrites: false },
   docs: (rows[path] || []).map((row) => ({
     id: row.id,
     ref: doc({}, path, String(row.id)),
@@ -184,8 +199,11 @@ const snapshot = (path: string) => ({
 });
 export const onSnapshot = (
   ref: { path: string },
-  callback: (s: unknown) => void,
+  optionsOrCallback: object | ((s: unknown) => void),
+  next?: (s: unknown) => void,
 ) => {
+  const callback =
+    typeof optionsOrCallback === "function" ? optionsOrCallback : next!;
   queueMicrotask(() => {
     if (ref.path.split("/").length % 2 === 0) {
       const [collection, id] = ref.path.split("/");
