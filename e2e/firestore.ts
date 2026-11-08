@@ -144,6 +144,27 @@ if (new URLSearchParams(location.search).has("free-badge-fixture")) {
     });
   }
 }
+if (new URLSearchParams(location.search).has("support-badge-fixture")) {
+  for (const member of rows.user.slice(1)) {
+    rows.support_conversations.push({
+      id: member.id,
+      user_display_name: member.display_name,
+      updated_at: stamp,
+    });
+  }
+  rows.support_conversations.push({
+    id: "guest-chat",
+    guest_access: true,
+    updated_at: stamp,
+  });
+  const legacy = rows.payment_transactions.find(
+    (row) => row.user_uid === "expired-14-plus",
+  );
+  if (legacy) {
+    legacy.user_ref = { id: legacy.user_uid, path: "user/" + legacy.user_uid };
+    delete legacy.user_uid;
+  }
+}
 if (new URLSearchParams(location.search).has("expiring-badge-fixture")) {
   rows.user[0].end_sub = new Date(+now + 10_000);
   if (new URLSearchParams(location.search).has("vip-duration-fixture"))
@@ -208,6 +229,8 @@ export const query = (ref: { path: string }, ...filters: unknown[][]) => ({
   filters,
 });
 export const where = (...args: unknown[]) => args;
+export const documentId = () => "__name__";
+export const or = (...filters: unknown[][]) => ["or", ...filters];
 export const orderBy = (...args: unknown[]) => args;
 export const limit = (...args: unknown[]) => args;
 export const Timestamp = {
@@ -242,7 +265,7 @@ function documentSnapshot(path: string) {
   };
 }
 export const onSnapshot = (
-  ref: { path: string },
+  ref: { path: string; filters?: unknown[][] },
   optionsOrCallback: object | ((s: unknown) => void),
   next?: (s: unknown) => void,
 ) => {
@@ -251,7 +274,30 @@ export const onSnapshot = (
   queueMicrotask(() => {
     if (ref.path.split("/").length % 2 === 0) {
       callback(documentSnapshot(ref.path));
-    } else callback(snapshot(ref.path));
+    } else {
+      const result = snapshot(ref.path);
+      const membershipFilter = ref.filters?.find(
+        (f) => f[1] === "in" || f[0] === "or",
+      );
+      if (membershipFilter) {
+        const predicates =
+          membershipFilter[0] === "or"
+            ? (membershipFilter.slice(1) as unknown[][])
+            : [membershipFilter];
+        result.docs = result.docs.filter((d) =>
+          predicates.some(([field, , values]) => {
+            const value = field === "__name__" ? d.id : d.data()[String(field)];
+            const comparable = (v: unknown) =>
+              typeof v === "object" && v && "path" in v ? v.path : v;
+            return (values as unknown[]).some(
+              (item) => comparable(item) === comparable(value),
+            );
+          }),
+        );
+        result.empty = !result.docs.length;
+      }
+      callback(result);
+    }
   });
   return () => {};
 };

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import type { VipBadgeTier } from "../services/vipBadges";
+import type { Membership } from "../services/memberVipBadge";
 import { Modal } from "./ui";
 import "./vipMedal.css";
 
@@ -11,6 +12,18 @@ type Props = {
   retained?: boolean;
   disabled?: boolean;
 };
+
+export function MemberMedal({ membership }: { membership?: Membership }) {
+  if (!membership?.tier) return null;
+  return (
+    <VipMedal
+      tier={membership.tier}
+      rank={membership.rank}
+      retained={!membership.active}
+      duration={membership.duration}
+    />
+  );
+}
 
 export default function VipMedal({
   rank,

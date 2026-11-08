@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import {
@@ -25,13 +25,13 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { compareMembers, isVip } from "../services/members";
-import VipMedal from "../components/VipMedal";
-import { useVipBadgeTiers, type VipBadgeTier } from "../services/vipBadges";
+import { MemberMedal } from "../components/VipMedal";
+import { useVipBadgeTiers } from "../services/vipBadges";
 import {
-  formatVipTime,
-  measureVipTime,
-  vipBadgeIndex,
-} from "../services/vipDuration";
+  memberVipBadge,
+  useVipClock,
+  type Membership,
+} from "../services/memberVipBadge";
 import { useVipHistory } from "../services/useVipHistory";
 import { useMemberDirectory } from "../services/MemberDirectory";
 import LineChart from "../components/TrendChart";
@@ -125,35 +125,19 @@ function Users() {
     action = useAction();
   const [historyRevision, setHistoryRevision] = useState(0);
   const { history, error: historyError } = useVipHistory(historyRevision);
-  const [, tick] = useState(0);
-  const now = Date.now();
-  const nextUpdate = state.rows.reduce((next, row) => {
-    const end = asDate(row.end_sub)?.getTime();
-    return end !== undefined && end >= now ? Math.min(next, end + 1) : next;
-  }, now + 60_000);
-  useEffect(() => {
-    const timer = window.setTimeout(
-      () => tick((n) => n + 1),
-      Math.max(0, nextUpdate - Date.now()),
-    );
-    return () => window.clearTimeout(timer);
-  }, [nextUpdate]);
+  const now = useVipClock(state.rows);
   const {
     tiers,
     loading: badgesLoading,
     error: badgeError,
   } = useVipBadgeTiers();
-  function membershipAt(member: Row, asOf: number): Membership {
-    const time =
-      history && measureVipTime(member, history.get(member.id) ?? [], asOf);
-    const active = isVip(member, asOf);
-    const rank = time ? vipBadgeIndex(time, tiers, active) : -1;
-    return {
-      active,
-      duration: time ? formatVipTime(time) : "—",
-      rank,
-      tier: tiers[rank],
-    };
+  function membershipAt(member: Row, asOf: number) {
+    return memberVipBadge(
+      member,
+      history && (history.get(member.id) ?? []),
+      tiers,
+      asOf,
+    );
   }
   const membership = new Map(
     state.rows.map((member) => [member.id, membershipAt(member, now)]),
@@ -453,13 +437,6 @@ function Users() {
     </div>
   );
 }
-type Membership = {
-  active: boolean;
-  duration: string;
-  rank: number;
-  tier?: VipBadgeTier;
-};
-
 function MemberAvatar({
   row,
   membership,
@@ -493,14 +470,7 @@ function MemberAvatar({
       ) : (
         portrait
       )}
-      {membership?.tier && (
-        <VipMedal
-          tier={membership.tier}
-          rank={membership.rank}
-          retained={!membership.active}
-          duration={membership.duration}
-        />
-      )}
+      <MemberMedal membership={membership} />
     </span>
   );
 }

@@ -49,6 +49,9 @@ import {
   useAction,
 } from "../components/ui";
 import BotEditor from "./SupportBot";
+import { MemberMedal } from "../components/VipMedal";
+import { useSupportBadges } from "../services/useSupportBadges";
+import type { Membership } from "../services/memberVipBadge";
 const memberLabel = (r: Row) =>
   r.user_display_name || r.user_email || "Visiteur anonyme";
 const memberReference = (r: Row) =>
@@ -70,7 +73,15 @@ const supportStatus = (r: Row) =>
       : waiting(r)
         ? "À répondre"
         : "Répondu";
-function SupportAvatar({ row }: { row: Row }) {
+function SupportAvatar({
+  row,
+  membership,
+  pending,
+}: {
+  row: Row;
+  membership?: Membership;
+  pending?: boolean;
+}) {
   return (
     <span className="support-avatar">
       {memberLabel(row)
@@ -79,6 +90,8 @@ function SupportAvatar({ row }: { row: Row }) {
         .map((s: string) => s[0])
         .join("")
         .toUpperCase()}
+      <MemberMedal membership={membership} />
+      {pending && <i className="support-waiting-dot" />}
     </span>
   );
 }
@@ -111,6 +124,13 @@ export default function Support() {
     conversations,
   );
   const active = row?.status === "deleting" ? null : row;
+  const badges = useSupportBadges(
+    active ? [...conversations, active] : conversations,
+  );
+  const badgeFor = (conversation: Row) =>
+    conversation.guest_access
+      ? undefined
+      : badges.get(conversation.user_uid || conversation.id);
   return (
     <div className={`support-workspace ${active ? "has-selection" : ""}`}>
       <section className="support-sidebar" aria-label="Conversations">
@@ -183,30 +203,34 @@ export default function Support() {
             </div>
           )}
           {rows.map((r) => (
-            <button
+            <div
               className={`support-conversation ${selected === r.id ? "selected" : ""} ${waiting(r) ? "waiting" : ""}`}
               key={r.id}
-              onClick={() => setSelected(r.id)}
             >
-              <span className="support-card-avatar">
-                <SupportAvatar row={r} />
-                {waiting(r) && <i />}
-              </span>
-              <span className="support-card-body">
+              <SupportAvatar
+                row={r}
+                membership={badgeFor(r)}
+                pending={waiting(r)}
+              />
+              <button
+                type="button"
+                className="support-card-body"
+                onClick={() => setSelected(r.id)}
+              >
                 <strong>{memberLabel(r)}</strong>
                 {r.user_email && r.user_email !== memberLabel(r) && (
                   <small>{r.user_email}</small>
                 )}
                 {memberReference(r) && <small>{memberReference(r)}</small>}
                 <span className="support-preview">{r.last_message}</span>
-              </span>
+              </button>
               <span className="support-card-meta">
                 <Badge tone={waiting(r) ? "gold" : "green"}>
                   {supportStatus(r)}
                 </Badge>
                 <small>{shortDate(r.updated_at)}</small>
               </span>
-            </button>
+            </div>
           ))}
           {state.rows.length === count && (
             <button onClick={() => setCount(count + 40)}>Charger plus</button>
@@ -217,6 +241,7 @@ export default function Support() {
         <Conversation
           key={active.id}
           row={active}
+          membership={badgeFor(active)}
           close={() => setSelected(null)}
         />
       ) : (
@@ -275,7 +300,15 @@ const cannedResponses = [
   "Se sou kont CHOLOTO ou w ap jwenn kontni VIP a, tankou boul ak maryaj yo. Konekte sou kont ki gen abònman an.",
   "Ki mesaj erè ou wè sou ekran an? Voye yon kaptire ekran isit la pou nou ka ede ou.",
 ];
-function Conversation({ row, close }: { row: Row; close: () => void }) {
+function Conversation({
+  row,
+  membership,
+  close,
+}: {
+  row: Row;
+  membership?: Membership;
+  close: () => void;
+}) {
   const [editing, setEditing] = useState<Row | null>(null);
   const [count, setCount] = useState(50),
     [text, setText] = useState(""),
@@ -344,7 +377,7 @@ function Conversation({ row, close }: { row: Row; close: () => void }) {
         >
           <ArrowLeft size={20} />
         </button>
-        <SupportAvatar row={row} />
+        <SupportAvatar row={row} membership={membership} />
         <div>
           <h2>{memberLabel(row)}</h2>
           <small>{row.user_email || memberReference(row)}</small>

@@ -2648,7 +2648,7 @@ dialog:has(.compensation-dialog) {
 .member-avatar.is-vip .member-avatar-image {
   border-color: #7c3aed;
 }
-.member-avatar > .vip-medal-button {
+:is(.member-avatar, .support-avatar) > .vip-medal-button {
   position: absolute;
   top: -6.5px;
   right: -6.5px;
@@ -2656,7 +2656,7 @@ dialog:has(.compensation-dialog) {
   height: 30px;
   border-radius: 50%;
 }
-.member-avatar > .vip-medal-button img {
+:is(.member-avatar, .support-avatar) > .vip-medal-button img {
   width: 23px;
   height: 23px;
 }
@@ -3089,6 +3089,10 @@ dialog:has(.compensation-dialog) {
   color: #16805c;
 }
 .support-conversation {
+  position: relative;
+  background: var(--panel);
+  font-size: 13px;
+  font-weight: 600;
   width: 100%;
   display: flex;
   align-items: center;
@@ -3106,11 +3110,8 @@ dialog:has(.compensation-dialog) {
   border-color: var(--primary);
   background: color-mix(in srgb, var(--primary) 5%, var(--panel));
 }
-.support-card-avatar {
-  position: relative;
-  flex-shrink: 0;
-}
 .support-avatar {
+  position: relative;
   width: 44px;
   height: 44px;
   flex-shrink: 0;
@@ -3123,7 +3124,7 @@ dialog:has(.compensation-dialog) {
   font-size: 17px;
   font-weight: 700;
 }
-.support-card-avatar i {
+.support-waiting-dot {
   position: absolute;
   top: -2px;
   right: -2px;
@@ -3133,9 +3134,40 @@ dialog:has(.compensation-dialog) {
   border: 2px solid var(--panel);
   background: #f6c744;
 }
+.support-avatar:has(.vip-medal-button) .support-waiting-dot {
+  top: auto;
+  bottom: -2px;
+}
+.support-avatar > .vip-medal-button {
+  z-index: 1;
+  padding: 0;
+}
 .support-card-body {
+  display: block;
+  padding: 0;
+  border: 0;
+  text-align: left;
+  background: transparent;
   flex: 1;
   min-width: 0;
+}
+.support-card-body::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+}
+.support-conversation:has(.support-card-body:hover) {
+  background: var(--soft);
+}
+.support-card-body:hover {
+  background: transparent;
+}
+.support-card-body:focus-visible {
+  outline: none;
+}
+.support-card-body:focus-visible::after {
+  outline: 3px solid var(--focus-border);
 }
 .support-card-body strong {
   font-size: 14px;
@@ -3262,7 +3294,7 @@ dialog:has(.compensation-dialog) {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.support-chat-heading button {
+.support-chat-heading > button {
   border: 0;
   padding: 8px;
 }
